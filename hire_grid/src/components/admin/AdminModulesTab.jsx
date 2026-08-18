@@ -243,31 +243,7 @@ export function AdminModulesTab({
     setError("");
 
     try {
-      const res = await fetch("/api/parse-mcq", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: rawText }),
-      });
-
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("text/html")) {
-        throw new Error(
-          "API endpoint not found. If you opened this on Firebase Hosting or a static host, the AI generation backend is not running. Please use the AI Studio provided URL to generate modules.",
-        );
-      }
-
-      let data;
-      try {
-        data = await res.json();
-      } catch (e) {
-        throw new Error(
-          `Server returned status ${res.status}: Failed to parse response from server.`,
-        );
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to parse");
-      }
+      const data = await api.post("/parse-mcq", { text: rawText });
 
       let svgMap = new Map();
       if (data.svg_diagrams && Array.isArray(data.svg_diagrams)) {

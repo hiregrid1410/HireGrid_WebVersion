@@ -37,7 +37,21 @@ app.use(
 // Enable CORS
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim())
-  : ["http://localhost:5173", "https://hire-grid-chi.vercel.app"];
+  : [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://hire-grid-chi.vercel.app",
+      "https://hire-grid-web-version.vercel.app"
+    ];
+
+if (process.env.FRONTEND_URL) {
+  const urls = process.env.FRONTEND_URL.split(",").map((u) => u.trim());
+  urls.forEach((url) => {
+    if (!allowedOrigins.includes(url)) {
+      allowedOrigins.push(url);
+    }
+  });
+}
 
 app.use(
   cors({
