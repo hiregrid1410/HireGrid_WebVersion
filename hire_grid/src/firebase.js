@@ -1,0 +1,381 @@
+import { api } from "./lib/api";
+
+export const db = { type: "firestore" };
+
+// Mock auth targeting localStorage
+export const auth = {
+  get currentUser() {
+    const userStr = localStorage.getItem("user");
+    if (!userStr) return null;
+    try {
+      const user = JSON.parse(userStr);
+      return {
+        uid: user.id,
+        email: user.email,
+        displayName: user.name,
+      };
+    } catch (e) {
+      return null;
+    }
+  },
+  signOut: async () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  }
+};
+
+export const logOut = async () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+};
+
+const mapCollectionName = (name) => {
+  if (name === "gateBranches") return "gate/branches";
+  if (name === "gatePapers") return "gate/papers";
+  if (name === "gateScores") return "gate/scores";
+  if (name === "payment_requests") return "payment-requests";
+  if (name === "hierarchy_nodes") return "hierarchy-nodes";
+  if (name === "audit_logs") return "audit-logs";
+  if (name === "access_requests") return "access-requests";
+  if (name === "device_requests") return "device-requests";
+  return name;
+};
+
+// Document reference
+export function doc(dbInstance, collectionName, id) {
+  return {
+    type: "document",
+    collectionName: mapCollectionName(collectionName),
+    id,
+  };
+}
+
+// Collection reference
+export function collection(dbInstance, collectionName) {
+  return {
+    type: "collection",
+    collectionName: mapCollectionName(collectionName),
+  };
+}
+
+// Query reference
+export function query(ref, ...clauses) {
+  return {
+    ...ref,
+    clauses: clauses || [],
+  };
+}
+
+// Mock query clauses
+export const where = (field, op, val) => ({ type: "where", field, op, val });
+export const orderBy = (field, dir) => ({ type: "orderBy", field, dir });
+export const limit = (num) => ({ type: "limit", num });
+export const serverTimestamp = () => Date.now();
+export const arrayUnion = (...items) => items;
+export const arrayRemove = (...items) => items;
+
+// Mock snap doc helper
+const createDocSnap = (id, data) => ({
+  id,
+  exists: () => data !== null && data !== undefined,
+  data: () => data,
+});
+
+const memoryCache = new Map();
+
+function getCacheTtl(key) {
+  // Tiered TTL based on endpoint route name
+  if (key.includes("/companies") || key.includes("/plans") || key.includes("/hierarchy-nodes")) {
+    return 3600000; // 60 minutes for stable company/plan/hierarchy configuration
+  }
+  if (key.includes("/modules")) {
+    return 1800000; // 30 minutes for module list
+  }
+  if (key.includes("/users/")) {
+    return 300000; // 5 minutes for user profile info
+  }
+  return 60000; // 1 minute default for others (e.g. dynamic settings)
+}
+
+function getCache(key) {
+  try {
+    const ttl = getCacheTtl(key);
+    const mem = memoryCache.get(key);
+    if (mem && Date.now() - mem.timestamp < ttl) {
+      return mem.data;
+    }
+    const raw = localStorage.getItem(`cache_${key}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && Date.now() - parsed.timestamp < ttl) {
+      memoryCache.set(key, parsed);
+      return parsed.data;
+    }
+    localStorage.removeItem(`cache_${key}`);
+    memoryCache.delete(key);
+  } catch (e) {
+    console.error("Cache read failed", e);
+  }
+  return null;
+}
+
+function setCache(key, data) {
+  try {
+    const entry = { timestamp: Date.now(), data };
+    memoryCache.set(key, entry);
+    localStorage.setItem(`cache_${key}`, JSON.stringify(entry));
+  } catch (e) {
+    console.error("Cache write failed", e);
+  }
+}
+
+function invalidateCache(collectionName) {
+  try {
+    memoryCache.clear();
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("cache_")) {
+        const queryKey = key.replace("cache_", "");
+        if (
+          queryKey === collectionName ||
+          queryKey.startsWith(`${collectionName}?`) ||
+          queryKey.startsWith(`/${collectionName}`) ||
+          queryKey.includes(`/${collectionName}/`)
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+    }
+    for (const key of keysToRemove) {
+      localStorage.removeItem(key);
+    }
+  } catch (e) {
+    console.error("Cache invalidation failed", e);
+  }
+}
+
+// Get a single doc
+export async function getDoc(docRef) {
+  try {
+    const url = `/${docRef.collectionName}/${docRef.id}`;
+    const cachedItem = getCache(url);
+    if (cachedItem) {
+      return createDocSnap(docRef.id, cachedItem);
+    }
+
+    const res = await api.get(url);
+    const data = res.success ? res.settings || res.user || res.data : null;
+    if (data) {
+      setCache(url, data);
+    }
+    return createDocSnap(docRef.id, data);
+  } catch (err) {
+    return createDocSnap(docRef.id, null);
+  }
+}
+
+// Get collection docs
+export async function getDocs(queryRef) {
+  try {
+    let url = `/${queryRef.collectionName}`;
+    const params = new URLSearchParams();
+    
+    if (queryRef.clauses) {
+      for (const clause of queryRef.clauses) {
+        if (clause.type === "where") {
+          params.append(`where_${clause.field}`, `${clause.op}:${clause.val}`);
+        } else if (clause.type === "orderBy") {
+          params.append("orderBy", clause.field);
+          params.append("orderDir", clause.dir || "asc");
+        } else if (clause.type === "limit") {
+          params.append("limit", clause.num);
+        }
+      }
+    }
+    const queryString = params.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+
+    const cachedItems = getCache(url);
+    if (cachedItems) {
+      const docs = cachedItems.map(item => createDocSnap(item.id, item));
+      return {
+        docs,
+        empty: docs.length === 0,
+        size: docs.length,
+        forEach: (callback) => docs.forEach(callback),
+      };
+    }
+
+    const res = await api.get(url);
+    let items = res.modules || res.companies || res.exams || res.requests || res.nodes || res.notifications || res.branches || res.papers || res.users || res.logs || res.admin_users || res.feedbacks || res.plans || [];
+    
+    // Fallback: keep client-side filters to avoid any schema mapping mismatches
+    if (queryRef.clauses) {
+      for (const clause of queryRef.clauses) {
+        if (clause.type === "where") {
+          const { field, op, val } = clause;
+          items = items.filter(item => {
+            const itemVal = item[field] !== undefined ? item[field] : (field === "parentId" ? item.parent_id : (field === "moduleType" ? item.module_type : undefined));
+            if (op === "==") {
+              if (val === null || val === undefined || val === "null" || val === "") {
+                return itemVal === null || itemVal === undefined || itemVal === "" || itemVal === "null";
+              }
+              if (field === "parentId" || field === "id") {
+                return itemVal !== undefined && itemVal !== null && String(itemVal) === String(val);
+              }
+              return itemVal === val;
+            }
+            if (op === "!=") return itemVal !== val;
+            return true;
+          });
+        }
+      }
+    }
+    
+    setCache(url, items);
+    const docs = items.map(item => createDocSnap(item.id, item));
+    return {
+      docs,
+      empty: docs.length === 0,
+      size: docs.length,
+      forEach: (callback) => docs.forEach(callback),
+    };
+  } catch (err) {
+    return { docs: [], empty: true, size: 0, forEach: () => {} };
+  }
+}
+
+const activeListeners = new Set();
+
+function notifyCollectionChange(collectionName) {
+  invalidateCache(collectionName);
+  for (const listener of activeListeners) {
+    if (listener.collectionName === collectionName) {
+      listener.trigger();
+    }
+  }
+}
+
+// Set doc
+export async function setDoc(docRef, data, options = {}) {
+  let finalData = data;
+  if (options.merge) {
+    const current = await getDoc(docRef);
+    if (current.exists()) {
+      finalData = { ...current.data(), ...data };
+    }
+  }
+  const url = docRef.collectionName === "settings"
+    ? `/${docRef.collectionName}/${docRef.id}`
+    : `/${docRef.collectionName}`;
+  const result = await api.post(url, { id: docRef.id, ...finalData });
+  notifyCollectionChange(docRef.collectionName);
+  return result;
+}
+
+// Add doc
+export async function addDoc(collectionRef, data) {
+  const newId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+  const finalData = { id: newId, ...data };
+  const result = await api.post(`/${collectionRef.collectionName}`, finalData);
+  notifyCollectionChange(collectionRef.collectionName);
+  return { id: newId };
+}
+
+// Update doc
+export async function updateDoc(docRef, data) {
+  const result = await api.put(`/${docRef.collectionName}/${docRef.id}`, data);
+  notifyCollectionChange(docRef.collectionName);
+  return result;
+}
+
+// Delete doc
+export async function deleteDoc(docRef) {
+  const result = await api.delete(`/${docRef.collectionName}/${docRef.id}`);
+  notifyCollectionChange(docRef.collectionName);
+  return result;
+}
+
+// onSnapshot (polling implementation)
+export function onSnapshot(queryRef, onNext, onError) {
+  let active = true;
+  
+  const fetchAndCallback = async () => {
+    try {
+      if (queryRef.type === "document") {
+        const snap = await getDoc(queryRef);
+        if (active) onNext(snap);
+      } else {
+        const snap = await getDocs(queryRef);
+        if (active) onNext(snap);
+      }
+    } catch (err) {
+      if (active && onError) onError(err);
+    }
+  };
+
+  const listenerObj = {
+    collectionName: queryRef.collectionName,
+    trigger: fetchAndCallback,
+  };
+  activeListeners.add(listenerObj);
+
+  fetchAndCallback();
+  const intervalId = setInterval(fetchAndCallback, 90000);
+
+  return () => {
+    active = false;
+    clearInterval(intervalId);
+    activeListeners.delete(listenerObj);
+  };
+}
+
+// writeBatch
+export function writeBatch(dbInstance) {
+  const operations = [];
+  return {
+    set: (docRef, data, options) => {
+      operations.push(() => setDoc(docRef, data, options));
+    },
+    update: (docRef, data) => {
+      operations.push(() => updateDoc(docRef, data));
+    },
+    delete: (docRef) => {
+      operations.push(() => deleteDoc(docRef));
+    },
+    commit: async () => {
+      for (const op of operations) {
+        await op();
+      }
+    }
+  };
+}
+
+export let OperationType = /*#__PURE__*/ (function (OperationType) {
+  OperationType["CREATE"] = "create";
+  OperationType["UPDATE"] = "update";
+  OperationType["DELETE"] = "delete";
+  OperationType["LIST"] = "list";
+  OperationType["GET"] = "get";
+  OperationType["WRITE"] = "write";
+  return OperationType;
+})({});
+
+export function handleFirestoreError(error, operationType, path) {
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+    },
+    operationType,
+    path,
+  };
+  console.error("Firestore Error: ", JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+export const deleteField = () => "DELETE_FIELD";

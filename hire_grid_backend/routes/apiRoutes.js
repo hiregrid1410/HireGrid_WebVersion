@@ -1,0 +1,113 @@
+const express = require("express");
+const router = express.Router();
+const dataController = require("../controllers/dataController");
+const parseController = require("../controllers/parseController");
+const authMiddleware = require("../middlewares/authMiddleware");
+const { apiRateLimiter, sensitiveActionRateLimiter } = require("../middlewares/securityMiddleware");
+
+// Protect all API routes
+router.use(authMiddleware);
+
+// Apply API-wide rate limiting
+router.use(apiRateLimiter);
+
+// Cache-Control headers for GET endpoints to reduce DB hits
+router.use((req, res, next) => {
+  if (req.method === "GET") {
+    res.setHeader("Cache-Control", "private, max-age=10");
+  }
+  next();
+});
+
+// Parse MCQ (Gemini)
+router.post("/parse-mcq", parseController.parseMcq);
+
+// Exam Attempts (secure session-based testing)
+router.post("/attempts/start", sensitiveActionRateLimiter, dataController.startExamAttempt);
+router.post("/attempts/:id/sync", dataController.syncExamAttempt);
+router.post("/attempts/:id/submit", sensitiveActionRateLimiter, dataController.submitExamAttempt);
+
+// Security Logs
+router.post("/security-logs", dataController.logSecurityEvent);
+router.get("/security-logs", dataController.getSecurityLogs);
+
+// Modules
+router.get("/modules", dataController.getModules);
+router.post("/modules", dataController.saveModules);
+router.delete("/modules/:id", dataController.deleteModule);
+router.get("/modules/:id/questions", dataController.getModuleQuestions);
+
+
+
+// Stats
+router.get("/stats", dataController.getStats);
+
+// First Attempts Report
+router.get("/first-attempts", dataController.getFirstAttempts);
+
+// Scores
+router.get("/scores", dataController.getScores);
+router.post("/scores", dataController.submitScore);
+
+// Companies
+router.get("/companies", dataController.getCompanies);
+router.post("/companies", dataController.saveCompany);
+router.delete("/companies/:id", dataController.deleteCompany);
+
+// Exams
+router.get("/exams", dataController.getExams);
+router.post("/exams", dataController.saveExam);
+router.delete("/exams/:id", dataController.deleteExam);
+
+// Settings
+router.get("/settings/:id", dataController.getSettings);
+router.post("/settings/:id", dataController.saveSettings);
+
+// Plans
+router.get("/plans", dataController.getPlans);
+router.get("/plans/:id", dataController.getPlanById);
+router.post("/plans", dataController.savePlan);
+router.delete("/plans/:id", dataController.deletePlan);
+
+// Payment Requests
+router.get("/payment-requests", dataController.getPaymentRequests);
+router.post("/payment-requests", dataController.createPaymentRequest);
+router.put("/payment-requests/:id", dataController.updatePaymentRequest);
+
+// Hierarchy Nodes
+router.get("/hierarchy-nodes", dataController.getHierarchyNodes);
+router.post("/hierarchy-nodes", dataController.saveHierarchyNode);
+router.delete("/hierarchy-nodes/:id", dataController.deleteHierarchyNode);
+
+// GATE
+router.get("/gate/branches", dataController.getGateBranches);
+router.post("/gate/branches", dataController.saveGateBranch);
+router.get("/gate/papers", dataController.getGatePapers);
+router.post("/gate/papers", dataController.saveGatePaper);
+
+// User Management (Admin)
+router.get("/users", dataController.getUsers);
+router.get("/users/:id", dataController.getUserById);
+router.put("/users/:id", dataController.updateUser);
+router.delete("/users/:id", dataController.deleteUser);
+
+// Admin User Management
+router.get("/admin_users", dataController.getAdminUsers);
+router.post("/admin_users", dataController.saveAdminUser);
+router.put("/admin_users/:id", dataController.updateAdminUser);
+router.delete("/admin_users/:id", dataController.deleteAdminUser);
+
+// Access & Device Requests
+router.get("/access-requests", dataController.getAccessRequests);
+router.post("/access-requests", dataController.createAccessRequest);
+
+router.get("/device-requests", dataController.getDeviceRequests);
+router.post("/device-requests", dataController.createDeviceRequest);
+router.put("/device-requests/:id", dataController.updateDeviceRequest);
+
+// Feedbacks
+router.get("/feedbacks", dataController.getFeedbacks);
+router.post("/feedbacks", dataController.createFeedback);
+router.delete("/feedbacks/:id", dataController.deleteFeedback);
+
+module.exports = router;

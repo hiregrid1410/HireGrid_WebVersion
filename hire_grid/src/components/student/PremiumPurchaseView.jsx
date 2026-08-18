@@ -1,0 +1,439 @@
+import React, { useState, useEffect } from "react";
+import { OperationType, db, doc, getDoc, handleFirestoreError, setDoc } from "../../firebase";
+
+import {
+  ShieldAlert,
+  ArrowLeft,
+  Send,
+  IndianRupee,
+  MessageCircle,
+  Building2,
+  Smartphone,
+  Copy,
+  Check,
+} from "lucide-react";
+import { motion } from "motion/react";
+
+export function PremiumPurchaseView({
+  itemId,
+  itemName,
+  itemType,
+  price,
+  durationMonths,
+  onBack,
+  currentUser,
+}) {
+  const [settings, setSettings] = useState({
+    contactNumber: "",
+    whatsappNumber: "",
+    upiId: "",
+    bankDetails: "",
+    instructions:
+      "Step 1: Send payment using the provided payment details.\nStep 2: Submit transaction details.\nStep 3: Wait for admin approval.",
+    paymentNumber: "",
+    qrCode: "",
+  });
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!settings?.paymentNumber) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(settings.paymentNumber);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = settings.paymentNumber;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy", err);
+    }
+  };
+  const [loading, setLoading] = useState(true);
+
+  const [transactionId, setTransactionId] = useState("");
+  const [requestName, setRequestName] = useState(currentUser?.name || "");
+  const [requestEmail, setRequestEmail] = useState(currentUser?.email || "");
+  const [duration, setDuration] = useState("permanent");
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState("idle");
+
+  useEffect(() => {
+    if (currentUser) {
+      if (!requestName) setRequestName(currentUser.name || "");
+      if (!requestEmail) setRequestEmail(currentUser.email || "");
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        let customQr = "";
+        let customPhone = "";
+        if (itemType === "plan") {
+          try {
+            const planRef = doc(db, "plans", itemId);
+            const planSnap = await getDoc(planRef);
+            if (planSnap.exists()) {
+              const planData = planSnap.data();
+              if (planData.qrCode || planData.qr_code) customQr = planData.qrCode || planData.qr_code;
+              if (planData.paymentNumber || planData.payment_number) customPhone = planData.paymentNumber || planData.payment_number;
+            }
+          } catch (e) {
+            console.error("Failed to load plan details for custom payment settings:", e);
+          }
+        }
+
+        const docRef = doc(db, "settings", "payment");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setSettings((prev) => ({
+            ...prev,
+            ...data,
+            ...(customQr ? { qrCode: customQr } : {}),
+            ...(customPhone ? { paymentNumber: customPhone } : {}),
+          }));
+        } else {
+          setSettings((prev) => ({
+            ...prev,
+            ...(customQr ? { qrCode: customQr } : {}),
+            ...(customPhone ? { paymentNumber: customPhone } : {}),
+          }));
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, [itemId, itemType]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!currentUser || !currentUser.id) return;
+
+    setSubmitting(true);
+    setStatus("idle");
+
+    try {
+      const id = crypto.randomUUID();
+      const numDuration =
+        itemType === "plan"
+          ? durationMonths || 1
+          : (durationMonths ?? (itemType === "full_premium" ? 1 : null));
+
+      await setDoc(doc(db, "payment_requests", id), {
+        id,
+        userId: currentUser.id,
+        userName: requestName || "Student",
+        userEmail: requestEmail,
+        transactionId,
+        itemName,
+        itemId,
+        itemType,
+        amount: price || 0,
+        status: "pending",
+        duration: numDuration,
+        createdAt: Date.now(),
+      });
+
+      setStatus("success");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, "payment_requests");
+      setStatus("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-t-2 border-emerald-500 animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (status === "success") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-2xl mx-auto text-center py-12"
+      >
+        <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Send className="w-10 h-10 text-emerald-600 dark:text-emerald-400 ml-1" />
+        </div>
+        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-4">
+          Request Submitted
+        </h2>
+        <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto">
+          Your payment request for{" "}
+          <strong className="text-slate-900 dark:text-white">{itemName}</strong>{" "}
+          has been received. Our team will verify your transaction and grant
+          access shortly.
+        </p>
+        <button
+          onClick={onBack}
+          className="inline-flex items-center justify-center px-6 py-3 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Dashboard
+        </button>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-4xl mx-auto space-y-8"
+    >
+      <button
+        onClick={onBack}
+        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-900 rounded-lg transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Back
+      </button>
+
+      <div className="text-center mb-8">
+        <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-4">
+          Unlock Premium Access
+        </h2>
+        <p className="text-lg text-slate-600 dark:text-slate-400">
+          Get complete access to{" "}
+          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+            {itemName}
+          </span>
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Payment Instructions Side */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-indigo-500/5 rounded-3xl -mx-4 -my-4 sm:mx-0 sm:my-0 lg:-mx-8 lg:-my-8 -z-10 blur-2xl"></div>
+
+          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-sm h-full">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center">
+              <ShieldAlert className="w-6 h-6 mr-2 text-emerald-500" />
+              Payment Instructions
+            </h3>
+
+            <div className="mb-8">
+              <div className="text-4xl font-black text-slate-900 dark:text-white mb-2">
+                ₹{price}
+              </div>
+              <p className="text-sm text-slate-500 uppercase tracking-widest font-mono">
+                One-time payment
+              </p>
+            </div>
+
+            {settings.instructions || settings.qrCode || settings.paymentNumber || settings.bankDetails ? (
+              <div className="space-y-6">
+                {settings.instructions && (
+                  <div className="whitespace-pre-wrap text-slate-600 dark:text-slate-300 text-sm leading-relaxed bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    {settings.instructions}
+                  </div>
+                )}
+
+                <div className="space-y-6 flex flex-col items-center">
+                  {settings.qrCode && (
+                    <div className="flex flex-col items-center bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm max-w-[240px] w-full">
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                        Scan QR to Pay
+                      </p>
+                      <div className="aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center p-2">
+                        <img
+                          src={settings.qrCode}
+                          alt="Payment QR Code"
+                          className="max-w-full max-h-full object-contain rounded-lg hover:scale-105 transition-transform duration-200"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {settings.paymentNumber && (
+                    <div className="flex items-center justify-between w-full max-w-[320px] bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-850 px-4 py-3 rounded-2xl">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center shrink-0 mr-3">
+                          <Smartphone className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-[10px] text-slate-450 uppercase tracking-wider font-semibold">
+                            Payment Mobile Number
+                          </p>
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-100 select-all">
+                            {settings.paymentNumber}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopy}
+                        className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-400 dark:text-slate-350 transition-colors"
+                        title="Copy payment number"
+                      >
+                        {copied ? (
+                          <Check className="w-4 h-4 text-emerald-500 animate-in fade-in" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {settings.bankDetails && (
+                    <div className="flex items-start w-full bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-850 px-4 py-3 rounded-2xl">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0 mr-3">
+                        <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="text-[10px] text-slate-450 uppercase tracking-wider font-semibold">
+                          Bank Details
+                        </p>
+                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-300 whitespace-pre-wrap mt-0.5">
+                          {settings.bankDetails}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Payment details not configured. Please contact the administrator.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Form Side */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col justify-center">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="mb-8">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                Submit Request
+              </h3>
+              <p className="text-sm text-slate-500">
+                Enter your transaction details after completing the payment.
+              </p>
+            </div>
+
+            <div className="mb-4 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Your Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={requestName}
+                  onChange={(e) => setRequestName(e.target.value)}
+                  placeholder="Enter your full name"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={requestEmail}
+                  onChange={(e) => setRequestEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {itemType === "full_premium" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Target Duration
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value="1 Month Access (Fixed)"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-not-allowed outline-none"
+                />
+              </div>
+            ) : itemType === "plan" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Target Duration
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={`${durationMonths || 1} Month${(durationMonths || 1) > 1 ? "s" : ""} Access`}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-not-allowed outline-none"
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Target Duration
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value="Permanent Lifetime Access"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-not-allowed outline-none"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Transaction ID
+              </label>
+              <input
+                type="text"
+                required
+                value={transactionId}
+                onChange={(e) => setTransactionId(e.target.value)}
+                placeholder="e.g. UPI Ref No. or UTR"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all font-mono"
+              />
+            </div>
+
+            <div className="pt-4">
+              <button
+                type="submit"
+                disabled={submitting || !transactionId}
+                className="w-full flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700 px-6 py-4 rounded-xl font-bold uppercase tracking-widest text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+              >
+                {submitting ? (
+                  <div className="w-5 h-5 rounded-full border-t-2 border-white animate-spin"></div>
+                ) : (
+                  <>
+                    <span>Submit Payment Request</span>
+                    <Send className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </button>
+              {status === "error" && (
+                <p className="mt-3 text-sm text-red-500 text-center">
+                  There was an error submitting your request. Please try again.
+                </p>
+              )}
+            </div>
+          </form>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
