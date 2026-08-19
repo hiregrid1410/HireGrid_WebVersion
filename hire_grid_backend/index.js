@@ -41,7 +41,8 @@ const allowedOrigins = process.env.CORS_ORIGIN
       "http://localhost:5173",
       "http://localhost:3000",
       "https://hire-grid-chi.vercel.app",
-      "https://hire-grid-web-version.vercel.app"
+      "https://hire-grid-web-version.vercel.app",
+      "https://hire-grid-web-version-qwva.vercel.app"
     ];
 
 if (process.env.FRONTEND_URL) {
