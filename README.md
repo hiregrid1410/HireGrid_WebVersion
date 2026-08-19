@@ -224,6 +224,7 @@ India
 ---
 
 ## 📜 License
+2026
 
 This project is licensed under the MIT License.
 
