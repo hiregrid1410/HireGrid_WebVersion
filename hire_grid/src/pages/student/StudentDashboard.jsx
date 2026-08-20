@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation, Navigate, useNavigate } from "react-router-dom";
 import {
   Menu,
@@ -41,6 +41,15 @@ import { showToast } from "../../components/common/Toast";
 export default function StudentDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
+  const syncTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, []);
   const user = location.state?.user || {
     email: auth.currentUser?.email || "",
     name: auth.currentUser?.displayName || "",
@@ -761,10 +770,22 @@ export default function StudentDashboard() {
   const handleSelectOption = (index) => {
     if (!activeModule) return;
     const currentQ = activeModule.questions[currentQuestionIndex];
-    setAnswers((prev) => ({ ...prev, [currentQ.id]: index }));
-    if (attemptId) {
-      api.post(`/attempts/${attemptId}/sync`, { answers: { [currentQ.id]: index } }).catch(() => {});
-    }
+    
+    // Save answers locally for instant UI update
+    setAnswers((prev) => {
+      const updated = { ...prev, [currentQ.id]: index };
+      
+      // Debounce database sync to improve performance and prevent connection pool choke
+      if (attemptId) {
+        if (syncTimeoutRef.current) {
+          clearTimeout(syncTimeoutRef.current);
+        }
+        syncTimeoutRef.current = setTimeout(() => {
+          api.post(`/attempts/${attemptId}/sync`, { answers: { [currentQ.id]: index } }).catch(() => {});
+        }, 1500);
+      }
+      return updated;
+    });
   };
 
   const handleFinishTest = async (bypassConfirm = false) => {

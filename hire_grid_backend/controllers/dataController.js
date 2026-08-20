@@ -1,7 +1,7 @@
 const { pool } = require("../config/db");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
-const { verifyUserItemAccess } = require("../utils/accessChecker");
+const { verifyUserItemAccess, dbCache } = require("../utils/accessChecker");
 
 const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DESC') => {
   let sql = baseQuery;
@@ -229,6 +229,7 @@ exports.saveModules = async (req, res) => {
       }
     }
     await pool.query("COMMIT");
+    dbCache.clear();
     res.json({ success: true });
   } catch (err) {
     await pool.query("ROLLBACK");
@@ -240,6 +241,7 @@ exports.deleteModule = async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query("DELETE FROM modules WHERE id = $1", [id]);
+    dbCache.clear();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -539,6 +541,7 @@ exports.saveCompany = async (req, res) => {
         createdBy || null
       ]
     );
+    dbCache.clear();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -549,6 +552,7 @@ exports.deleteCompany = async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query("DELETE FROM companies WHERE id = $1", [id]);
+    dbCache.clear();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1000,7 +1004,8 @@ exports.updateUser = async (req, res) => {
         id
       ]
     );
-
+    dbCache.delete("user:" + id);
+    dbCache.delete("role:" + id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1011,6 +1016,8 @@ exports.deleteUser = async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query("DELETE FROM users WHERE id = $1", [id]);
+    dbCache.delete("user:" + id);
+    dbCache.delete("role:" + id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1333,11 +1340,16 @@ exports.getModuleQuestions = async (req, res) => {
     // Check if user is authorized to see correct answers (admin, content manager, or has already completed the module)
     let includeCorrectAnswers = false;
     if (userId) {
-      const adminCheck = await pool.query(
-        "SELECT id FROM admin_users WHERE id = $1 UNION SELECT id FROM content_managers WHERE id = $1",
-        [userId]
-      );
-      if (adminCheck.rows.length > 0) {
+      let role = dbCache.get(`role:${userId}`);
+      if (!role) {
+        const adminCheck = await pool.query(
+          "SELECT role FROM admin_users WHERE id = $1 UNION SELECT role FROM content_managers WHERE id = $1",
+          [userId]
+        );
+        role = adminCheck.rows.length > 0 ? adminCheck.rows[0].role : "student";
+        dbCache.set(`role:${userId}`, role, 300000);
+      }
+      if (role === "admin" || role === "content_manager") {
         includeCorrectAnswers = true;
       } else {
         const completedCheck = await pool.query(
@@ -1563,6 +1575,7 @@ exports.savePlan = async (req, res) => {
     }
 
     await pool.query("COMMIT");
+    dbCache.clear();
     res.json({ success: true, plan: { id: planId } });
   } catch (err) {
     await pool.query("ROLLBACK");
@@ -1574,6 +1587,7 @@ exports.deletePlan = async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query("DELETE FROM plans WHERE id = $1", [id]);
+    dbCache.clear();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
