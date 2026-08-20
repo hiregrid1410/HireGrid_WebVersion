@@ -8,7 +8,7 @@ const pool = process.env.DATABASE_URL
     ssl: {
       rejectUnauthorized: false,
     },
-    max: 10,
+    max: 50,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 20000,
   })
@@ -22,7 +22,7 @@ const pool = process.env.DATABASE_URL
     ssl: (process.env.DB_HOST && process.env.DB_HOST.includes("neon.tech"))
       ? { rejectUnauthorized: false }
       : false,
-    max: 10,
+    max: 50,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 20000,
   });
