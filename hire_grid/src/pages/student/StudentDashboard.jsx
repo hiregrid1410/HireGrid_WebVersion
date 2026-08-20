@@ -31,7 +31,7 @@ import { ThemeToggle } from "../../components/common/ThemeToggle";
 import { PremiumPurchaseView } from "../../components/student/PremiumPurchaseView";
 import { SvgDiagram } from "../../components/common/SvgDiagram";
 import { StudentHierarchyView } from "../../components/student/StudentHierarchyView";
-import { hasAccess } from "../../lib/accessControl";
+import { hasAccess, isPlanVisibleToStudent } from "../../lib/accessControl";
 import { api } from "../../lib/api";
 import { OperationType, auth, collection, db, doc, getDocs, handleFirestoreError, limit, logOut, onSnapshot, orderBy, query, setDoc, where, writeBatch } from "../../firebase";
 
@@ -1417,13 +1417,13 @@ export default function StudentDashboard() {
                           Premium Membership Plans
                         </h4>
                         
-                        {plans.filter(p => p.isActive !== false && p.is_active !== false).length === 0 ? (
+                        {plans.filter(p => isPlanVisibleToStudent(p, currentUserDoc)).length === 0 ? (
                           <div className="text-center py-16 text-slate-500">
                             No active plans available at the moment.
                           </div>
                         ) : (
                           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                            {plans.filter(p => p.isActive !== false && p.is_active !== false).map((plan) => (
+                            {plans.filter(p => isPlanVisibleToStudent(p, currentUserDoc)).map((plan) => (
                               <div
                                 key={plan.id}
                                 className="bg-[#0B1528] rounded-2xl p-6 shadow-sm border border-slate-800 flex flex-col justify-between hover:-translate-y-1 hover:shadow-lg transition-all"

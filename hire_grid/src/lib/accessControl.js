@@ -186,11 +186,10 @@ export const hasAccess = (
   // 5. Active Plan Access Validation
   const userActivePlanId = currentUser.activePlanId || currentUser.active_plan_id;
   if (activePlan && userActivePlanId) {
-    const isPlanActive = activePlan.isActive !== false && activePlan.is_active !== false;
     const userPlanExpiry = currentUser.planExpiry || currentUser.plan_expiry;
     const isNotExpired = !userPlanExpiry || Date.now() <= Number(userPlanExpiry);
 
-    if (isPlanActive && isNotExpired) {
+    if (isNotExpired) {
       const companyModules = parseArray(activePlan.companyModules || activePlan.company_modules);
       const learningContent = parseArray(activePlan.learningContent || activePlan.learning_content);
       const freeDemoModules = parseArray(activePlan.freeDemoModules || activePlan.free_demo_modules);
@@ -232,5 +231,44 @@ export const hasAccess = (
   }
 
   // 6. Otherwise Lock Content
+  return false;
+};
+
+/**
+ * Checks if a plan is active based on its boolean status and scheduled active date ranges.
+ * @param {object} plan
+ * @returns {boolean}
+ */
+export const isPlanActive = (plan) => {
+  if (!plan) return false;
+  const activeStatus = plan.isActive !== false && plan.is_active !== false;
+  if (!activeStatus) return false;
+
+  const now = Date.now();
+  const activeFrom = plan.activeFrom || plan.active_from;
+  const activeUntil = plan.activeUntil || plan.active_until;
+
+  if (activeFrom && now < Number(activeFrom)) return false;
+  if (activeUntil && now > Number(activeUntil)) return false;
+
+  return true;
+};
+
+/**
+ * Checks if a plan should be visible to a student.
+ * Visible if the plan is active for purchase, or if the student has already purchased it.
+ * @param {object} plan
+ * @param {object} user
+ * @returns {boolean}
+ */
+export const isPlanVisibleToStudent = (plan, user) => {
+  if (!plan) return false;
+  if (isPlanActive(plan)) return true;
+
+  const isPurchased = user?.activePlanId === plan.id || user?.active_plan_id === plan.id;
+  const userExpiry = user?.planExpiry || user?.plan_expiry;
+  const isNotExpired = !userExpiry || Date.now() <= Number(userExpiry);
+  if (isPurchased && isNotExpired) return true;
+
   return false;
 };

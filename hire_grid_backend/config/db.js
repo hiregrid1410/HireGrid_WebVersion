@@ -319,6 +319,8 @@ async function initDb() {
         
         ALTER TABLE plans ADD COLUMN IF NOT EXISTS qr_code TEXT;
         ALTER TABLE plans ADD COLUMN IF NOT EXISTS payment_number VARCHAR(255);
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS active_from BIGINT;
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS active_until BIGINT;
 
         -- Exam attempts table for secure session-based testing and anti-cheating violations
         CREATE TABLE IF NOT EXISTS exam_attempts (
@@ -508,6 +510,8 @@ async function initDb() {
       -- Plans additions
       ALTER TABLE plans ADD COLUMN IF NOT EXISTS upi_id VARCHAR(255);
       ALTER TABLE plans ADD COLUMN IF NOT EXISTS contact_number VARCHAR(255);
+      ALTER TABLE plans ADD COLUMN IF NOT EXISTS active_from BIGINT;
+      ALTER TABLE plans ADD COLUMN IF NOT EXISTS active_until BIGINT;
     `);
 
     // 3. Conditional Legacy Migrations
