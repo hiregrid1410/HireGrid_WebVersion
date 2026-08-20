@@ -38,7 +38,18 @@ export function AdminPaymentRequestsTab({ userName = "Admin" }) {
 
         let expiry = null;
         if (req.duration !== null) {
-          expiry = Date.now() + req.duration * 30 * 24 * 60 * 60 * 1000;
+          if (req.duration === 99999) {
+            expiry = null;
+          } else if (req.duration <= 12) {
+            // Legacy month-based duration
+            expiry = Date.now() + req.duration * 30 * 24 * 60 * 60 * 1000;
+          } else if (req.duration === 999) {
+            // Legacy lifetime representation
+            expiry = null;
+          } else {
+            // Days-based duration (e.g. 15, 30, 90, 180 days)
+            expiry = Date.now() + req.duration * 24 * 60 * 60 * 1000;
+          }
         }
 
         if (req.itemType === "full_premium") {
