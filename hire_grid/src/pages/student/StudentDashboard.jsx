@@ -1428,6 +1428,7 @@ export default function StudentDashboard() {
                           purchaseItem.item.duration === "12_months" ? 12 :
                           purchaseItem.item.duration === "lifetime" ? 999 : 1
                         }
+                        plan={purchaseItem.item}
                         onBack={() => setPurchaseItem(null)}
                         currentUser={currentUserDoc}
                       />
@@ -1465,22 +1466,52 @@ export default function StudentDashboard() {
                                     <li>✓ {(plan.companyModules || plan.company_modules || []).length} Company Prep Modules</li>
                                     <li>✓ {(plan.freeDemoModules || plan.free_demo_modules || []).length} Free Demo tests</li>
                                   </ul>
+                                  {(() => {
+                                   const isPurchased = currentUserDoc?.activePlanId === plan.id || currentUserDoc?.active_plan_id === plan.id;
+                                   const userExpiry = currentUserDoc?.planExpiry || currentUserDoc?.plan_expiry;
+                                   const isNotExpired = !userExpiry || Date.now() <= Number(userExpiry);
+                                   const isSubscriptionActive = isPurchased && isNotExpired;
+
+                                   return (
+                                     <div className="w-full mt-4 space-y-4">
+                                       {isPurchased && (
+                                         <div className={`p-3 border rounded-xl text-xs ${isNotExpired ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                                           <div className="flex justify-between items-center">
+                                             <span className={`font-bold uppercase tracking-wider ${isNotExpired ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                               {isNotExpired ? "Purchased ✓ (Active)" : "Subscription Expired ✗"}
+                                             </span>
+                                             <span className="text-slate-400 font-mono text-[10px]">
+                                               {userExpiry 
+                                                 ? `${isNotExpired ? 'Expires' : 'Ended'}: ${new Date(Number(userExpiry)).toLocaleDateString()}`
+                                                 : "Lifetime Access"}
+                                             </span>
+                                           </div>
+                                         </div>
+                                       )}
+                                       {isSubscriptionActive ? (
+                                         <button
+                                           onClick={() => handleStartAssessmentFlow(plan)}
+                                           className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg shadow-emerald-500/10"
+                                         >
+                                           Start Assessment
+                                         </button>
+                                       ) : (
+                                         <button
+                                           onClick={() => setPurchaseItem({ item: plan, type: "plan" })}
+                                           disabled={plan.isActive === false || plan.is_active === false}
+                                           className={`w-full font-bold py-2.5 px-4 rounded-xl transition-all shadow-md ${
+                                             (plan.isActive === false || plan.is_active === false)
+                                               ? "bg-slate-800 text-slate-500 cursor-not-allowed shadow-none"
+                                               : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/10"
+                                           }`}
+                                         >
+                                           {(plan.isActive === false || plan.is_active === false) ? "Unavailable for Purchase" : "Subscribe Now"}
+                                         </button>
+                                       )}
+                                     </div>
+                                   );
+                                 })()}
                                 </div>
-                                {currentUserDoc?.activePlanId === plan.id || currentUserDoc?.active_plan_id === plan.id ? (
-                                  <button
-                                    onClick={() => handleStartAssessmentFlow(plan)}
-                                    className="w-full mt-6 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg shadow-emerald-500/10"
-                                  >
-                                    Start Assessment
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => setPurchaseItem({ item: plan, type: "plan" })}
-                                    className="w-full mt-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-emerald-600/10"
-                                  >
-                                    Subscribe Now
-                                  </button>
-                                )}
                               </div>
                             ))}
                           </div>

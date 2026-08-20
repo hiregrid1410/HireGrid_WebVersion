@@ -22,6 +22,7 @@ export function PremiumPurchaseView({
   durationMonths,
   onBack,
   currentUser,
+  plan,
 }) {
   const [settings, setSettings] = useState({
     contactNumber: "",
@@ -124,10 +125,20 @@ export function PremiumPurchaseView({
 
     try {
       const id = crypto.randomUUID();
-      const numDuration =
-        itemType === "plan"
-          ? durationMonths || 1
-          : (durationMonths ?? (itemType === "full_premium" ? 1 : null));
+      let durationInDays = null;
+      if (itemType === "plan" && plan) {
+        if (plan.duration === "1_month") durationInDays = 30;
+        else if (plan.duration === "3_months") durationInDays = 90;
+        else if (plan.duration === "6_months") durationInDays = 180;
+        else if (plan.duration === "9_months") durationInDays = 270;
+        else if (plan.duration === "12_months") durationInDays = 365;
+        else if (plan.duration === "lifetime") durationInDays = 99999;
+        else if (plan.duration === "custom_days") durationInDays = Number(plan.durationDays || plan.duration_days || 30);
+      } else if (itemType === "full_premium") {
+        durationInDays = 30;
+      } else {
+        durationInDays = durationMonths ? durationMonths * 30 : 30;
+      }
 
       await setDoc(doc(db, "payment_requests", id), {
         id,
@@ -140,7 +151,7 @@ export function PremiumPurchaseView({
         itemType,
         amount: price || 0,
         status: "pending",
-        duration: numDuration,
+        duration: durationInDays,
         createdAt: Date.now(),
       });
 
