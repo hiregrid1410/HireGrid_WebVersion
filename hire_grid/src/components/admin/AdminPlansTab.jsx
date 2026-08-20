@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { logAudit } from "../../auditLogger";
 import { showToast } from "../common/Toast";
+import { isPlanActive } from "../../lib/accessControl";
 
 export function AdminPlansTab({ userName }) {
   const [plans, setPlans] = useState([]);
@@ -45,6 +46,15 @@ export function AdminPlansTab({ userName }) {
   const [isFreemium, setIsFreemium] = useState(false);
   const [paymentNumber, setPaymentNumber] = useState("");
   const [qrCode, setQrCode] = useState("");
+  const [activeFrom, setActiveFrom] = useState("");
+  const [activeUntil, setActiveUntil] = useState("");
+
+  const formatForInput = (timestamp) => {
+    if (!timestamp) return "";
+    const date = new Date(Number(timestamp));
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  };
 
   const handleQrUpload = (e) => {
     const file = e.target.files[0];
@@ -239,6 +249,8 @@ export function AdminPlansTab({ userName }) {
         companyBranches,
         paymentNumber,
         qrCode,
+        activeFrom: activeFrom ? new Date(activeFrom).getTime() : null,
+        activeUntil: activeUntil ? new Date(activeUntil).getTime() : null,
       };
 
       await api.post("/plans", payload).catch(() => {});
@@ -264,6 +276,8 @@ export function AdminPlansTab({ userName }) {
       setCompanyBranches([]);
       setPaymentNumber("");
       setQrCode("");
+      setActiveFrom("");
+      setActiveUntil("");
       showToast("Plan saved successfully!", "success");
     } catch (err) {
       showToast("Error saving plan: " + err.message, "error");
@@ -284,6 +298,8 @@ export function AdminPlansTab({ userName }) {
     setCompanyBranches(plan.companyBranches || plan.company_branches || []);
     setPaymentNumber(plan.paymentNumber || plan.payment_number || "");
     setQrCode(plan.qrCode || plan.qr_code || "");
+    setActiveFrom(plan.activeFrom || plan.active_from ? formatForInput(plan.activeFrom || plan.active_from) : "");
+    setActiveUntil(plan.activeUntil || plan.active_until ? formatForInput(plan.activeUntil || plan.active_until) : "");
     setIsFormOpen(true);
   };
 
@@ -400,6 +416,8 @@ export function AdminPlansTab({ userName }) {
               setCompanyBranches([]);
               setPaymentNumber("");
               setQrCode("");
+              setActiveFrom("");
+              setActiveUntil("");
               setIsFormOpen(true);
             }}
             className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-500/10 transition-all duration-200"
@@ -504,6 +522,28 @@ export function AdminPlansTab({ userName }) {
                 />
                 <span className="text-sm font-medium text-slate-300">Freemium Toggle</span>
               </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 col-span-1 md:col-span-3">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-300">Active From (Optional)</label>
+                <input
+                  type="datetime-local"
+                  value={activeFrom}
+                  onChange={(e) => setActiveFrom(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-800 bg-[#070D19] text-slate-100 focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-300">Active Until (Optional)</label>
+                <input
+                  type="datetime-local"
+                  value={activeUntil}
+                  onChange={(e) => setActiveUntil(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-800 bg-[#070D19] text-slate-100 focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -664,7 +704,7 @@ export function AdminPlansTab({ userName }) {
             <div
               key={plan.id}
               className={`bg-[#0B1528] border rounded-2xl p-5 flex flex-col justify-between transition-all ${
-                plan.isActive
+                isPlanActive(plan)
                   ? "border-slate-800/80 hover:border-emerald-500/30"
                   : "border-slate-850 opacity-60"
               }`}
@@ -682,12 +722,12 @@ export function AdminPlansTab({ userName }) {
                   </div>
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      plan.isActive
+                      isPlanActive(plan)
                         ? "bg-emerald-500/10 text-emerald-400"
                         : "bg-slate-800 text-slate-400"
                     }`}
                   >
-                    {plan.isActive ? "Active" : "Inactive"}
+                    {isPlanActive(plan) ? "Active" : "Inactive"}
                   </span>
                 </div>
 
@@ -724,6 +764,28 @@ export function AdminPlansTab({ userName }) {
                     </span>
                   </div>
                 </div>
+
+                {/* Active Date Ranges */}
+                {(plan.activeFrom || plan.active_from || plan.activeUntil || plan.active_until) && (
+                  <div className="border-t border-slate-850 pt-3 space-y-1 text-xs text-slate-400">
+                    {(plan.activeFrom || plan.active_from) && (
+                      <div className="flex justify-between">
+                        <span>Active From:</span>
+                        <span className="font-semibold text-slate-200">
+                          {new Date(Number(plan.activeFrom || plan.active_from)).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {(plan.activeUntil || plan.active_until) && (
+                      <div className="flex justify-between">
+                        <span>Active Until:</span>
+                        <span className="font-semibold text-slate-200">
+                          {new Date(Number(plan.activeUntil || plan.active_until)).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between items-center border-t border-slate-850 mt-4 pt-3">

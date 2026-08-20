@@ -194,35 +194,34 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
       const planRes = await pool.query("SELECT * FROM plans WHERE id = $1", [user.active_plan_id]);
       if (planRes.rows.length > 0) {
         const plan = planRes.rows[0];
-        const isActive = plan.is_active !== false;
+        
+        // Bypassing plan active status check for users who already purchased the plan.
+        // As long as their user.plan_expiry is valid, access is granted.
+        const companyModules = Array.isArray(plan.company_modules)
+          ? plan.company_modules
+          : typeof plan.company_modules === "string"
+          ? JSON.parse(plan.company_modules || "[]")
+          : [];
+        const learningContent = Array.isArray(plan.learning_content)
+          ? plan.learning_content
+          : typeof plan.learning_content === "string"
+          ? JSON.parse(plan.learning_content || "[]")
+          : [];
+        const freeDemoModules = Array.isArray(plan.free_demo_modules)
+          ? plan.free_demo_modules
+          : typeof plan.free_demo_modules === "string"
+          ? JSON.parse(plan.free_demo_modules || "[]")
+          : [];
 
-        if (isActive) {
-          const companyModules = Array.isArray(plan.company_modules)
-            ? plan.company_modules
-            : typeof plan.company_modules === "string"
-            ? JSON.parse(plan.company_modules || "[]")
-            : [];
-          const learningContent = Array.isArray(plan.learning_content)
-            ? plan.learning_content
-            : typeof plan.learning_content === "string"
-            ? JSON.parse(plan.learning_content || "[]")
-            : [];
-          const freeDemoModules = Array.isArray(plan.free_demo_modules)
-            ? plan.free_demo_modules
-            : typeof plan.free_demo_modules === "string"
-            ? JSON.parse(plan.free_demo_modules || "[]")
-            : [];
+        if (itemType === "company" && companyModules.includes(itemId)) {
+          return { allowed: true };
+        }
 
-          if (itemType === "company" && companyModules.includes(itemId)) {
+        if (itemType === "module") {
+          if (freeDemoModules.includes(itemId)) return { allowed: true };
+          if (learningContent.includes(itemId)) return { allowed: true };
+          if (item && item.parent_id && (companyModules.includes(item.parent_id) || learningContent.includes(item.parent_id))) {
             return { allowed: true };
-          }
-
-          if (itemType === "module") {
-            if (freeDemoModules.includes(itemId)) return { allowed: true };
-            if (learningContent.includes(itemId)) return { allowed: true };
-            if (item && item.parent_id && (companyModules.includes(item.parent_id) || learningContent.includes(item.parent_id))) {
-              return { allowed: true };
-            }
           }
         }
       }

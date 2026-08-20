@@ -1384,7 +1384,9 @@ exports.getPlans = async (req, res) => {
         contact_number AS "contactNumber",
         qr_code AS "qrCode",
         payment_number AS "paymentNumber",
-        created_at AS "createdAt"
+        created_at AS "createdAt",
+        active_from AS "activeFrom",
+        active_until AS "activeUntil"
       FROM plans
     `;
     const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'created_at DESC');
@@ -1438,7 +1440,9 @@ exports.getPlanById = async (req, res) => {
         contact_number AS "contactNumber",
         qr_code AS "qrCode",
         payment_number AS "paymentNumber",
-        created_at AS "createdAt"
+        created_at AS "createdAt",
+        active_from AS "activeFrom",
+        active_until AS "activeUntil"
        FROM plans WHERE id = $1`,
       [id]
     );
@@ -1475,10 +1479,12 @@ exports.savePlan = async (req, res) => {
     companyModules,
     freeDemoModules,
     companyBranches, // Array of { companyId, branchId }
-     upiId,
+    upiId,
     contactNumber,
     qrCode,
     paymentNumber,
+    activeFrom,
+    activeUntil,
   } = req.body;
   const planId = id || crypto.randomUUID();
   try {
@@ -1486,9 +1492,9 @@ exports.savePlan = async (req, res) => {
 
     await pool.query(
       `INSERT INTO plans (
-        id, name, price, duration, duration_days, is_active, is_freemium, learning_content, company_modules, free_demo_modules, upi_id, contact_number, qr_code, payment_number
+        id, name, price, duration, duration_days, is_active, is_freemium, learning_content, company_modules, free_demo_modules, upi_id, contact_number, qr_code, payment_number, active_from, active_until
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        ON CONFLICT (id) DO UPDATE
        SET name = EXCLUDED.name,
            price = EXCLUDED.price,
@@ -1502,7 +1508,9 @@ exports.savePlan = async (req, res) => {
            upi_id = EXCLUDED.upi_id,
            contact_number = EXCLUDED.contact_number,
            qr_code = EXCLUDED.qr_code,
-           payment_number = EXCLUDED.payment_number`,
+           payment_number = EXCLUDED.payment_number,
+           active_from = EXCLUDED.active_from,
+           active_until = EXCLUDED.active_until`,
       [
         planId,
         name,
@@ -1518,6 +1526,8 @@ exports.savePlan = async (req, res) => {
         contactNumber || null,
         qrCode || null,
         paymentNumber || null,
+        activeFrom !== undefined && activeFrom !== null ? Number(activeFrom) : null,
+        activeUntil !== undefined && activeUntil !== null ? Number(activeUntil) : null,
       ]
     );
 
