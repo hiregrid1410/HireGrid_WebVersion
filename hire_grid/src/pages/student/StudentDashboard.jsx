@@ -32,6 +32,7 @@ import { useTheme } from "../../ThemeContext";
 import { PremiumPurchaseView } from "../../components/student/PremiumPurchaseView";
 import { SvgDiagram } from "../../components/common/SvgDiagram";
 import { StudentHierarchyView } from "../../components/student/StudentHierarchyView";
+import { PlacementMissionView } from "../../components/student/PlacementMissionView";
 import { hasAccess, isPlanVisibleToStudent } from "../../lib/accessControl";
 import { api } from "../../lib/api";
 import { OperationType, auth, collection, db, doc, getDocs, handleFirestoreError, limit, logOut, onSnapshot, orderBy, query, setDoc, where, writeBatch } from "../../firebase";
@@ -211,8 +212,9 @@ export default function StudentDashboard() {
   const [currentUserDoc, setCurrentUserDoc] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Layout Tabs
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState(() => {
+    return location.pathname === "/placement-mission" ? "placement-mission" : "general";
+  });
   const [activeCompany, setActiveCompany] = useState(null);
   const [activeExam, setActiveExam] = useState(null);
   const [purchaseItem, setPurchaseItem] = useState(null);
@@ -253,6 +255,21 @@ export default function StudentDashboard() {
 
 
   useEffect(() => {
+    if (location.pathname === "/placement-mission") {
+      setActiveTab("placement-mission");
+      setActiveModule(null);
+      setActiveMasterModule(null);
+      setActiveCompany(null);
+      setActiveExam(null);
+      setPurchaseItem(null);
+    } else if (location.pathname === "/student-dashboard") {
+      if (activeTab === "placement-mission") {
+        setActiveTab("general");
+      }
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
     localStorage.setItem("studentSidebarOpen", JSON.stringify(sidebarOpen));
   }, [sidebarOpen]);
 
@@ -265,6 +282,11 @@ export default function StudentDashboard() {
     setPurchaseItem(null);
     if (isMobile) {
       setSidebarOpen(false);
+    }
+    if (tab === "placement-mission") {
+      navigate("/placement-mission");
+    } else {
+      navigate("/student-dashboard");
     }
   };
 
@@ -1054,6 +1076,16 @@ export default function StudentDashboard() {
           />
 
           <SidebarItem
+            icon={<Award />}
+            label="Placement Mission"
+            active={
+              activeTab === "placement-mission" && !activeModule && !activeMasterModule
+            }
+            onClick={() => handleNavClick("placement-mission")}
+            isOpen={sidebarOpen}
+          />
+
+          <SidebarItem
             icon={<MessageSquare />}
             label="Send Feedback"
             active={
@@ -1522,6 +1554,15 @@ export default function StudentDashboard() {
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {activeTab === "placement-mission" && (
+                  <div className="max-w-6xl mx-auto space-y-6">
+                    <PlacementMissionView
+                      currentUser={currentUserDoc}
+                      onStartModule={handleStartModule}
+                    />
                   </div>
                 )}
 

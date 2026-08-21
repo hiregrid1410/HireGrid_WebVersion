@@ -96,9 +96,14 @@ app.use((req, res, next) => {
 // Initialize Database & Seeds
 initDb();
 
+// Start Background Daily Leaderboard Scheduler
+const { startScheduler } = require("./utils/scheduler");
+startScheduler();
+
 // Load Routes
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api", require("./routes/apiRoutes"));
+app.use("/api/placement-mission", require("./routes/placementMissionRoutes"));
 
 // Base health route
 app.get("/", (req, res) => {
