@@ -88,10 +88,12 @@ exports.signup = async (req, res) => {
       targetTable = "admin_users";
     }
 
+    const emailTrimmed = email ? email.trim().toLowerCase() : "";
+
     // 1. Check if user already exists (selecting id only for speed)
     const checkUser = await pool.query(
       `SELECT id FROM ${targetTable} WHERE email = $1`,
-      [email.toLowerCase()]
+      [emailTrimmed]
     );
 
     if (checkUser.rows.length > 0) {
@@ -110,7 +112,7 @@ exports.signup = async (req, res) => {
         `INSERT INTO users (id, email, password, name, role, branch, semester, specialization, email_verified)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
          RETURNING id, email, name, role, branch, semester, email_verified`,
-        [userId, email.toLowerCase(), hashedPassword, name, role, branch || null, semester || null, specialization || null]
+        [userId, emailTrimmed, hashedPassword, name, role, branch || null, semester || null, specialization || null]
       );
     } else if (role === "content_manager") {
       // Create Content Manager profile
@@ -118,7 +120,7 @@ exports.signup = async (req, res) => {
         `INSERT INTO content_managers (id, email, password, name, role)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, email, name, role`,
-        [userId, email.toLowerCase(), hashedPassword, name, role]
+        [userId, emailTrimmed, hashedPassword, name, role]
       );
     } else {
       // Create Admin profile
@@ -126,7 +128,7 @@ exports.signup = async (req, res) => {
         `INSERT INTO admin_users (id, email, password, name, role)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, email, name, role`,
-        [userId, email.toLowerCase(), hashedPassword, name, role]
+        [userId, emailTrimmed, hashedPassword, name, role]
       );
     }
 
@@ -273,9 +275,10 @@ exports.login = async (req, res) => {
       }
     } else {
       // Look strictly in users (student)
+      const emailTrimmed = email ? email.trim().toLowerCase() : "";
       const userResult = await pool.query(
         `SELECT * FROM users WHERE email = $1`,
-        [email.toLowerCase()]
+        [emailTrimmed]
       );
 
       if (userResult.rows.length === 0) {
@@ -283,6 +286,15 @@ exports.login = async (req, res) => {
       }
 
       user = userResult.rows[0];
+
+      // Handle Google-registered accounts with no password
+      if (!user.password && user.google_id) {
+        return res.status(400).json({ error: "This account is registered via Google. Please use 'Log in with Google'." });
+      }
+
+      if (!user.password) {
+        return res.status(401).json({ error: "Invalid email or password." });
+      }
 
       // Check password
       const isMatch = await bcrypt.compare(password, user.password);
