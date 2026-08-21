@@ -512,6 +512,9 @@ async function initDb() {
       ALTER TABLE plans ADD COLUMN IF NOT EXISTS contact_number VARCHAR(255);
       ALTER TABLE plans ADD COLUMN IF NOT EXISTS active_from BIGINT;
       ALTER TABLE plans ADD COLUMN IF NOT EXISTS active_until BIGINT;
+
+      -- User theme addition
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(50) DEFAULT 'dark';
     `);
 
     // 3. Conditional Legacy Migrations

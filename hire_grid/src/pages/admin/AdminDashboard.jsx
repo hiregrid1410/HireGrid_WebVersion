@@ -20,6 +20,7 @@ import { AdminDeviceRequestsTab } from "../../components/admin/AdminDeviceReques
 import { AdminFeedbacksTab } from "../../components/admin/AdminFeedbacksTab";
 import { AdminPlansTab } from "../../components/admin/AdminPlansTab";
 import { AdminAuditLogTab } from "../../components/admin/AdminAuditLogTab";
+import { ThemeToggle } from "../../components/common/ThemeToggle";
 
 export default function AdminDashboard() {
   const location = useLocation();
@@ -222,6 +223,7 @@ export default function AdminDashboard() {
             )}
           </div>
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
           </div>
         </header>
 

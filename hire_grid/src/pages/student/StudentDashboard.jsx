@@ -28,6 +28,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { ThemeToggle } from "../../components/common/ThemeToggle";
+import { useTheme } from "../../ThemeContext";
 import { PremiumPurchaseView } from "../../components/student/PremiumPurchaseView";
 import { SvgDiagram } from "../../components/common/SvgDiagram";
 import { StudentHierarchyView } from "../../components/student/StudentHierarchyView";
@@ -39,6 +40,7 @@ import { MathText } from "../../components/common/MathText";
 import { showToast } from "../../components/common/Toast";
 
 export default function StudentDashboard() {
+  const { syncUserTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const syncTimeoutRef = useRef(null);
@@ -518,6 +520,7 @@ export default function StudentDashboard() {
       (docSnap) => {
         if (docSnap.exists()) {
           const d = docSnap.data();
+          if (d.theme) syncUserTheme(d);
           setCurrentUserDoc({ id: docSnap.id, ...d });
           setModuleScores(d.moduleScores || {});
           setStats({
@@ -1115,6 +1118,7 @@ export default function StudentDashboard() {
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
+            <ThemeToggle />
             <button
               onClick={handleLogout}
               className="inline-flex items-center px-3 py-1.5 border border-emerald-500/20 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 glass-panel hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
