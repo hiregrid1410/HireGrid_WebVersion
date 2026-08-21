@@ -14,7 +14,9 @@ import {
   FileText,
   User,
   Activity,
-  Award
+  Award,
+  UploadCloud,
+  ImageIcon
 } from "lucide-react";
 
 export function AdminPlacementMissionTab({ userName }) {
@@ -43,6 +45,16 @@ export function AdminPlacementMissionTab({ userName }) {
   const [rawText, setRawText] = useState("");
   const [parsingAI, setParsingAI] = useState(false);
   const [parsedQuestions, setParsedQuestions] = useState([]);
+
+  // Question Editor Tab States
+  const [addMode, setAddMode] = useState("auto"); // 'auto' | 'manual' | 'bulk-code'
+  const [currentSubject, setCurrentSubject] = useState("Technical");
+  const [manualQuestion, setManualQuestion] = useState({
+    question: "",
+    options: ["", "", "", ""],
+    correctAnswerIndex: 0
+  });
+  const [jsonError, setJsonError] = useState("");
 
   // Attempts State
   const [attempts, setAttempts] = useState([]);
@@ -158,7 +170,8 @@ export function AdminPlacementMissionTab({ userName }) {
       setParsingAI(true);
       const data = await api.post("/parse-mcq", { text: rawText });
       if (data.success && data.questions) {
-        setParsedQuestions(data.questions);
+        setParsedQuestions([...parsedQuestions, ...data.questions]);
+        setRawText("");
         showToast(`Parsed ${data.questions.length} questions successfully using Gemini!`, "success");
       } else {
         showToast("AI failed to parse questions. Check input format.", "error");
@@ -167,6 +180,117 @@ export function AdminPlacementMissionTab({ userName }) {
       showToast("AI parsing failed: " + err.message, "error");
     } finally {
       setParsingAI(false);
+    }
+  };
+
+  const handleAddManualQuestion = () => {
+    if (!manualQuestion.question.trim()) {
+      showToast("Question text is required.", "error");
+      return;
+    }
+    for (let i = 0; i < 4; i++) {
+      if (!manualQuestion.options[i].trim()) {
+        showToast(`Option ${String.fromCharCode(65 + i)} is required.`, "error");
+        return;
+      }
+    }
+
+    const newQ = {
+      question: manualQuestion.question.trim(),
+      options: manualQuestion.options.map(o => o.trim()),
+      correctAnswerIndex: manualQuestion.correctAnswerIndex,
+      type: currentSubject
+    };
+
+    setParsedQuestions([...parsedQuestions, newQ]);
+    showToast("Question added successfully!", "success");
+
+    // Reset manual input
+    setManualQuestion({
+      question: "",
+      options: ["", "", "", ""],
+      correctAnswerIndex: 0
+    });
+  };
+
+  const handleParseJSON = () => {
+    setJsonError("");
+    try {
+      if (!rawText || !rawText.trim()) {
+        throw new Error("JSON text is empty. Please paste a valid JSON array of questions.");
+      }
+
+      let parsed = null;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch (err) {
+        let sanitizedText = rawText;
+        const mathCommands = [
+          "frac", "cdot", "times", "int", "partial", "infty", "begin", "end",
+          "omega", "pi", "Delta", "nabla", "alpha", "beta", "gamma", "theta"
+        ];
+        mathCommands.forEach((cmd) => {
+          const regex = new RegExp(`(?<!\\\\)\\\\${cmd}\\b`, "g");
+          sanitizedText = sanitizedText.replace(regex, `\\\\${cmd}`);
+        });
+
+        try {
+          parsed = JSON.parse(sanitizedText);
+        } catch (e2) {
+          try {
+            parsed = Function(`"use strict"; return (${rawText})`)();
+          } catch (e3) {
+            throw new Error(`JSON Syntax Error: Invalid JSON.\nReason: ${err.message}`);
+          }
+        }
+      }
+
+      if (!Array.isArray(parsed)) {
+        throw new Error("Bulk upload only accepts a top-level JSON array [ ... ].");
+      }
+
+      if (parsed.length === 0) {
+        throw new Error("JSON array is empty. At least 1 question is required.");
+      }
+
+      const formatted = parsed.map((q, idx) => {
+        const rowNum = idx + 1;
+        if (!q || typeof q !== "object" || Array.isArray(q)) {
+          throw new Error(`Row ${rowNum}: Item must be a valid JSON object.`);
+        }
+        if (!q.question || !q.question.trim()) {
+          throw new Error(`Row ${rowNum}: Missing question text.`);
+        }
+        if (!Array.isArray(q.options) || q.options.length !== 4) {
+          throw new Error(`Row ${rowNum}: Expected exactly 4 options inside array.`);
+        }
+        
+        let correctIdx = q.correctAnswerIndex;
+        if (correctIdx === undefined) {
+          correctIdx = q.correct_option_index;
+        }
+        if (correctIdx === undefined && q.correct_answer) {
+          const letterToIdxMap = { A: 0, B: 1, C: 2, D: 3 };
+          correctIdx = letterToIdxMap[q.correct_answer.toUpperCase()];
+        }
+        if (correctIdx === undefined || correctIdx < 0 || correctIdx > 3) {
+          throw new Error(`Row ${rowNum}: Missing or invalid correctAnswerIndex (0-3).`);
+        }
+
+        return {
+          question: q.question.trim(),
+          options: q.options.map(opt => String(opt).trim()),
+          correctAnswerIndex: Number(correctIdx),
+          type: q.type || currentSubject
+        };
+      });
+
+      setParsedQuestions([...parsedQuestions, ...formatted]);
+      setRawText("");
+      showToast(`Imported ${formatted.length} questions successfully!`, "success");
+    } catch (err) {
+      setJsonError(err.message);
+      showToast("JSON Import failed: " + err.message, "error");
     }
   };
 
@@ -695,61 +819,234 @@ export function AdminPlacementMissionTab({ userName }) {
                   </div>
                 </div>
 
-                {/* Right Pane: AI MCQ Parser */}
+                {/* Right Pane: AI MCQ Parser & JSON Import */}
                 <div className="space-y-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 md:pl-6 pt-6 md:pt-0">
                   <div className="space-y-1">
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                      Upload MCQ Questions
+                      Add Questions
                     </h4>
                     <p className="text-[10px] text-slate-500 leading-relaxed">
-                      Paste questions in raw format and run Gemini AI to generate Structured MCQs with options, order, and indices automatically.
+                      Configure module test questions using AI generation, manual entries, or bulk JSON imports.
                     </p>
                   </div>
 
-                  <textarea
-                    rows={6}
-                    placeholder="Q1. What is 2+2?
+                  {/* Add mode tabs */}
+                  <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => { setAddMode("auto"); setJsonError(""); }}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all
+                        ${addMode === "auto"
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"
+                        }`}
+                    >
+                      Auto-Generate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAddMode("manual"); setJsonError(""); }}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all
+                        ${addMode === "manual"
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"
+                        }`}
+                    >
+                      Manual Entry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAddMode("bulk-code"); setJsonError(""); }}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all
+                        ${addMode === "bulk-code"
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"
+                        }`}
+                    >
+                      Code Import
+                    </button>
+                  </div>
+
+                  {/* Mode-specific content */}
+                  {addMode === "auto" && (
+                    <div className="space-y-4">
+                      <textarea
+                        rows={6}
+                        placeholder="Q1. What is 2+2?
 A) 3
 B) 4
 C) 5
 Answer: B"
-                    value={rawText}
-                    onChange={(e) => setRawText(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none transition-colors dark:text-white resize-none font-mono text-xs"
-                  />
+                        value={rawText}
+                        onChange={(e) => setRawText(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none transition-colors dark:text-white resize-none font-mono text-xs"
+                      />
 
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-mono text-slate-500">
-                      Structured Questions: <strong className="text-emerald-500 font-bold">{parsedQuestions.length}</strong>
-                    </span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-mono text-slate-500">
+                          Structured Questions: <strong className="text-emerald-500 font-bold">{parsedQuestions.length}</strong>
+                        </span>
 
-                    <button
-                      onClick={handleParseQuestionsAI}
-                      disabled={parsingAI}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors inline-flex items-center space-x-1"
-                    >
-                      <Activity className={`w-3.5 h-3.5 ${parsingAI ? "animate-spin" : ""}`} />
-                      <span>{parsingAI ? "PARSING..." : "Parse with Gemini AI"}</span>
-                    </button>
-                  </div>
+                        <button
+                          type="button"
+                          onClick={handleParseQuestionsAI}
+                          disabled={parsingAI}
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors inline-flex items-center space-x-1"
+                        >
+                          <Activity className={`w-3.5 h-3.5 ${parsingAI ? "animate-spin" : ""}`} />
+                          <span>{parsingAI ? "PARSING..." : "Parse with Gemini AI"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Shuffled list of parsed questions summary */}
-                  {parsedQuestions.length > 0 && (
-                    <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-slate-50/50 dark:bg-slate-950/40 space-y-3 custom-scrollbar">
-                      {parsedQuestions.map((q, idx) => (
-                        <div key={idx} className="text-xs space-y-1">
-                          <p className="font-bold text-slate-700 dark:text-slate-300">
-                            {idx + 1}. {q.question}
-                          </p>
-                          <div className="grid grid-cols-2 gap-2 pl-2 text-[10px] text-slate-500">
-                            {q.options?.map((opt, oIdx) => (
-                              <span key={oIdx} className={Number(q.correctAnswerIndex) === oIdx ? "text-emerald-500 font-bold" : ""}>
-                                {String.fromCharCode(65 + oIdx)}) {opt}
-                              </span>
-                            ))}
+                  {addMode === "manual" && (
+                    <div className="space-y-4 bg-slate-50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Question Text
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={manualQuestion.question}
+                          onChange={(e) => setManualQuestion({ ...manualQuestion, question: e.target.value })}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                          placeholder="Type question text..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {[0, 1, 2, 3].map((idx) => (
+                          <div key={idx} className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="manualCorrect"
+                              checked={manualQuestion.correctAnswerIndex === idx}
+                              onChange={() => setManualQuestion({ ...manualQuestion, correctAnswerIndex: idx })}
+                              className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-slate-300 rounded"
+                            />
+                            <input
+                              type="text"
+                              value={manualQuestion.options[idx]}
+                              onChange={(e) => {
+                                const newOpts = [...manualQuestion.options];
+                                newOpts[idx] = e.target.value;
+                                setManualQuestion({ ...manualQuestion, options: newOpts });
+                              }}
+                              placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                              className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:border-emerald-500 dark:text-white"
+                            />
                           </div>
+                        ))}
+                      </div>
+
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={handleAddManualQuestion}
+                          className="px-4 py-2 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors border border-slate-700 dark:border-slate-700"
+                        >
+                          Add Question
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {addMode === "bulk-code" && (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-slate-500">Paste JSON array of questions</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const promptText = `Generate a JSON array of placement MCQ questions in this exact structure:
+[
+  {
+    "question": "Insert question text here",
+    "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
+    "correctAnswerIndex": 1
+  }
+]`;
+                            navigator.clipboard.writeText(promptText);
+                            showToast("JSON Prompt template copied to clipboard!", "success");
+                          }}
+                          className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded border border-indigo-200 dark:border-indigo-800/50 flex items-center space-x-1"
+                        >
+                          <UploadCloud className="w-3 h-3" />
+                          <span>Copy Prompt for External AI</span>
+                        </button>
+                      </div>
+
+                      {jsonError && (
+                        <div className="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-600 dark:text-rose-400 text-xs font-mono whitespace-pre-wrap leading-tight">
+                          {jsonError}
                         </div>
-                      ))}
+                      )}
+
+                      <textarea
+                        rows={6}
+                        placeholder='[{"question": "What is 2+2?", "options": ["3", "4", "5", "6"], "correctAnswerIndex": 1}]'
+                        value={rawText}
+                        onChange={(e) => setRawText(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none transition-colors dark:text-white resize-none font-mono text-xs"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={handleParseJSON}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors shadow-sm"
+                      >
+                        Import JSON Code
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Summary of all structured questions */}
+                  {parsedQuestions.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-slate-400">
+                        <span>Structured Questions: <strong className="text-emerald-500 font-mono font-bold">{parsedQuestions.length}</strong></span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm("Clear all structured questions?")) {
+                              setParsedQuestions([]);
+                            }
+                          }}
+                          className="text-rose-500 hover:text-rose-600 text-[10px]"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                      
+                      <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-slate-50/50 dark:bg-slate-950/40 space-y-3 custom-scrollbar">
+                        {parsedQuestions.map((q, idx) => (
+                          <div key={idx} className="text-xs space-y-1 border-b border-slate-200 dark:border-slate-800/80 pb-2 last:border-b-0">
+                            <div className="flex justify-between items-start gap-2">
+                              <p className="font-bold text-slate-700 dark:text-slate-300">
+                                {idx + 1}. {q.question}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = parsedQuestions.filter((_, qIdx) => qIdx !== idx);
+                                  setParsedQuestions(updated);
+                                }}
+                                className="text-rose-500 hover:text-rose-600 text-[10px] uppercase font-bold"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 pl-2 text-[10px] text-slate-500">
+                              {q.options?.map((opt, oIdx) => (
+                                <span key={oIdx} className={Number(q.correctAnswerIndex) === oIdx ? "text-emerald-500 font-bold" : ""}>
+                                  {String.fromCharCode(65 + oIdx)}) {opt}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
