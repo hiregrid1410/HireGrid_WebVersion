@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import { showToast } from "../common/Toast";
+import { SvgDiagram } from "../common/SvgDiagram";
 import {
   Trophy,
   RefreshCw,
@@ -53,7 +54,8 @@ export function AdminPlacementMissionTab({ userName }) {
   const [manualQuestion, setManualQuestion] = useState({
     question: "",
     options: ["", "", "", ""],
-    correctAnswerIndex: 0
+    correctAnswerIndex: 0,
+    image: ""
   });
   const [jsonError, setJsonError] = useState("");
 
@@ -206,6 +208,8 @@ export function AdminPlacementMissionTab({ userName }) {
       question: manualQuestion.question.trim(),
       options: manualQuestion.options.map(o => o.trim()),
       correctAnswerIndex: manualQuestion.correctAnswerIndex,
+      image: manualQuestion.image || "",
+      svgCode: manualQuestion.image || "",
       type: currentSubject
     };
 
@@ -216,8 +220,97 @@ export function AdminPlacementMissionTab({ userName }) {
     setManualQuestion({
       question: "",
       options: ["", "", "", ""],
-      correctAnswerIndex: 0
+      correctAnswerIndex: 0,
+      image: ""
     });
+  };
+
+  const handleManualImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+        setManualQuestion({ ...manualQuestion, image: dataUrl });
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleQuestionListImageUpload = (index, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+        const updated = [...parsedQuestions];
+        updated[index] = { ...updated[index], image: dataUrl, svgCode: dataUrl, svg_code: dataUrl };
+        setParsedQuestions(updated);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleRemoveQuestionListImage = (index) => {
+    const updated = [...parsedQuestions];
+    updated[index] = { ...updated[index], image: "", svgCode: "", svg_code: "" };
+    setParsedQuestions(updated);
   };
 
   const handleParseJSON = () => {
@@ -1066,6 +1159,38 @@ Answer: B"
                         ))}
                       </div>
 
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                          Attach Image / Diagram
+                        </label>
+                        <div className="flex items-center space-x-3">
+                          <label className="cursor-pointer flex items-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                            <ImageIcon className="w-3.5 h-3.5 mr-1" />
+                            <span>{manualQuestion.image ? "Change Image" : "Upload Image"}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleManualImageUpload}
+                            />
+                          </label>
+                          {manualQuestion.image && (
+                            <button
+                              type="button"
+                              onClick={() => setManualQuestion({ ...manualQuestion, image: "" })}
+                              className="text-xs text-rose-500 hover:text-rose-600 font-bold"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        {manualQuestion.image && (
+                          <div className="mt-2 max-w-[200px] border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                            <img src={manualQuestion.image} alt="Preview" className="w-full h-auto object-contain max-h-[120px]" />
+                          </div>
+                        )}
+                      </div>
+
                       <div className="flex justify-end pt-1">
                         <button
                           type="button"
@@ -1147,11 +1272,18 @@ Answer: B"
                       
                       <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-slate-50/50 dark:bg-slate-950/40 space-y-3 custom-scrollbar">
                         {parsedQuestions.map((q, idx) => (
-                          <div key={idx} className="text-xs space-y-1 border-b border-slate-200 dark:border-slate-800/80 pb-2 last:border-b-0">
+                          <div key={idx} className="text-xs space-y-2 border-b border-slate-200 dark:border-slate-800/80 pb-3 last:border-b-0">
                             <div className="flex justify-between items-start gap-2">
-                              <p className="font-bold text-slate-700 dark:text-slate-300">
-                                {idx + 1}. {q.question}
-                              </p>
+                              <div className="space-y-1">
+                                <p className="font-bold text-slate-700 dark:text-slate-300">
+                                  {idx + 1}. {q.question}
+                                </p>
+                                {(q.image || q.svgCode || q.svg_code) && (
+                                  <div className="max-w-[150px] my-1 border border-slate-200 dark:border-slate-800 rounded overflow-hidden">
+                                    <SvgDiagram svgCode={q.image || q.svgCode || q.svg_code} />
+                                  </div>
+                                )}
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1169,6 +1301,29 @@ Answer: B"
                                   {String.fromCharCode(65 + oIdx)}) {opt}
                                 </span>
                               ))}
+                            </div>
+                            
+                            {/* Inline edit image for existing items */}
+                            <div className="flex items-center space-x-3 pt-1 border-t border-dashed border-slate-200 dark:border-slate-800/50 pl-2">
+                              <label className="cursor-pointer text-[9px] font-bold uppercase tracking-wider text-slate-400 hover:text-emerald-500 flex items-center space-x-1">
+                                <ImageIcon className="w-3 h-3 mr-0.5" />
+                                <span>{q.image || q.svgCode || q.svg_code ? "Replace Image" : "Attach Image"}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => handleQuestionListImageUpload(idx, e)}
+                                />
+                              </label>
+                              {(q.image || q.svgCode || q.svg_code) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveQuestionListImage(idx)}
+                                  className="text-[9px] font-bold uppercase tracking-wider text-rose-500 hover:text-rose-600"
+                                >
+                                  Remove Image
+                                </button>
+                              )}
                             </div>
                           </div>
                         ))}
