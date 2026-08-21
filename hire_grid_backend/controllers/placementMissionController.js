@@ -850,7 +850,7 @@ exports.updateMissionCM = async (req, res) => {
       `UPDATE modules 
        SET title = $1, description = $2, time_limit = $3, total_marks = $4,
            marks_per_question = $5, negative_marks = $6, is_active = $7, cycle_id = $8,
-           publication_status = $9, start_time = $10, end_time = $11, updated_at = CURRENT_TIMESTAMP
+           publication_status = $9, start_time = $10, end_time = $11
        WHERE id = $12`,
       [
         title,
