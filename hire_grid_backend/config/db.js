@@ -645,6 +645,31 @@ async function initDb() {
         console.error("Failed to run Placement Mission migration v2:", errV2.message);
       }
     }
+
+    // --- Draft / Publish v3 Migrations ---
+    const migrationCheckV3 = await pool.query(`SELECT 1 FROM schema_migrations WHERE version = 'v3'`);
+    if (migrationCheckV3.rows.length === 0) {
+      console.log("Running Draft / Publish schema migrations (v3)...");
+      try {
+        await pool.query(`
+          ALTER TABLE modules ADD COLUMN IF NOT EXISTS publication_status VARCHAR(50) DEFAULT 'PUBLISHED';
+          ALTER TABLE modules ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+          ALTER TABLE companies ADD COLUMN IF NOT EXISTS publication_status VARCHAR(50) DEFAULT 'PUBLISHED';
+          ALTER TABLE exams ADD COLUMN IF NOT EXISTS publication_status VARCHAR(50) DEFAULT 'PUBLISHED';
+          ALTER TABLE hierarchy_nodes ADD COLUMN IF NOT EXISTS publication_status VARCHAR(50) DEFAULT 'PUBLISHED';
+
+          CREATE INDEX IF NOT EXISTS idx_modules_pub_status ON modules(publication_status);
+          CREATE INDEX IF NOT EXISTS idx_modules_time_range ON modules(start_time, end_time);
+          CREATE INDEX IF NOT EXISTS idx_companies_pub_status ON companies(publication_status);
+          CREATE INDEX IF NOT EXISTS idx_exams_pub_status ON exams(publication_status);
+          CREATE INDEX IF NOT EXISTS idx_hierarchy_nodes_pub_status ON hierarchy_nodes(publication_status);
+        `);
+        await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v3') ON CONFLICT DO NOTHING`);
+        console.log("Draft / Publish schema migrations (v3) run successfully.");
+      } catch (errV3) {
+        console.error("Failed to run Draft/Publish migration v3:", errV3.message);
+      }
+    }
   } catch (err) {
     console.error("Database initialization failed:", err.message);
   }

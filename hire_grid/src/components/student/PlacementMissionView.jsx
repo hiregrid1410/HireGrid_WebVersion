@@ -7,6 +7,8 @@ export function PlacementMissionView({ currentUser, onStartModule }) {
   const [activeSubTab, setActiveSubTab] = useState("missions"); // 'missions' | 'leaderboard'
   const [loading, setLoading] = useState(true);
   const [missions, setMissions] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [missionsFilter, setMissionsFilter] = useState("active");
   const [leaderboard, setLeaderboard] = useState([]);
   const [cycleInfo, setCycleInfo] = useState(null);
   const [isPremiumLocked, setIsPremiumLocked] = useState(false);
@@ -17,6 +19,7 @@ export function PlacementMissionView({ currentUser, onStartModule }) {
       const res = await api.get("/placement-mission/missions");
       if (res.success) {
         setMissions(res.missions || []);
+        setHistory(res.history || []);
         setCycleInfo(res.cycle || null);
         setIsPremiumLocked(false);
       }
@@ -85,6 +88,14 @@ export function PlacementMissionView({ currentUser, onStartModule }) {
     }
   };
 
+  const formatDateTime = (timestamp) => {
+    if (!timestamp) return "";
+    return new Date(Number(timestamp)).toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Tab Navigation header */}
@@ -143,7 +154,6 @@ export function PlacementMissionView({ currentUser, onStartModule }) {
               </p>
               <button
                 onClick={() => {
-                  // Trigger navigation or activeTab redirect to purchase plans
                   window.location.hash = "#plans";
                   const plansItem = document.querySelector('[label="Premium Plans"]');
                   if (plansItem) plansItem.click();
@@ -154,7 +164,7 @@ export function PlacementMissionView({ currentUser, onStartModule }) {
               </button>
             </div>
           </div>
-        ) : missions.length === 0 ? (
+        ) : (missions.length === 0 && history.length === 0) ? (
           <div className="text-center py-16 glass-panel rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-500">
             <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="text-lg font-bold">No active mission modules found for this cycle.</p>
@@ -162,81 +172,144 @@ export function PlacementMissionView({ currentUser, onStartModule }) {
           </div>
         ) : (
           /* Premium Mission Modules List */
-          <div className="grid gap-6 sm:grid-cols-2">
-            {missions.map((m) => (
-              <div
-                key={m.id}
-                className="glass-panel rounded-2xl p-6 border border-slate-200 dark:border-slate-800/80 hover:border-emerald-500/30 transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${getStatusBadgeClass(m.status)}`}>
-                      {m.status.replace("_", " ")}
-                    </span>
-                    <div className="flex items-center text-slate-500 text-xs font-mono">
-                      <Timer className="w-4 h-4 mr-1 text-emerald-500" />
-                      <span>{m.time_limit} Mins</span>
+          <div className="space-y-6">
+            {history.length > 0 && (
+              <div className="flex space-x-4 border-b border-slate-200 dark:border-slate-800/80 pb-2">
+                <button
+                  onClick={() => setMissionsFilter("active")}
+                  className={`pb-2 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-all
+                    ${missionsFilter === "active"
+                      ? "border-emerald-500 text-emerald-500"
+                      : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    }`}
+                >
+                  Active ({missions.length})
+                </button>
+                <button
+                  onClick={() => setMissionsFilter("history")}
+                  className={`pb-2 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-all
+                    ${missionsFilter === "history"
+                      ? "border-emerald-500 text-emerald-500"
+                      : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    }`}
+                >
+                  Mission History ({history.length})
+                </button>
+              </div>
+            )}
+
+            {(missionsFilter === "active" ? missions : history).length === 0 ? (
+              <div className="text-center py-12 glass-panel rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-400">
+                <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm font-bold uppercase tracking-wider">No {missionsFilter} missions in this cycle.</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2 animate-in fade-in duration-200">
+                {(missionsFilter === "active" ? missions : history).map((m) => (
+                  <div
+                    key={m.id}
+                    className="glass-panel rounded-2xl p-6 border border-slate-200 dark:border-slate-800/80 hover:border-emerald-500/30 transition-all flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-4">
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${getStatusBadgeClass(m.status)}`}>
+                          {m.status.replace("_", " ")}
+                        </span>
+                        <div className="flex items-center text-slate-500 text-xs font-mono">
+                          <Timer className="w-4 h-4 mr-1 text-emerald-500" />
+                          <span>{m.timeLimit || m.time_limit} Mins</span>
+                        </div>
+                      </div>
+
+                      <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 mb-2 leading-tight uppercase">
+                        {m.title}
+                      </h3>
+                      
+                      {/* Mission Schedule Info */}
+                      {(m.startTime || m.endTime) && (
+                        <div className="text-[10px] font-mono text-slate-500 mb-4 space-y-0.5">
+                          {m.startTime && (
+                            <div>Starts: <span className="text-slate-700 dark:text-slate-300">{formatDateTime(m.startTime)}</span></div>
+                          )}
+                          {m.endTime && (
+                            <div>Ends: <span className="text-slate-700 dark:text-slate-300">{formatDateTime(m.endTime)}</span></div>
+                          )}
+                        </div>
+                      )}
+
+                      <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-6 whitespace-pre-wrap">
+                        {m.description || "Weekly Placement Mission Module. Complete to earn accuracy and speed XP."}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
+                      {m.status === "submitted" ? (
+                        <div className="flex flex-wrap gap-2 text-xs font-mono">
+                          <span className="text-slate-500">XP: <strong className="text-amber-400 font-bold">{m.attempt.xpEarned}</strong></span>
+                          <span className="text-slate-500">•</span>
+                          <span className="text-slate-500">Accuracy: <strong className="text-emerald-400 font-bold">{m.attempt.accuracy}%</strong></span>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-500 font-mono">
+                          <span>Questions: <strong className="text-emerald-400 font-bold">{m.questionCount}</strong></span>
+                        </div>
+                      )}
+
+                      {m.lifecycleStatus === "SCHEDULED" ? (
+                        <button
+                          disabled
+                          className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-500 font-bold rounded-xl text-xs uppercase tracking-wider cursor-not-allowed border border-slate-300 dark:border-slate-700"
+                        >
+                          Scheduled
+                        </button>
+                      ) : m.lifecycleStatus === "EXPIRED" && m.status !== "submitted" && m.status !== "active" ? (
+                        <span className="text-xs text-rose-500 font-bold uppercase tracking-wider flex items-center">
+                          <AlertTriangle className="w-4 h-4 mr-1" />
+                          Expired
+                        </span>
+                      ) : (
+                        <>
+                          {m.status === "not_started" && (
+                            <button
+                              onClick={() => onStartModule(m)}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-sm"
+                            >
+                              Start Attempt
+                            </button>
+                          )}
+                          {m.status === "active" && (
+                            <button
+                              onClick={() => onStartModule(m)}
+                              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-sm"
+                            >
+                              Resume Attempt
+                            </button>
+                          )}
+                          {m.status === "submitted" && (
+                            <span className="text-xs text-emerald-500 font-bold uppercase tracking-wider flex items-center">
+                              <ShieldCheck className="w-4 h-4 mr-1" />
+                              Completed
+                            </span>
+                          )}
+                          {m.status === "expired" && (
+                            <span className="text-xs text-rose-500 font-bold uppercase tracking-wider flex items-center">
+                              <AlertTriangle className="w-4 h-4 mr-1" />
+                              Expired
+                            </span>
+                          )}
+                          {m.status === "invalid" && (
+                            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center" title="Invalidated by Administrator">
+                              <HelpCircle className="w-4 h-4 mr-1" />
+                              Invalid
+                            </span>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
-
-                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 mb-2 leading-tight uppercase">
-                    {m.title}
-                  </h3>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-6 whitespace-pre-wrap">
-                    {m.description || "Weekly Placement Mission Module. Complete to earn accuracy and speed XP."}
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
-                  {m.status === "submitted" ? (
-                    <div className="flex flex-wrap gap-2 text-xs font-mono">
-                      <span className="text-slate-500">XP: <strong className="text-amber-400 font-bold">{m.attempt.xpEarned}</strong></span>
-                      <span className="text-slate-500">•</span>
-                      <span className="text-slate-500">Accuracy: <strong className="text-emerald-400 font-bold">{m.attempt.accuracy}%</strong></span>
-                    </div>
-                  ) : (
-                    <div className="text-xs text-slate-500 font-mono">
-                      <span>Questions: <strong className="text-emerald-400 font-bold">{m.questionCount}</strong></span>
-                    </div>
-                  )}
-
-                  {m.status === "not_started" && (
-                    <button
-                      onClick={() => onStartModule(m)}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-sm"
-                    >
-                      Start Attempt
-                    </button>
-                  )}
-                  {m.status === "active" && (
-                    <button
-                      onClick={() => onStartModule(m)}
-                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-sm"
-                    >
-                      Resume Attempt
-                    </button>
-                  )}
-                  {m.status === "submitted" && (
-                    <span className="text-xs text-emerald-500 font-bold uppercase tracking-wider flex items-center">
-                      <ShieldCheck className="w-4 h-4 mr-1" />
-                      Completed
-                    </span>
-                  )}
-                  {m.status === "expired" && (
-                    <span className="text-xs text-rose-500 font-bold uppercase tracking-wider flex items-center">
-                      <AlertTriangle className="w-4 h-4 mr-1" />
-                      Expired
-                    </span>
-                  )}
-                  {m.status === "invalid" && (
-                    <span className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center" title="Invalidated by Administrator">
-                      <HelpCircle className="w-4 h-4 mr-1" />
-                      Invalid
-                    </span>
-                  )}
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )
       ) : (

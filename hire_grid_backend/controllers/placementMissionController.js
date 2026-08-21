@@ -46,12 +46,14 @@ exports.getMissions = async (req, res) => {
     // 2. Fetch current active cycle
     const cycle = await getActiveCycle();
 
-    // 3. Fetch modules for active cycle
+    // 3. Fetch modules for active cycle (excluding draft modules)
     const modulesRes = await pool.query(
-      `SELECT m.id, m.title, m.description, m.time_limit, m.total_marks,
+      `SELECT m.id, m.title, m.description, m.time_limit AS "timeLimit", m.total_marks AS "totalMarks",
+              m.start_time AS "startTime", m.end_time AS "endTime", m.publication_status AS "publicationStatus",
               (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS "questionCount"
        FROM modules m
        WHERE m.is_placement_mission = TRUE AND m.is_active = TRUE AND m.cycle_id = $1
+         AND (m.publication_status = 'PUBLISHED' OR m.publication_status IS NULL)
        ORDER BY m.display_order ASC, m.created_at ASC`,
       [cycle.id]
     );
@@ -69,13 +71,17 @@ exports.getMissions = async (req, res) => {
       attemptsMap[a.module_id] = a;
     });
 
-    const missions = modulesRes.rows.map(m => {
+    const nowServerTime = Date.now();
+    const activeMissions = [];
+    const historyMissions = [];
+
+    modulesRes.rows.forEach(m => {
       const attempt = attemptsMap[m.id];
       let status = "not_started";
 
       if (attempt) {
         if (attempt.status === "active") {
-          if (Number(attempt.expires_at) < Date.now()) {
+          if (Number(attempt.expires_at) < nowServerTime) {
             status = "expired";
           } else {
             status = "active";
@@ -85,9 +91,21 @@ exports.getMissions = async (req, res) => {
         }
       }
 
-      return {
+      const start = m.startTime ? Number(m.startTime) : null;
+      const end = m.endTime ? Number(m.endTime) : null;
+      const isExpired = end !== null && nowServerTime > end;
+      
+      let lifecycle = 'ACTIVE';
+      if (start && nowServerTime < start) {
+        lifecycle = 'SCHEDULED';
+      } else if (isExpired) {
+        lifecycle = 'EXPIRED';
+      }
+
+      const missionItem = {
         ...m,
         status,
+        lifecycleStatus: lifecycle,
         attempt: attempt ? {
           score: attempt.score,
           xpEarned: attempt.xp_earned,
@@ -95,12 +113,19 @@ exports.getMissions = async (req, res) => {
           isValid: attempt.is_valid
         } : null
       };
+
+      if (isExpired) {
+        historyMissions.push(missionItem);
+      } else {
+        activeMissions.push(missionItem);
+      }
     });
 
     res.json({
       success: true,
       cycle: { id: cycle.id, name: cycle.name },
-      missions
+      missions: activeMissions,
+      history: historyMissions
     });
   } catch (err) {
     console.error("getMissions error:", err);
@@ -133,6 +158,19 @@ exports.startMissionAttempt = async (req, res) => {
       return res.status(404).json({ error: "Placement mission module not found or inactive." });
     }
     const moduleItem = modRes.rows[0];
+
+    // Server-side validity check
+    if (moduleItem.publication_status === 'DRAFT') {
+      return res.status(403).json({ error: "This placement mission is currently in draft." });
+    }
+    const nowServerTime = Date.now();
+    if (moduleItem.start_time && nowServerTime < Number(moduleItem.start_time)) {
+      return res.status(400).json({ error: "This placement mission has not started yet (Scheduled)." });
+    }
+    if (moduleItem.end_time && nowServerTime > Number(moduleItem.end_time)) {
+      return res.status(400).json({ error: "This placement mission has expired." });
+    }
+
     const timeLimitMinutes = Number(moduleItem.time_limit) || 30;
     const timeLimitMs = timeLimitMinutes * 60 * 1000;
 
@@ -712,7 +750,33 @@ exports.getMissionsCM = async (req, res) => {
        WHERE m.is_placement_mission = TRUE
        ORDER BY m.created_at DESC`
     );
-    res.json({ success: true, modules: result.rows });
+
+    // Compute lifecycle status for CM view
+    const now = Date.now();
+    const modulesWithStatus = result.rows.map(m => {
+      let lifecycle = 'ACTIVE';
+      if (m.publication_status === 'DRAFT') {
+        lifecycle = 'DRAFT';
+      } else {
+        const start = m.start_time ? Number(m.start_time) : null;
+        const end = m.end_time ? Number(m.end_time) : null;
+        if (start && now < start) {
+          lifecycle = 'SCHEDULED';
+        } else if (end && now > end) {
+          lifecycle = 'EXPIRED';
+        }
+      }
+
+      return {
+        ...m,
+        lifecycleStatus: lifecycle,
+        publicationStatus: m.publication_status,
+        startTime: m.start_time,
+        endTime: m.end_time
+      };
+    });
+
+    res.json({ success: true, modules: modulesWithStatus });
   } catch (err) {
     console.error("getMissionsCM error:", err);
     res.status(500).json({ error: "Failed to load mission modules." });
@@ -725,7 +789,7 @@ exports.createMissionCM = async (req, res) => {
     return res.status(403).json({ error: "Unauthorized access." });
   }
 
-  const { title, description, timeLimit, totalMarks, marksPerQuestion, negativeMarks, is_active } = req.body;
+  const { title, description, timeLimit, totalMarks, marksPerQuestion, negativeMarks, is_active, publicationStatus, startTime, endTime } = req.body;
   if (!title) {
     return res.status(400).json({ error: "Module title is required." });
   }
@@ -737,8 +801,8 @@ exports.createMissionCM = async (req, res) => {
 
     await pool.query(
       `INSERT INTO modules 
-       (id, title, description, time_limit, total_marks, marks_per_question, negative_marks, is_active, is_placement_mission, cycle_id, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10)`,
+       (id, title, description, time_limit, total_marks, marks_per_question, negative_marks, is_active, is_placement_mission, cycle_id, created_by, publication_status, start_time, end_time)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13)`,
       [
         id,
         title,
@@ -749,7 +813,10 @@ exports.createMissionCM = async (req, res) => {
         Number(negativeMarks) || 0.5,
         is_active !== undefined ? !!is_active : true,
         cycle.id,
-        adminName
+        adminName,
+        publicationStatus || 'DRAFT',
+        startTime ? Number(startTime) : null,
+        endTime ? Number(endTime) : null
       ]
     );
 
@@ -767,7 +834,7 @@ exports.updateMissionCM = async (req, res) => {
   }
 
   const { id } = req.params;
-  const { title, description, timeLimit, totalMarks, marksPerQuestion, negativeMarks, is_active, cycle_id } = req.body;
+  const { title, description, timeLimit, totalMarks, marksPerQuestion, negativeMarks, is_active, cycle_id, publicationStatus, startTime, endTime } = req.body;
 
   if (!title) {
     return res.status(400).json({ error: "Module title is required." });
@@ -782,8 +849,9 @@ exports.updateMissionCM = async (req, res) => {
     await pool.query(
       `UPDATE modules 
        SET title = $1, description = $2, time_limit = $3, total_marks = $4,
-           marks_per_question = $5, negative_marks = $6, is_active = $7, cycle_id = $8, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $9`,
+           marks_per_question = $5, negative_marks = $6, is_active = $7, cycle_id = $8,
+           publication_status = $9, start_time = $10, end_time = $11, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $12`,
       [
         title,
         description || "",
@@ -793,6 +861,9 @@ exports.updateMissionCM = async (req, res) => {
         Number(negativeMarks) || 0.5,
         is_active !== undefined ? !!is_active : true,
         cycle_id || null,
+        publicationStatus || 'DRAFT',
+        startTime ? Number(startTime) : null,
+        endTime ? Number(endTime) : null,
         id
       ]
     );

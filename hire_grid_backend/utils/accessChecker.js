@@ -99,6 +99,11 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
     return { allowed: false, reason: "Module not found." };
   }
 
+  // Intercept Draft status for students
+  if (item && item.publication_status === 'DRAFT' && role !== "admin" && role !== "content_manager") {
+    return { allowed: false, reason: "This content is currently in draft and is not visible to students." };
+  }
+
   // 4. Check if Item is Free or Demo (and verify plan inclusions)
   if (item) {
     const accessMode = item.access_mode || "inherit";
