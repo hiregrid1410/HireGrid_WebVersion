@@ -26,6 +26,8 @@ import {
   Maximize,
   ShieldAlert,
   AlertTriangle,
+  X,
+  ListFilter,
 } from "lucide-react";
 import { ThemeToggle } from "../../components/common/ThemeToggle";
 import { useTheme } from "../../ThemeContext";
@@ -77,6 +79,39 @@ export default function StudentDashboard() {
   // Anti-Cheating & Auto-Fullscreen System
   const [warningCount, setWarningCount] = useState(0);
   const [showWarningModal, setShowWarningModal] = useState(false);
+  const [showNavigator, setShowNavigator] = useState(false);
+  const [visitedQuestions, setVisitedQuestions] = useState(new Set());
+
+  useEffect(() => {
+    if (activeModule) {
+      setVisitedQuestions(new Set());
+    }
+  }, [activeModule?.id]);
+
+  useEffect(() => {
+    if (activeModule && activeModule.questions && activeModule.questions[currentQuestionIndex]) {
+      const qId = activeModule.questions[currentQuestionIndex].id;
+      setVisitedQuestions(prev => {
+        const next = new Set(prev);
+        next.add(qId);
+        return next;
+      });
+    }
+  }, [activeModule, currentQuestionIndex]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowNavigator(false);
+      }
+    };
+    if (showNavigator) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showNavigator]);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [attemptId, setAttemptId] = useState(null);
@@ -2342,6 +2377,20 @@ export default function StudentDashboard() {
                           text-align: center;
                           white-space: nowrap;
                         }
+                        @keyframes fadeIn {
+                          from { opacity: 0; }
+                          to { opacity: 1; }
+                        }
+                        @keyframes slideInRight {
+                          from { transform: translateX(100%); }
+                          to { transform: translateX(0); }
+                        }
+                        .animate-fade-in {
+                          animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                        }
+                        .animate-slide-in-right {
+                          animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                        }
                         @media print {
                           body {
                             display: none !important;
@@ -2406,10 +2455,19 @@ export default function StudentDashboard() {
                           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                             {activeModule.title}
                           </h2>
-                          <p className="text-sm text-emerald-400/80 font-medium mt-1">
-                            Question {currentQuestionIndex + 1} of{" "}
-                            {activeModule.questions.length}
-                          </p>
+                          <div className="flex items-center space-x-3 mt-1">
+                            <p className="text-sm text-emerald-400/80 font-medium font-mono">
+                              Question {currentQuestionIndex + 1} of{" "}
+                              {activeModule.questions.length}
+                            </p>
+                            <button
+                              onClick={() => setShowNavigator(true)}
+                              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-emerald-500 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors inline-flex items-center space-x-1.5 border border-slate-200 dark:border-slate-700"
+                            >
+                              <ListFilter className="w-3.5 h-3.5" />
+                              <span>Questions</span>
+                            </button>
+                          </div>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3">
@@ -2448,36 +2506,19 @@ export default function StudentDashboard() {
                       </div>
 
                       <div className="mb-8">
-                        {/* Grid Navigation */}
-                        <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 mb-8">
-                          {activeModule.questions.map((q, idx) => {
-                            const isAnswered = answers[q.id] !== undefined;
-                            const isReview = markedForReview[q.id];
-                            const isCurrent = currentQuestionIndex === idx;
-
-                            let bgClass =
-                              "glass-panel border-emerald-500/20 text-emerald-400/80";
-                            if (isCurrent) {
-                              bgClass =
-                                "border-emerald-600 bg-emerald-50 dark:bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-200 dark:ring-emerald-800";
-                            } else if (isReview) {
-                              bgClass =
-                                "border-amber-500 bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300";
-                            } else if (isAnswered) {
-                              bgClass =
-                                "border-emerald-500 bg-emerald-50 dark:bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300";
-                            }
-
-                            return (
-                              <button
-                                key={q.id}
-                                onClick={() => setCurrentQuestionIndex(idx)}
-                                className={`h-10 rounded text-sm font-bold border-2 transition-colors ${bgClass}`}
-                              >
-                                {idx + 1}
-                              </button>
-                            );
-                          })}
+                        <div className="mb-6 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
+                          <div className="flex items-center space-x-3 flex-1 max-w-md mr-4">
+                            <span>Progress</span>
+                            <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300"
+                                style={{ width: `${(Object.keys(answers).length / activeModule.questions.length) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                          <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                            {Object.keys(answers).length} / {activeModule.questions.length} Questions Completed
+                          </span>
                         </div>
 
                         <div className="flex items-start justify-between mb-6">
@@ -2631,6 +2672,148 @@ export default function StudentDashboard() {
                           )}
                         </div>
                       </div>
+
+                      {/* Question Navigator Drawer Overlay */}
+                      {showNavigator && activeModule && (
+                        <div 
+                          className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-sm animate-fade-in"
+                          onClick={() => setShowNavigator(false)}
+                        >
+                          <div 
+                            className="w-full max-w-[360px] h-full bg-slate-900 border-l border-emerald-500/20 shadow-2xl flex flex-col p-6 text-white animate-slide-in-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {/* Header */}
+                            <div className="flex justify-between items-center pb-4 border-b border-emerald-500/20">
+                              <div>
+                                <h3 className="text-lg font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
+                                  <ListFilter className="w-5 h-5 text-emerald-500" />
+                                  <span>Question Navigator</span>
+                                </h3>
+                              </div>
+                              <button 
+                                onClick={() => setShowNavigator(false)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors"
+                              >
+                                <X className="w-6 h-6" />
+                              </button>
+                            </div>
+
+                            {/* Progress Stats */}
+                            <div className="py-4 space-y-3">
+                              {(() => {
+                                const total = activeModule.questions.length;
+                                const answered = Object.keys(answers).length;
+                                const marked = Object.keys(markedForReview).filter(k => markedForReview[k]).length;
+                                const remaining = total - answered;
+                                const progressPct = total > 0 ? (answered / total) * 100 : 0;
+
+                                return (
+                                  <>
+                                    <div className="flex justify-between text-xs font-bold text-slate-400">
+                                      <span>{answered} Answered</span>
+                                      <span>{remaining} Remaining</span>
+                                    </div>
+
+                                    {/* Progress Bar */}
+                                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+                                      <div 
+                                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300"
+                                        style={{ width: `${progressPct}%` }}
+                                      />
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-2 pt-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">
+                                      <div className="bg-slate-800/40 p-1.5 rounded-lg border border-slate-700/50">
+                                        <span className="block text-emerald-400 text-sm font-bold font-mono">{answered}</span>
+                                        <span>Answered</span>
+                                      </div>
+                                      <div className="bg-slate-800/40 p-1.5 rounded-lg border border-slate-700/50">
+                                        <span className="block text-amber-400 text-sm font-bold font-mono">{marked}</span>
+                                        <span>Review</span>
+                                      </div>
+                                      <div className="bg-slate-800/40 p-1.5 rounded-lg border border-slate-700/50">
+                                        <span className="block text-slate-300 text-sm font-bold font-mono">{remaining}</span>
+                                        <span>Remaining</span>
+                                      </div>
+                                    </div>
+                                  </>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Questions Grid */}
+                            <div className="flex-1 overflow-y-auto pr-1 my-2 custom-scrollbar">
+                              <div className="grid grid-cols-5 gap-2.5 p-1">
+                                {activeModule.questions.map((q, idx) => {
+                                  const isAnswered = answers[q.id] !== undefined;
+                                  const isReview = markedForReview[q.id];
+                                  const isCurrent = currentQuestionIndex === idx;
+                                  const isVisited = visitedQuestions.has(q.id);
+
+                                  let bgClass = "bg-slate-800/40 border-slate-700/80 text-slate-400 hover:border-slate-500 hover:text-white";
+
+                                  if (isCurrent) {
+                                    bgClass = "border-emerald-500 bg-emerald-500/10 text-emerald-400 ring-2 ring-emerald-500/30 font-black shadow-[0_0_8px_rgba(16,185,129,0.2)]";
+                                  } else if (isReview) {
+                                    bgClass = "border-amber-500 bg-amber-500/10 text-amber-400 font-bold";
+                                  } else if (isAnswered) {
+                                    bgClass = "border-emerald-500/60 bg-emerald-500/20 text-emerald-300 font-bold";
+                                  } else if (isVisited) {
+                                    bgClass = "border-slate-500 bg-slate-800/60 text-slate-300";
+                                  }
+
+                                  return (
+                                    <button
+                                      key={q.id}
+                                      onClick={() => {
+                                        setCurrentQuestionIndex(idx);
+                                        if (window.innerWidth < 768) {
+                                          setShowNavigator(false);
+                                        }
+                                      }}
+                                      className={`h-11 rounded-xl text-xs font-semibold border transition-all flex flex-col items-center justify-center relative ${bgClass}`}
+                                      aria-current={isCurrent ? "true" : undefined}
+                                      title={`Go to Question ${idx + 1}`}
+                                    >
+                                      <span>{idx + 1}</span>
+                                      {isReview && (
+                                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Legend */}
+                            <div className="pt-4 border-t border-emerald-500/20 space-y-2 text-xs font-semibold text-slate-400">
+                              <div className="grid grid-cols-2 gap-2 text-[10px] uppercase tracking-wider">
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-3.5 h-3.5 rounded bg-emerald-500/20 border border-emerald-500/60" />
+                                  <span>Answered</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-3.5 h-3.5 rounded bg-slate-800/40 border border-slate-700/80" />
+                                  <span>Not Answered</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-3.5 h-3.5 rounded bg-amber-500/10 border border-amber-500" />
+                                  <span>Review</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-3.5 h-3.5 rounded bg-slate-800/60 border border-slate-500" />
+                                  <span>Visited</span>
+                                </div>
+                                <div className="col-span-2 flex items-center space-x-2">
+                                  <span className="w-3.5 h-3.5 rounded bg-emerald-500/10 border border-emerald-500 ring-2 ring-emerald-500/30" />
+                                  <span>Current Question</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
