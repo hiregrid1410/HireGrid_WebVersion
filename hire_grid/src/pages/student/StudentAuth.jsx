@@ -119,7 +119,7 @@ export default function StudentAuth() {
 
         const res = await api.post("/auth/signup", {
           name: formData.name,
-          email: formData.email,
+          email: formData.email.trim(),
           password: formData.password,
           branch: formData.branch,
           semester: formData.semester,
@@ -143,7 +143,7 @@ export default function StudentAuth() {
 
         try {
           const res = await api.post("/auth/login", {
-            email: formData.email,
+            email: formData.email.trim(),
             password: formData.password,
             isAdminLogin: false,
             deviceId: getDeviceId(),
