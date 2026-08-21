@@ -83,6 +83,16 @@ const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DES
 // ================= MODULES =================
 exports.getModules = async (req, res) => {
   try {
+    let role = "student";
+    if (req.user) {
+      role = req.user.role || "student";
+    }
+
+    let filterClause = "";
+    if (role !== "admin" && role !== "content_manager") {
+      filterClause = " WHERE (m.publication_status = 'PUBLISHED' OR m.publication_status IS NULL)";
+    }
+
     const baseQuery = `
       SELECT 
         m.id, 
@@ -106,8 +116,10 @@ exports.getModules = async (req, res) => {
         m.created_at AS "createdAt",
         m.created_by AS "createdBy",
         m.branch_id AS "branchId",
+        m.publication_status AS "publicationStatus",
         (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS "questionCount"
       FROM modules m
+      ${filterClause}
     `;
     const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(m.display_order, 999999) ASC, m.created_at ASC');
     const result = await pool.query(sql, values);
@@ -145,9 +157,10 @@ exports.saveModules = async (req, res) => {
           description, category, time_limit, pass_percentage,
           marks_per_question, negative_marks, total_marks,
           access_mode, access_type, is_premium, price,
-          display_order, is_master, sub_tests, created_by, branch_id
+          display_order, is_master, sub_tests, created_by, branch_id,
+          publication_status
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
          ON CONFLICT (id) DO UPDATE 
          SET title = EXCLUDED.title, 
              module_type = EXCLUDED.module_type, 
@@ -167,7 +180,8 @@ exports.saveModules = async (req, res) => {
              is_master = EXCLUDED.is_master,
              sub_tests = EXCLUDED.sub_tests,
              created_by = COALESCE(modules.created_by, EXCLUDED.created_by),
-             branch_id = EXCLUDED.branch_id`,
+             branch_id = EXCLUDED.branch_id,
+             publication_status = EXCLUDED.publication_status`,
         [
           m.id || crypto.randomUUID(), 
           m.title, 
@@ -188,7 +202,8 @@ exports.saveModules = async (req, res) => {
           m.isMaster !== undefined ? m.isMaster : false,
           JSON.stringify(m.subTestests || m.subTests || []),
           m.createdBy || null,
-          m.branchId || m.branch_id || null
+          m.branchId || m.branch_id || null,
+          m.publicationStatus || m.publication_status || 'PUBLISHED'
         ]
       );
 
@@ -457,6 +472,16 @@ exports.getStats = async (req, res) => {
 // ================= COMPANIES =================
 exports.getCompanies = async (req, res) => {
   try {
+    let role = "student";
+    if (req.user) {
+      role = req.user.role || "student";
+    }
+
+    let filterClause = "";
+    if (role !== "admin" && role !== "content_manager") {
+      filterClause = " WHERE (publication_status = 'PUBLISHED' OR publication_status IS NULL)";
+    }
+
     const baseQuery = `
       SELECT 
         id, 
@@ -469,8 +494,10 @@ exports.getCompanies = async (req, res) => {
         sell_type AS "sellType",
         display_order AS "displayOrder",
         created_at AS "createdAt",
-        created_by AS "createdBy"
+        created_by AS "createdBy",
+        publication_status AS "publicationStatus"
       FROM companies
+      ${filterClause}
     `;
     const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(display_order, 999999) ASC, created_at ASC');
     const result = await pool.query(sql, values);
@@ -481,15 +508,15 @@ exports.getCompanies = async (req, res) => {
 };
 
 exports.saveCompany = async (req, res) => {
-  const { id, name, description, logoUrl, accessType, isPremium, price, sellType, displayOrder, createdAt, createdBy } = req.body;
+  const { id, name, description, logoUrl, accessType, isPremium, price, sellType, displayOrder, createdAt, createdBy, publicationStatus } = req.body;
   const compId = id || crypto.randomUUID();
   const targetDisplayOrder = displayOrder !== undefined && displayOrder !== null ? displayOrder : Math.floor(Date.now() / 1000);
   try {
     await pool.query(
       `INSERT INTO companies (
-        id, name, description, logo_url, access_type, is_premium, price, sell_type, display_order, created_at, created_by
+        id, name, description, logo_url, access_type, is_premium, price, sell_type, display_order, created_at, created_by, publication_status
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        ON CONFLICT (id) DO UPDATE
        SET name = EXCLUDED.name, 
            description = EXCLUDED.description, 
@@ -500,7 +527,8 @@ exports.saveCompany = async (req, res) => {
            sell_type = EXCLUDED.sell_type,
            display_order = EXCLUDED.display_order,
            created_at = EXCLUDED.created_at,
-           created_by = COALESCE(companies.created_by, EXCLUDED.created_by)`,
+           created_by = COALESCE(companies.created_by, EXCLUDED.created_by),
+           publication_status = EXCLUDED.publication_status`,
       [
         compId, 
         name, 
@@ -512,7 +540,8 @@ exports.saveCompany = async (req, res) => {
         sellType || 'pack',
         targetDisplayOrder,
         createdAt || Date.now(),
-        createdBy || null
+        createdBy || null,
+        publicationStatus || 'PUBLISHED'
       ]
     );
     dbCache.clear();
@@ -536,7 +565,19 @@ exports.deleteCompany = async (req, res) => {
 // ================= EXAMS =================
 exports.getExams = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM exams ORDER BY created_at DESC");
+    let role = "student";
+    if (req.user) {
+      role = req.user.role || "student";
+    }
+
+    let result;
+    if (role === "admin" || role === "content_manager") {
+      result = await pool.query("SELECT *, publication_status AS \"publicationStatus\" FROM exams ORDER BY created_at DESC");
+    } else {
+      result = await pool.query(
+        "SELECT *, publication_status AS \"publicationStatus\" FROM exams WHERE publication_status = 'PUBLISHED' OR publication_status IS NULL ORDER BY created_at DESC"
+      );
+    }
     res.json({ success: true, exams: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -544,15 +585,17 @@ exports.getExams = async (req, res) => {
 };
 
 exports.saveExam = async (req, res) => {
-  const { id, title, description } = req.body;
+  const { id, title, description, publicationStatus } = req.body;
   const examId = id || crypto.randomUUID();
   try {
     await pool.query(
-      `INSERT INTO exams (id, title, description)
-       VALUES ($1, $2, $3)
+      `INSERT INTO exams (id, title, description, publication_status)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (id) DO UPDATE
-       SET title = EXCLUDED.title, description = EXCLUDED.description`,
-      [examId, title, description || null]
+       SET title = EXCLUDED.title, 
+           description = EXCLUDED.description,
+           publication_status = EXCLUDED.publication_status`,
+      [examId, title, description || null, publicationStatus || 'PUBLISHED']
     );
     res.json({ success: true });
   } catch (err) {
@@ -695,6 +738,16 @@ exports.updatePaymentRequest = async (req, res) => {
 // ================= HIERARCHY NODES =================
 exports.getHierarchyNodes = async (req, res) => {
   try {
+    let role = "student";
+    if (req.user) {
+      role = req.user.role || "student";
+    }
+
+    let filterClause = "";
+    if (role !== "admin" && role !== "content_manager") {
+      filterClause = " WHERE (publication_status = 'PUBLISHED' OR publication_status IS NULL)";
+    }
+
     const baseQuery = `
       SELECT 
         id, 
@@ -707,8 +760,10 @@ exports.getHierarchyNodes = async (req, res) => {
         sell_type AS "sellType",
         display_order AS "displayOrder",
         created_at AS "createdAt",
-        created_by AS "createdBy"
+        created_by AS "createdBy",
+        publication_status AS "publicationStatus"
       FROM hierarchy_nodes
+      ${filterClause}
     `;
     const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(display_order, 999999) ASC, created_at ASC');
     const result = await pool.query(sql, values);
@@ -719,15 +774,15 @@ exports.getHierarchyNodes = async (req, res) => {
 };
 
 exports.saveHierarchyNode = async (req, res) => {
-  const { id, name, type, parentId, description, accessType, isPremium, sellType, displayOrder, createdAt, createdBy } = req.body;
+  const { id, name, type, parentId, description, accessType, isPremium, sellType, displayOrder, createdAt, createdBy, publicationStatus } = req.body;
   const nodeId = id || crypto.randomUUID();
   const targetDisplayOrder = displayOrder !== undefined && displayOrder !== null ? displayOrder : Math.floor(Date.now() / 1000);
   try {
     await pool.query(
       `INSERT INTO hierarchy_nodes (
-        id, name, type, parent_id, description, access_type, is_premium, sell_type, display_order, created_at, created_by
+        id, name, type, parent_id, description, access_type, is_premium, sell_type, display_order, created_at, created_by, publication_status
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        ON CONFLICT (id) DO UPDATE
        SET name = EXCLUDED.name, 
            type = EXCLUDED.type, 
@@ -738,7 +793,8 @@ exports.saveHierarchyNode = async (req, res) => {
            sell_type = EXCLUDED.sell_type,
            display_order = EXCLUDED.display_order,
            created_at = EXCLUDED.created_at,
-           created_by = COALESCE(hierarchy_nodes.created_by, EXCLUDED.created_by)`,
+           created_by = COALESCE(hierarchy_nodes.created_by, EXCLUDED.created_by),
+           publication_status = EXCLUDED.publication_status`,
       [
         nodeId, 
         name, 
@@ -750,7 +806,8 @@ exports.saveHierarchyNode = async (req, res) => {
         sellType || 'pack', 
         targetDisplayOrder,
         createdAt || Date.now(),
-        createdBy || null
+        createdBy || null,
+        publicationStatus || 'PUBLISHED'
       ]
     );
     res.json({ success: true });
@@ -1350,8 +1407,15 @@ exports.getModuleQuestions = async (req, res) => {
     }
 
     // Force hide correct answers for placement mission modules for students
-    const modCheck = await pool.query("SELECT is_placement_mission FROM modules WHERE id = $1", [id]);
-    const isPlacementMission = modCheck.rows.length > 0 && !!modCheck.rows[0].is_placement_mission;
+    const modCheck = await pool.query("SELECT is_placement_mission, publication_status FROM modules WHERE id = $1", [id]);
+    if (modCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Module not found." });
+    }
+    const isPlacementMission = !!modCheck.rows[0].is_placement_mission;
+    const publicationStatus = modCheck.rows[0].publication_status || 'PUBLISHED';
+    if (publicationStatus === 'DRAFT' && role !== "admin" && role !== "content_manager") {
+      return res.status(403).json({ error: "This module is currently in draft." });
+    }
     if (isPlacementMission && role !== "admin" && role !== "content_manager") {
       includeCorrectAnswers = false;
     }

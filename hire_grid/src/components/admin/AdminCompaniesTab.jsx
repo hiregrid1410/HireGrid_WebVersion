@@ -36,6 +36,7 @@ export function AdminCompaniesTab({
   const [price, setPrice] = useState(99);
   const [sellType, setSellType] = useState("pack");
   const [displayOrder, setDisplayOrder] = useState(0);
+  const [publicationStatus, setPublicationStatus] = useState("PUBLISHED");
 
   const fetchCompanies = async () => {
     try {
@@ -132,11 +133,12 @@ export function AdminCompaniesTab({
     e.target.value = "";
   };
 
-  const handleSave = async () => {
+  const handleSave = async (statusOverride) => {
     if (!name) return;
     const safeUUID = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substring(2)));
     const companyId = editingCompanyId || safeUUID();
     const existing = companies.find((c) => c.id === editingCompanyId);
+    const finalStatus = statusOverride || publicationStatus;
 
     try {
       let finalAccessType = "free";
@@ -156,6 +158,7 @@ export function AdminCompaniesTab({
             price: isPurchasable ? price : 0,
             sellType,
             displayOrder,
+            publicationStatus: finalStatus,
             createdAt: existing ? existing.createdAt : Date.now(),
             createdBy: existing ? (existing.createdBy || null) : userName,
           }),
@@ -178,6 +181,7 @@ export function AdminCompaniesTab({
       setIsPurchasable(false);
       setPrice(99);
       setSellType("pack");
+      setPublicationStatus("PUBLISHED");
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, "companies");
     }
@@ -222,6 +226,7 @@ export function AdminCompaniesTab({
     setPrice(c.price || 99);
     setSellType(c.sellType || "pack");
     setDisplayOrder(c.displayOrder || 0);
+    setPublicationStatus(c.publicationStatus || c.publication_status || "PUBLISHED");
   };
 
   if (activeCompany) {
@@ -480,14 +485,47 @@ export function AdminCompaniesTab({
             />
           </div>
 
-          <button
-            onClick={handleSave}
-            disabled={!name}
-            className="w-full mt-4 flex justify-center items-center py-2.5 px-4 rounded-xl shadow-sm text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-          >
-            <Save className="w-5 h-5 mr-2" />
-            {editingCompanyId ? "Update Company" : "Save Company"}
-          </button>
+          {/* Publication Status */}
+          <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 mt-4">
+            <label className="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
+              Status:
+            </label>
+            <select
+              value={publicationStatus}
+              onChange={(e) => setPublicationStatus(e.target.value)}
+              className={`px-4 py-2 rounded-lg border font-bold text-sm uppercase tracking-wider outline-none transition-colors ${
+                publicationStatus === "DRAFT"
+                  ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+                  : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400"
+              }`}
+            >
+              <option value="DRAFT">Draft (Admin Only)</option>
+              <option value="PUBLISHED">Published (Live)</option>
+            </select>
+            {publicationStatus === "DRAFT" && (
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                Students won't see this company
+              </span>
+            )}
+          </div>
+
+          <div className="flex gap-3 mt-4">
+            <button
+              onClick={() => handleSave("DRAFT")}
+              disabled={!name}
+              className="flex-1 flex justify-center items-center py-2.5 px-4 rounded-xl shadow-sm text-sm font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 disabled:opacity-50 transition-colors"
+            >
+              Save as Draft
+            </button>
+            <button
+              onClick={() => handleSave("PUBLISHED")}
+              disabled={!name}
+              className="flex-1 flex justify-center items-center py-2.5 px-4 rounded-xl shadow-sm text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              <Save className="w-5 h-5 mr-2" />
+              {editingCompanyId ? "Update & Publish" : "Publish Company"}
+            </button>
+          </div>
         </div>
       )}{" "}
       {!isCreating && (
@@ -527,26 +565,35 @@ export function AdminCompaniesTab({
                       </span>
                     )}
                   </div>
-                  <div className="flex space-x-1 z-10">
-                    <button
-                      onClick={(e) => handleEdit(c, e)}
-                      className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isContentManager && c.createdBy && c.createdBy !== userName) {
-                          showToast("You are not authorized to delete this company. Only the creator or a Super Admin can delete it.", "warning");
-                          return;
-                        }
-                        setDeleteId(c.id);
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="flex items-center space-x-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                      (c.publicationStatus || c.publication_status || "PUBLISHED") === "DRAFT"
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                    }`}>
+                      {(c.publicationStatus || c.publication_status || "PUBLISHED") === "DRAFT" ? "Draft" : "Published"}
+                    </span>
+                    <div className="flex space-x-1 z-10">
+                      <button
+                        onClick={(e) => handleEdit(c, e)}
+                        className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isContentManager && c.createdBy && c.createdBy !== userName) {
+                            showToast("You are not authorized to delete this company. Only the creator or a Super Admin can delete it.", "warning");
+                            return;
+                          }
+                          setDeleteId(c.id);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
                 {c.logoUrl ? (

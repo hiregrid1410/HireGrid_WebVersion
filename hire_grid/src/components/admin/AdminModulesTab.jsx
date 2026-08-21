@@ -63,6 +63,7 @@ export function AdminModulesTab({
   const [accessType, setAccessType] = useState("free");
   const [price, setPrice] = useState(0);
   const [displayOrder, setDisplayOrder] = useState(0);
+  const [publicationStatus, setPublicationStatus] = useState("PUBLISHED");
 
   // Universal Marking System Default Params
   const [marksPerQuestion, setMarksPerQuestion] = useState(1);
@@ -651,7 +652,7 @@ export function AdminModulesTab({
     setIsImportPreviewOpen(false);
   };
 
-  const handleSaveModule = async () => {
+  const handleSaveModule = async (statusOverride) => {
     if (!title) {
       setError("Title is required.");
       return;
@@ -685,6 +686,7 @@ export function AdminModulesTab({
             ? price
             : 0,
         displayOrder,
+        publicationStatus: statusOverride || publicationStatus,
         questions: parsedQuestions,
         createdAt: existing ? existing.createdAt : Date.now(),
         createdBy: existing?.createdBy || userName,
@@ -915,6 +917,7 @@ export function AdminModulesTab({
     setPrice(m.price || 0);
     setDisplayOrder(m.displayOrder || 0);
     setBranchId(m.branchId || m.branch_id || "");
+    setPublicationStatus(m.publicationStatus || m.publication_status || "PUBLISHED");
   };
 
   const cancelEdit = () => {
@@ -936,6 +939,7 @@ export function AdminModulesTab({
     setAccessMode("inherit");
     setAccessType("free");
     setPrice(0);
+    setPublicationStatus("PUBLISHED");
   };
 
   return (
@@ -1187,6 +1191,30 @@ export function AdminModulesTab({
               {error}
             </div>
           )}
+
+          {/* Publication Status Selector */}
+          <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+            <label className="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
+              Status:
+            </label>
+            <select
+              value={publicationStatus}
+              onChange={(e) => setPublicationStatus(e.target.value)}
+              className={`px-4 py-2 rounded-lg border font-bold text-sm uppercase tracking-wider outline-none transition-colors ${
+                publicationStatus === "DRAFT"
+                  ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+                  : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400"
+              }`}
+            >
+              <option value="DRAFT">Draft (Admin Only)</option>
+              <option value="PUBLISHED">Published (Live)</option>
+            </select>
+            {publicationStatus === "DRAFT" && (
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                Students won't see this module
+              </span>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <div className="space-y-2">
@@ -1896,13 +1924,21 @@ Please generate the requested JSON now.`;
                 </div>
               )}
 
-              <button
-                onClick={handleSaveModule}
-                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none transition-colors mt-4"
-              >
-                <CheckCircle2 className="w-5 h-5 mr-2" />
-                {editingModuleId ? "Update Module" : "Publish Module"}
-              </button>
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => handleSaveModule("DRAFT")}
+                  className="flex-1 flex justify-center items-center py-3 px-4 rounded-xl shadow-md text-sm font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 focus:outline-none transition-colors"
+                >
+                  Save as Draft
+                </button>
+                <button
+                  onClick={() => handleSaveModule("PUBLISHED")}
+                  className="flex-1 flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none transition-colors"
+                >
+                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                  {editingModuleId ? "Update & Publish" : "Publish Module"}
+                </button>
+              </div>
             </div>
           )}
 
@@ -2140,6 +2176,13 @@ Please generate the requested JSON now.`;
                         {module.title}
                       </h3>
                       <div className="flex flex-col space-y-1 items-end">
+                        <span className={`inline-flex py-1 px-2.5 rounded-md text-xs font-bold uppercase tracking-wider shadow-sm whitespace-nowrap ${
+                          (module.publicationStatus || module.publication_status || "PUBLISHED") === "DRAFT"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                        }`}>
+                          {(module.publicationStatus || module.publication_status || "PUBLISHED") === "DRAFT" ? "Draft" : "Published"}
+                        </span>
                         {module.category && (
                           <span className="inline-flex py-1 px-2.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-xs font-bold uppercase tracking-wider shadow-sm whitespace-nowrap">
                             {module.category}

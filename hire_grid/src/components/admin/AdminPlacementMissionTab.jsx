@@ -56,6 +56,12 @@ export function AdminPlacementMissionTab({ userName }) {
   });
   const [jsonError, setJsonError] = useState("");
 
+  // Placement Mission Lifecycle & Filtering States
+  const [modulesFilter, setModulesFilter] = useState("all");
+  const [publicationStatus, setPublicationStatus] = useState("DRAFT");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+
   // Attempts State
   const [attempts, setAttempts] = useState([]);
   const [page, setPage] = useState(1);
@@ -303,6 +309,9 @@ export function AdminPlacementMissionTab({ userName }) {
     setMarksPerQuestion(1);
     setNegativeMarks(0.5);
     setIsActive(true);
+    setPublicationStatus("DRAFT");
+    setStartTime("");
+    setEndTime("");
     const activeCycle = cycles.find(c => c.is_active);
     setSelectedCycleId(activeCycle ? activeCycle.id : "");
     setRawText("");
@@ -319,6 +328,17 @@ export function AdminPlacementMissionTab({ userName }) {
     setMarksPerQuestion(m.marks_per_question || 1);
     setNegativeMarks(m.negative_marks || 0.5);
     setIsActive(m.is_active !== undefined ? m.is_active : true);
+    setPublicationStatus(m.publicationStatus || m.publication_status || "DRAFT");
+
+    const mapTimestampToInputVal = (timestamp) => {
+      if (!timestamp) return "";
+      const d = new Date(Number(timestamp));
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    setStartTime(mapTimestampToInputVal(m.startTime || m.start_time));
+    setEndTime(mapTimestampToInputVal(m.endTime || m.end_time));
     setSelectedCycleId(m.cycle_id || "");
     setRawText("");
     setParsedQuestions([]);
@@ -327,7 +347,6 @@ export function AdminPlacementMissionTab({ userName }) {
     try {
       const res = await api.get(`/modules/${m.id}/questions`);
       if (res.success && res.questions) {
-        // Map backend properties back to parser format
         const mapped = res.questions.map(q => ({
           question: q.question,
           options: q.options,
@@ -353,6 +372,9 @@ export function AdminPlacementMissionTab({ userName }) {
       return;
     }
 
+    const startMs = startTime ? new Date(startTime).getTime() : null;
+    const endMs = endTime ? new Date(endTime).getTime() : null;
+
     const payload = {
       title,
       description,
@@ -362,6 +384,9 @@ export function AdminPlacementMissionTab({ userName }) {
       negativeMarks: Number(negativeMarks) || 0.5,
       is_active: isActive,
       cycle_id: selectedCycleId,
+      publicationStatus,
+      startTime: startMs,
+      endTime: endMs,
       questions: parsedQuestions
     };
 
@@ -381,6 +406,7 @@ export function AdminPlacementMissionTab({ userName }) {
           negativeMarks: Number(negativeMarks),
           isPremium: true,
           isActive,
+          publicationStatus,
           displayOrder: editingModule.display_order || 0,
           questions: parsedQuestions,
           moduleType: "general"
@@ -402,6 +428,7 @@ export function AdminPlacementMissionTab({ userName }) {
             negativeMarks: Number(negativeMarks),
             isPremium: true,
             isActive,
+            publicationStatus,
             displayOrder: 0,
             questions: parsedQuestions,
             moduleType: "general"
@@ -637,61 +664,120 @@ export function AdminPlacementMissionTab({ userName }) {
                   <span>Create Mission Module</span>
                 </button>
               </div>
+               <div className="flex flex-wrap bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 my-4 max-w-xl">
+                {["all", "draft", "published", "active", "scheduled", "expired"].map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setModulesFilter(tab)}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all
+                      ${modulesFilter === tab
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"
+                      }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
 
               <div className="grid gap-6 sm:grid-cols-2">
-                {modules.map((m) => (
-                  <div
-                    key={m.id}
-                    className="glass-panel border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/30 transition-all flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded">
-                          {m.cycleName || "Unassigned Cycle"}
-                        </span>
-                        <div className="flex items-center text-xs text-slate-500 font-mono">
-                          <Timer className="w-3.5 h-3.5 mr-1 text-emerald-500" />
-                          <span>{m.time_limit} mins</span>
+                {modules
+                  .filter((m) => {
+                    if (modulesFilter === "all") return true;
+                    if (modulesFilter === "draft") return m.lifecycleStatus === "DRAFT";
+                    if (modulesFilter === "published") return m.lifecycleStatus !== "DRAFT";
+                    if (modulesFilter === "active") return m.lifecycleStatus === "ACTIVE";
+                    if (modulesFilter === "scheduled") return m.lifecycleStatus === "SCHEDULED";
+                    if (modulesFilter === "expired") return m.lifecycleStatus === "EXPIRED";
+                    return true;
+                  })
+                  .map((m) => {
+                    const getLifecycleBadgeClass = (status) => {
+                      switch (status) {
+                        case "DRAFT":
+                          return "bg-slate-500/10 border border-slate-500/30 text-slate-400";
+                        case "SCHEDULED":
+                          return "bg-indigo-500/10 border border-indigo-500/30 text-indigo-400";
+                        case "ACTIVE":
+                          return "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400";
+                        case "EXPIRED":
+                          return "bg-rose-500/10 border border-rose-500/30 text-rose-400";
+                        default:
+                          return "bg-slate-500/10 border border-slate-500/30 text-slate-400";
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="glass-panel border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/30 transition-all flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-3 gap-2">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded">
+                              {m.cycleName || "Unassigned Cycle"}
+                            </span>
+                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${getLifecycleBadgeClass(m.lifecycleStatus)}`}>
+                              {m.lifecycleStatus}
+                            </span>
+                            <div className="flex items-center text-xs text-slate-500 font-mono ml-auto">
+                              <Timer className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                              <span>{m.time_limit} mins</span>
+                            </div>
+                          </div>
+
+                          <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">
+                            {m.title}
+                          </h3>
+
+                          {/* Start / End date display */}
+                          {(m.startTime || m.endTime || m.start_time || m.end_time) && (
+                            <div className="text-[10px] font-mono text-slate-500 space-y-0.5 my-2">
+                              {(m.startTime || m.start_time) && (
+                                <div>Starts: <span className="text-slate-700 dark:text-slate-300">{new Date(Number(m.startTime || m.start_time)).toLocaleString('en-IN')}</span></div>
+                              )}
+                              {(m.endTime || m.end_time) && (
+                                <div>Ends: <span className="text-slate-700 dark:text-slate-300">{new Date(Number(m.endTime || m.end_time)).toLocaleString('en-IN')}</span></div>
+                              )}
+                            </div>
+                          )}
+
+                          <p className="text-xs text-slate-500 leading-relaxed max-w-md line-clamp-3">
+                            {m.description || "No description provided."}
+                          </p>
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
+                          <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border
+                            ${m.is_active
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
+                              : "bg-rose-500/10 border-rose-500/30 text-rose-500"
+                            }`}
+                          >
+                            {m.is_active ? "Active" : "Inactive"}
+                          </span>
+
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => startEditModule(m)}
+                              className="p-2 bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition-colors border border-slate-200 dark:border-slate-800"
+                              title="Edit Module & Questions"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteModule(m.id)}
+                              className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-lg transition-colors border border-rose-500/20"
+                              title="Delete Module"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-
-                      <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">
-                        {m.title}
-                      </h3>
-                      <p className="text-xs text-slate-500 leading-relaxed max-w-md line-clamp-3">
-                        {m.description || "No description provided."}
-                      </p>
-                    </div>
-
-                    <div className="pt-4 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
-                      <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border
-                        ${m.is_active
-                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
-                          : "bg-rose-500/10 border-rose-500/30 text-rose-500"
-                        }`}
-                      >
-                        {m.is_active ? "Active" : "Inactive"}
-                      </span>
-
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => startEditModule(m)}
-                          className="p-2 bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition-colors border border-slate-200 dark:border-slate-800"
-                          title="Edit Module & Questions"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteModule(m.id)}
-                          className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-lg transition-colors border border-rose-500/20"
-                          title="Delete Module"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
             </>
           ) : (
@@ -745,7 +831,7 @@ export function AdminPlacementMissionTab({ userName }) {
                         type="number"
                         value={timeLimit}
                         onChange={(e) => setTimeLimit(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -755,7 +841,7 @@ export function AdminPlacementMissionTab({ userName }) {
                       <select
                         value={selectedCycleId}
                         onChange={(e) => setSelectedCycleId(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
                       >
                         <option value="">Select Cycle...</option>
                         {cycles.map((c) => (
@@ -767,6 +853,45 @@ export function AdminPlacementMissionTab({ userName }) {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Start Time (Optional)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        End Time (Optional)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Publication Status
+                    </label>
+                    <select
+                      value={publicationStatus}
+                      onChange={(e) => setPublicationStatus(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none dark:text-white text-xs font-bold"
+                    >
+                      <option value="DRAFT">DRAFT (Visible to Admin Only)</option>
+                      <option value="PUBLISHED">PUBLISHED (Visible to Students)</option>
+                    </select>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -776,7 +901,7 @@ export function AdminPlacementMissionTab({ userName }) {
                         type="number"
                         value={totalMarks}
                         onChange={(e) => setTotalMarks(e.target.value)}
-                        className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none"
+                        className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -788,7 +913,7 @@ export function AdminPlacementMissionTab({ userName }) {
                         step="0.1"
                         value={marksPerQuestion}
                         onChange={(e) => setMarksPerQuestion(e.target.value)}
-                        className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none"
+                        className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -800,7 +925,7 @@ export function AdminPlacementMissionTab({ userName }) {
                         step="0.1"
                         value={negativeMarks}
                         onChange={(e) => setNegativeMarks(e.target.value)}
-                        className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none"
+                        className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
                       />
                     </div>
                   </div>
