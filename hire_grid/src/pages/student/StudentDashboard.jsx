@@ -235,8 +235,8 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (currentUserDoc) {
-      if (currentUserDoc.hasFullPremium) {
-        const currentDeviceId = localStorage.getItem("eng_device_id");
+      if (currentUserDoc.hasFullPremium || currentUserDoc.activePlanId) {
+        const currentDeviceId = localStorage.getItem("hiregrid_device_id");
         if (
           currentUserDoc.deviceId &&
           currentUserDoc.deviceId !== currentDeviceId
