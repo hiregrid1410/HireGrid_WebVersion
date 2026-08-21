@@ -515,68 +515,6 @@ async function initDb() {
 
       -- User theme addition
       ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(50) DEFAULT 'dark';
-
-      -- Placement Mission additions
-      CREATE TABLE IF NOT EXISTS placement_mission_cycles (
-        id VARCHAR(255) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      ALTER TABLE modules ADD COLUMN IF NOT EXISTS is_placement_mission BOOLEAN DEFAULT FALSE;
-      ALTER TABLE modules ADD COLUMN IF NOT EXISTS cycle_id VARCHAR(255) REFERENCES placement_mission_cycles(id) ON DELETE SET NULL;
-      ALTER TABLE modules ADD COLUMN IF NOT EXISTS start_time BIGINT;
-      ALTER TABLE modules ADD COLUMN IF NOT EXISTS end_time BIGINT;
-
-      CREATE TABLE IF NOT EXISTS placement_mission_attempts (
-        id VARCHAR(255) PRIMARY KEY,
-        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        module_id VARCHAR(255) NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
-        cycle_id VARCHAR(255) NOT NULL REFERENCES placement_mission_cycles(id) ON DELETE CASCADE,
-        started_at BIGINT NOT NULL,
-        expires_at BIGINT NOT NULL,
-        submitted_at BIGINT,
-        status VARCHAR(50) DEFAULT 'active',
-        answers JSONB DEFAULT '{}',
-        score NUMERIC(5,2),
-        accuracy NUMERIC(5,2),
-        completion_time INTEGER,
-        xp_earned INTEGER DEFAULT 0,
-        speed_bonus INTEGER DEFAULT 0,
-        is_valid BOOLEAN DEFAULT TRUE,
-        invalidated_by VARCHAR(255),
-        invalidated_at TIMESTAMP,
-        invalidated_reason TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT unique_user_module_cycle UNIQUE (user_id, module_id, cycle_id)
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_p_mission_attempts_user_id ON placement_mission_attempts(user_id);
-      CREATE INDEX IF NOT EXISTS idx_p_mission_attempts_module_id ON placement_mission_attempts(module_id);
-      CREATE INDEX IF NOT EXISTS idx_p_mission_attempts_cycle_id ON placement_mission_attempts(cycle_id);
-
-      CREATE TABLE IF NOT EXISTS leaderboard_snapshots (
-        id VARCHAR(255) PRIMARY KEY,
-        cycle_id VARCHAR(255) REFERENCES placement_mission_cycles(id) ON DELETE CASCADE,
-        rank INTEGER NOT NULL,
-        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        user_name VARCHAR(255),
-        xp INTEGER NOT NULL,
-        accuracy NUMERIC(5,2) NOT NULL,
-        completion_time INTEGER NOT NULL,
-        badge VARCHAR(100) NOT NULL,
-        calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_leaderboard_snapshots_cycle_id ON leaderboard_snapshots(cycle_id);
-
-      CREATE TABLE IF NOT EXISTS leaderboard_job_runs (
-        run_date DATE PRIMARY KEY,
-        executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        status VARCHAR(50) DEFAULT 'success',
-        logs TEXT
-      );
     `);
 
     // 3. Conditional Legacy Migrations
@@ -597,15 +535,7 @@ async function initDb() {
       await pool.query(`ALTER TABLE hierarchy_nodes ALTER COLUMN title DROP NOT NULL`);
     }
 
-    // Seed default cycle if none exists
-    const cycleCheck = await pool.query(`SELECT id FROM placement_mission_cycles LIMIT 1`);
-    if (cycleCheck.rows.length === 0) {
-      await pool.query(`
-        INSERT INTO placement_mission_cycles (id, name, is_active)
-        VALUES ('cycle_1', 'Cycle 1', TRUE)
-      `);
-      console.log("Default Placement Mission Cycle (Cycle 1) seeded successfully.");
-    }
+
 
     // Seed Super Admin if not exists (credentials from env vars)
     const seedEmail = process.env.ADMIN_EMAIL;
@@ -630,6 +560,91 @@ async function initDb() {
     await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v1') ON CONFLICT DO NOTHING`);
     console.log("Database tables created/verified successfully.");
     } // End of migrations run block
+
+    // --- Placement Mission V2 Migrations ---
+    const migrationCheckV2 = await pool.query(`SELECT 1 FROM schema_migrations WHERE version = 'v2'`);
+    if (migrationCheckV2.rows.length === 0) {
+      console.log("Running Placement Mission schema migrations (v2)...");
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS placement_mission_cycles (
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          ALTER TABLE modules ADD COLUMN IF NOT EXISTS is_placement_mission BOOLEAN DEFAULT FALSE;
+          ALTER TABLE modules ADD COLUMN IF NOT EXISTS cycle_id VARCHAR(255) REFERENCES placement_mission_cycles(id) ON DELETE SET NULL;
+          ALTER TABLE modules ADD COLUMN IF NOT EXISTS start_time BIGINT;
+          ALTER TABLE modules ADD COLUMN IF NOT EXISTS end_time BIGINT;
+
+          CREATE TABLE IF NOT EXISTS placement_mission_attempts (
+            id VARCHAR(255) PRIMARY KEY,
+            user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            module_id VARCHAR(255) NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+            cycle_id VARCHAR(255) NOT NULL REFERENCES placement_mission_cycles(id) ON DELETE CASCADE,
+            started_at BIGINT NOT NULL,
+            expires_at BIGINT NOT NULL,
+            submitted_at BIGINT,
+            status VARCHAR(50) DEFAULT 'active',
+            answers JSONB DEFAULT '{}',
+            score NUMERIC(5,2),
+            accuracy NUMERIC(5,2),
+            completion_time INTEGER,
+            xp_earned INTEGER DEFAULT 0,
+            speed_bonus INTEGER DEFAULT 0,
+            is_valid BOOLEAN DEFAULT TRUE,
+            invalidated_by VARCHAR(255),
+            invalidated_at TIMESTAMP,
+            invalidated_reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT unique_user_module_cycle UNIQUE (user_id, module_id, cycle_id)
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_p_mission_attempts_user_id ON placement_mission_attempts(user_id);
+          CREATE INDEX IF NOT EXISTS idx_p_mission_attempts_module_id ON placement_mission_attempts(module_id);
+          CREATE INDEX IF NOT EXISTS idx_p_mission_attempts_cycle_id ON placement_mission_attempts(cycle_id);
+
+          CREATE TABLE IF NOT EXISTS leaderboard_snapshots (
+            id VARCHAR(255) PRIMARY KEY,
+            cycle_id VARCHAR(255) REFERENCES placement_mission_cycles(id) ON DELETE CASCADE,
+            rank INTEGER NOT NULL,
+            user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            user_name VARCHAR(255),
+            xp INTEGER NOT NULL,
+            accuracy NUMERIC(5,2) NOT NULL,
+            completion_time INTEGER NOT NULL,
+            badge VARCHAR(100) NOT NULL,
+            calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_leaderboard_snapshots_cycle_id ON leaderboard_snapshots(cycle_id);
+
+          CREATE TABLE IF NOT EXISTS leaderboard_job_runs (
+            run_date DATE PRIMARY KEY,
+            executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status VARCHAR(50) DEFAULT 'success',
+            logs TEXT
+          );
+        `);
+
+        // Seed default cycle if none exists
+        const cycleCheck = await pool.query(`SELECT id FROM placement_mission_cycles LIMIT 1`);
+        if (cycleCheck.rows.length === 0) {
+          await pool.query(`
+            INSERT INTO placement_mission_cycles (id, name, is_active)
+            VALUES ('cycle_1', 'Cycle 1', TRUE)
+          `);
+          console.log("Default Placement Mission Cycle (Cycle 1) seeded successfully.");
+        }
+
+        await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v2') ON CONFLICT DO NOTHING`);
+        console.log("Placement Mission schema migrations (v2) run successfully.");
+      } catch (errV2) {
+        console.error("Failed to run Placement Mission migration v2:", errV2.message);
+      }
+    }
   } catch (err) {
     console.error("Database initialization failed:", err.message);
   }
