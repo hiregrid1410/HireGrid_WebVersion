@@ -63,6 +63,7 @@ export default function App() {
         <Route path="/" element={<StudentAuth />} />
         <Route path="/admin" element={<AdminAuth />} />
         <Route path="/student-dashboard" element={<ProtectedStudent />} />
+        <Route path="/placement-mission" element={<ProtectedStudent />} />
         <Route path="/admin-dashboard" element={<ProtectedAdmin />} />
         <Route path="/content-manager-dashboard" element={<ProtectedContentManager />} />
         <Route path="*" element={<Navigate to="/" replace />} />

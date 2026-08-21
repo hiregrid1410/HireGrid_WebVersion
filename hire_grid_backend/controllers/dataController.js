@@ -1306,6 +1306,7 @@ exports.getModuleQuestions = async (req, res) => {
   const { id } = req.params;
   const userId = req.user ? req.user.id : null;
   try {
+    let role = "student";
     if (userId) {
       const accessCheck = await verifyUserItemAccess(userId, id, "module");
       if (!accessCheck.allowed) {
@@ -1316,7 +1317,7 @@ exports.getModuleQuestions = async (req, res) => {
     // Check if user is authorized to see correct answers (admin, content manager, or has already completed the module)
     let includeCorrectAnswers = false;
     if (userId) {
-      let role = dbCache.get(`role:${userId}`);
+      role = dbCache.get(`role:${userId}`);
       if (!role) {
         const adminCheck = await pool.query(
           "SELECT role FROM admin_users WHERE id = $1 UNION SELECT role FROM content_managers WHERE id = $1",
@@ -1346,6 +1347,13 @@ exports.getModuleQuestions = async (req, res) => {
           }
         }
       }
+    }
+
+    // Force hide correct answers for placement mission modules for students
+    const modCheck = await pool.query("SELECT is_placement_mission FROM modules WHERE id = $1", [id]);
+    const isPlacementMission = modCheck.rows.length > 0 && !!modCheck.rows[0].is_placement_mission;
+    if (isPlacementMission && role !== "admin" && role !== "content_manager") {
+      includeCorrectAnswers = false;
     }
 
     const result = await pool.query(

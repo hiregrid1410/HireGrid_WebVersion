@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { useLocation, Navigate, useNavigate } from "react-router-dom";
-import { ShieldCheck, LogOut, BookOpen, Server, MessageSquare } from "lucide-react";
+import { ShieldCheck, LogOut, BookOpen, Server, MessageSquare, Trophy } from "lucide-react";
 import { AdminCompaniesTab } from "../../components/admin/AdminCompaniesTab";
 import { HierarchyBuilder } from "../../components/admin/HierarchyBuilder";
 import { AdminFeedbacksTab } from "../../components/admin/AdminFeedbacksTab";
+import { AdminPlacementMissionTab } from "../../components/admin/AdminPlacementMissionTab";
 
 export default function ContentManagerDashboard() {
   const location = useLocation();
@@ -74,6 +75,13 @@ export default function ContentManagerDashboard() {
           <span>Learning</span>
         </button>
         <button
+          onClick={() => setActiveTab("placement-missions")}
+          className={`flex items-center space-x-2 pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "placement-missions" ? "border-indigo-500 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
+        >
+          <Trophy className="w-4 h-4" />
+          <span>Placement Missions</span>
+        </button>
+        <button
           onClick={() => setActiveTab("feedbacks")}
           className={`flex items-center space-x-2 pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "feedbacks" ? "border-indigo-500 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
         >
@@ -87,6 +95,8 @@ export default function ContentManagerDashboard() {
           <AdminCompaniesTab isContentManager={true} userName={userName} />
         ) : activeTab === "general-modules" ? (
           <HierarchyBuilder isContentManager={true} userName={userName} />
+        ) : activeTab === "placement-missions" ? (
+          <AdminPlacementMissionTab userName={userName} />
         ) : (
           <AdminFeedbacksTab isContentManager={true} />
         )}

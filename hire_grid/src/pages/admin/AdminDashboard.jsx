@@ -12,6 +12,7 @@ import {
   MessageSquare,
   CreditCard,
   ShieldAlert,
+  Trophy,
 } from "lucide-react";
 import { AdminUsersTab } from "../../components/admin/AdminUsersTab";
 import { AdminSettingsTab } from "../../components/admin/AdminSettingsTab";
@@ -20,6 +21,7 @@ import { AdminDeviceRequestsTab } from "../../components/admin/AdminDeviceReques
 import { AdminFeedbacksTab } from "../../components/admin/AdminFeedbacksTab";
 import { AdminPlansTab } from "../../components/admin/AdminPlansTab";
 import { AdminAuditLogTab } from "../../components/admin/AdminAuditLogTab";
+import { AdminPlacementMissionTab } from "../../components/admin/AdminPlacementMissionTab";
 import { ThemeToggle } from "../../components/common/ThemeToggle";
 
 export default function AdminDashboard() {
@@ -164,6 +166,13 @@ export default function AdminDashboard() {
             onClick={() => setView("system", "plans")}
             isOpen={sidebarOpen}
           />
+          <SidebarItem
+            icon={<Trophy />}
+            label="Placement Missions"
+            active={activeWorkspace === "system" && activeSubTab === "placement_missions"}
+            onClick={() => setView("system", "placement_missions")}
+            isOpen={sidebarOpen}
+          />
         </div>
 
         {/* User Profile */}
@@ -256,6 +265,9 @@ export default function AdminDashboard() {
               )}
               {activeWorkspace === "system" && activeSubTab === "plans" && (
                 <AdminPlansTab userName={userName} />
+              )}
+              {activeWorkspace === "system" && activeSubTab === "placement_missions" && (
+                <AdminPlacementMissionTab userName={userName} />
               )}
             </div>
           </div>
