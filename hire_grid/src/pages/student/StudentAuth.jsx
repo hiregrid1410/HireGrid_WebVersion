@@ -7,8 +7,6 @@ import { showToast } from "../../components/common/Toast";
 export default function StudentAuth() {
   const navigate = useNavigate();
 
-  // Views: "auth" (login/signup), "verify-otp"
-  const [view, setView] = useState("auth");
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -22,14 +20,6 @@ export default function StudentAuth() {
     branch: "",
     semester: "1",
   });
-
-  // Verification states
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [otpValues, setOtpValues] = useState(["", "", "", "", "", ""]);
-  const otpInputsRef = useRef([]);
-
-  // Resend Cooldown Timer
-  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -47,59 +37,9 @@ export default function StudentAuth() {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    let interval = null;
-    if (resendCooldown > 0) {
-      interval = setInterval(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [resendCooldown]);
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const startVerificationFlow = (email) => {
-    setVerificationEmail(email);
-    setOtpValues(["", "", "", "", "", ""]);
-    setResendCooldown(60);
-    setView("verify-otp");
-    showToast("A verification OTP has been successfully sent to your email ID: " + email, "success");
-    setTimeout(() => {
-      if (otpInputsRef.current[0]) otpInputsRef.current[0].focus();
-    }, 100);
-  };
-
-  // OTP Digits Handling
-  const handleOtpChange = (index, value) => {
-    if (value !== "" && !/^[0-9]$/.test(value)) return;
-
-    const newOtpValues = [...otpValues];
-    newOtpValues[index] = value;
-    setOtpValues(newOtpValues);
-
-    if (value !== "" && index < 5) {
-      otpInputsRef.current[index + 1].focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index, e) => {
-    if (e.key === "Backspace" && otpValues[index] === "" && index > 0) {
-      otpInputsRef.current[index - 1].focus();
-    }
-  };
-
-  const handleOtpPaste = (e) => {
-    e.preventDefault();
-    const pasteData = e.clipboardData.getData("text").trim();
-    if (!/^\d{6}$/.test(pasteData)) return;
-
-    const digits = pasteData.split("");
-    setOtpValues(digits);
-    otpInputsRef.current[5].focus();
   };
 
   // Submit Login/Signup Form
@@ -126,14 +66,9 @@ export default function StudentAuth() {
           role: "student",
         });
 
-        if (res.requiresVerification) {
-          startVerificationFlow(res.email);
-          setSuccessMessage(res.message);
-        } else {
-          localStorage.setItem("token", res.token);
-          localStorage.setItem("user", JSON.stringify(res.user));
-          navigate("/student-dashboard", { state: { user: res.user } });
-        }
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("user", JSON.stringify(res.user));
+        navigate("/student-dashboard", { state: { user: res.user } });
       } else {
         if (!formData.email || !formData.password) {
           setError("Email and password are required.");
@@ -141,86 +76,20 @@ export default function StudentAuth() {
           return;
         }
 
-        try {
-          const res = await api.post("/auth/login", {
-            email: formData.email.trim(),
-            password: formData.password,
-            isAdminLogin: false,
-            deviceId: getDeviceId(),
-            deviceName: getDeviceName(),
-          });
+        const res = await api.post("/auth/login", {
+          email: formData.email.trim(),
+          password: formData.password,
+          isAdminLogin: false,
+          deviceId: getDeviceId(),
+          deviceName: getDeviceName(),
+        });
 
-          localStorage.setItem("token", res.token);
-          localStorage.setItem("user", JSON.stringify(res.user));
-          navigate("/student-dashboard", { state: { user: res.user } });
-        } catch (err) {
-          if (err.message.includes("verify your email")) {
-            startVerificationFlow(formData.email);
-            setSuccessMessage("Please verify your email address to continue.");
-          } else {
-            throw err;
-          }
-        }
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("user", JSON.stringify(res.user));
+        navigate("/student-dashboard", { state: { user: res.user } });
       }
     } catch (err) {
       setError(err.message || "Authentication failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Verify OTP Code
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    const otpCode = otpValues.join("");
-    if (otpCode.length !== 6) {
-      setError("Please enter the complete 6-digit OTP code.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      await api.post("/auth/verify-otp", {
-        email: verificationEmail,
-        otp: otpCode,
-      });
-
-      setSuccessMessage("Email verified successfully! You can now log in.");
-      setTimeout(() => {
-        setView("auth");
-        setIsSignUp(false);
-        setError("");
-        setSuccessMessage("");
-        setFormData((prev) => ({ ...prev, email: verificationEmail, password: "" }));
-      }, 2000);
-    } catch (err) {
-      setError(err.message || "Verification failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Resend OTP
-  const handleResendOtp = async () => {
-    if (resendCooldown > 0) return;
-    setLoading(true);
-    setError("");
-    setSuccessMessage("");
-
-    try {
-      const res = await api.post("/auth/resend-otp", {
-        email: verificationEmail,
-      });
-
-      showToast("A new verification OTP has been successfully sent to your email ID: " + verificationEmail, "success");
-      setSuccessMessage(res.message || "A new OTP code has been sent.");
-      setResendCooldown(60);
-      setOtpValues(["", "", "", "", "", ""]);
-      if (otpInputsRef.current[0]) otpInputsRef.current[0].focus();
-    } catch (err) {
-      setError(err.message || "Failed to resend OTP code.");
     } finally {
       setLoading(false);
     }
@@ -288,224 +157,148 @@ export default function StudentAuth() {
               </div>
             )}
 
-            {/* VIEW 1: LOGIN / SIGNUP */}
-            {view === "auth" && (
-              <>
-                <div className="mb-8 relative z-10 transition-colors">
-                  <h2 className="text-2xl font-bold eng-gradient-text uppercase tracking-widest">
-                    {isSignUp ? "Create Account" : "Operator Sign In"}
-                  </h2>
-                  <p className="text-emerald-400/80 mt-2 text-sm font-mono tracking-wider">
-                    {isSignUp ? "Register system credentials..." : "Awaiting operator credentials..."}
-                  </p>
-                </div>
+            <div className="mb-8 relative z-10 transition-colors">
+              <h2 className="text-2xl font-bold eng-gradient-text uppercase tracking-widest">
+                {isSignUp ? "Create Account" : "Operator Sign In"}
+              </h2>
+              <p className="text-emerald-400/80 mt-2 text-sm font-mono tracking-wider">
+                {isSignUp ? "Register system credentials..." : "Awaiting operator credentials..."}
+              </p>
+            </div>
 
-                <form className="space-y-4 md:space-y-5" onSubmit={handleSubmit}>
-                  {isSignUp && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                          Full Name
-                        </label>
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                            <User className="h-5 w-5 text-slate-400" />
-                          </span>
-                          <input
-                            type="text"
-                            name="name"
-                            required
-                            placeholder="Enter Your Name"
-                            value={formData.name}
-                            onChange={handleInputChange}
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                          Branch / Specialization
-                        </label>
-                        <input
-                          type="text"
-                          name="branch"
-                          required
-                          placeholder="e.g. Computer Science"
-                          value={formData.branch}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                          Semester
-                        </label>
-                        <select
-                          name="semester"
-                          value={formData.semester}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                            <option key={s} value={s.toString()}>
-                              Semester {s}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  )}
-
+            <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
+              {isSignUp && (
+                <>
                   <div className="space-y-2">
                     <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                      Email Address
+                      Full Name
                     </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                        <Mail className="h-5 w-5 text-slate-400" />
+                        <User className="h-5 w-5 text-slate-400" />
                       </span>
                       <input
-                        type="email"
-                        name="email"
-                        required
-                        placeholder="abc@email.com"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                      Security Passphrase
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                        <Lock className="h-5 w-5 text-slate-400" />
-                      </span>
-                      <input
-                        type="password"
-                        name="password"
-                        required
-                        placeholder="••••••••"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn-eng-primary w-full py-4 mt-4 text-lg uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <RefreshCw className="w-5 h-5 animate-spin" />
-                        PROCESSING...
-                      </>
-                    ) : isSignUp ? (
-                      "INITIALIZE ACCOUNT"
-                    ) : (
-                      "AUTHENTICATE"
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSignUp(!isSignUp);
-                      setError("");
-                      setSuccessMessage("");
-                    }}
-                    className="w-full text-center mt-4 text-emerald-500 dark:text-emerald-400 font-mono text-sm hover:underline"
-                  >
-                    {isSignUp ? "Already have an operator profile? Sign In" : "Need an operator account? Sign Up"}
-                  </button>
-                </form>
-              </>
-            )}
-
-            {/* VIEW 2: OTP VERIFICATION */}
-            {view === "verify-otp" && (
-              <>
-                <div className="mb-8 relative z-10">
-                  <button
-                    onClick={() => {
-                      setView("auth");
-                      setError("");
-                      setSuccessMessage("");
-                    }}
-                    className="flex items-center text-xs font-mono text-emerald-500 hover:text-emerald-400 uppercase tracking-widest mb-4"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-1" /> Back
-                  </button>
-                  <h2 className="text-2xl font-bold eng-gradient-text uppercase tracking-widest">
-                    Enter Verification Code
-                  </h2>
-                  <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
-                    We sent a secure 6-digit verification OTP to:
-                    <br />
-                    <strong className="text-slate-900 dark:text-white font-mono break-all">{verificationEmail}</strong>
-                  </p>
-                </div>
-
-                <form onSubmit={handleVerifyOtp} className="space-y-6">
-                  {/* OTP Digit Boxes */}
-                  <div className="flex justify-between gap-2 md:gap-3" onPaste={handleOtpPaste}>
-                    {otpValues.map((value, idx) => (
-                      <input
-                        key={idx}
                         type="text"
-                        maxLength={1}
-                        value={value}
-                        ref={(el) => (otpInputsRef.current[idx] = el)}
-                        onChange={(e) => handleOtpChange(idx, e.target.value)}
-                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                        className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold font-mono bg-slate-50 dark:bg-slate-900/60 border-2 border-slate-200 dark:border-slate-800 focus:border-emerald-500 dark:focus:border-emerald-400 rounded-xl outline-none transition-colors dark:text-white"
+                        name="name"
+                        required
+                        placeholder="Operator Name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
                       />
-                    ))}
+                    </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn-eng-primary w-full py-4 uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <RefreshCw className="w-5 h-5 animate-spin" />
-                        VERIFYING...
-                      </>
-                    ) : (
-                      "VERIFY & REGISTER"
-                    )}
-                  </button>
-
-                  <div className="text-center pt-2">
-                    <button
-                      type="button"
-                      disabled={loading || resendCooldown > 0}
-                      onClick={handleResendOtp}
-                      className="text-sm font-mono text-emerald-500 dark:text-emerald-400 hover:underline disabled:opacity-50 disabled:hover:no-underline flex items-center justify-center mx-auto gap-2"
+                  <div className="space-y-2">
+                    <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                      Academic Branch
+                    </label>
+                    <select
+                      name="branch"
+                      value={formData.branch}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
                     >
-                      {resendCooldown > 0 ? (
-                        <span>Resend OTP in ({resendCooldown}s)</span>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-4 h-4" />
-                          <span>Resend OTP Code</span>
-                        </>
-                      )}
-                    </button>
+                      <option value="">Select Branch...</option>
+                      <option value="Mechanical Engineering">Mechanical Engineering</option>
+                      <option value="Electrical Engineering">Electrical Engineering</option>
+                      <option value="Civil Engineering">Civil Engineering</option>
+                      <option value="Chemical Engineering">Chemical Engineering</option>
+                      <option value="Computer Engineering/IT">Computer Engineering/IT</option>
+                      <option value="Electronics & Communication">Electronics & Communication</option>
+                      <option value="Instrumentation & Control">Instrumentation & Control</option>
+                    </select>
                   </div>
-                </form>
-              </>
-            )}
+
+                  <div className="space-y-2">
+                    <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                      Semester
+                    </label>
+                    <select
+                      name="semester"
+                      value={formData.semester}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                        <option key={s} value={s.toString()}>
+                          Semester {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Mail className="h-5 w-5 text-slate-400" />
+                  </span>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    placeholder="abc@email.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                  Security Passphrase
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Lock className="h-5 w-5 text-slate-400" />
+                  </span>
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-eng-primary w-full py-4 mt-4 text-lg uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    PROCESSING...
+                  </>
+                ) : isSignUp ? (
+                  "INITIALIZE ACCOUNT"
+                ) : (
+                  "AUTHENTICATE"
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError("");
+                  setSuccessMessage("");
+                }}
+                className="w-full text-center mt-4 text-emerald-500 dark:text-emerald-400 font-mono text-sm hover:underline"
+              >
+                {isSignUp ? "Already have an operator profile? Sign In" : "Need an operator account? Sign Up"}
+              </button>
+            </form>
 
             <p className="mt-8 text-center text-slate-500 font-mono text-xs md:text-sm relative z-10 flex items-center justify-center">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2"></span>

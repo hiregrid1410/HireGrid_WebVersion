@@ -402,33 +402,7 @@ exports.submitScore = async (req, res) => {
   }
 };
 
-// ================= FIRST ATTEMPTS (ADMIN EXPORTS) =================
-exports.getFirstAttempts = async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        id,
-        user_name AS "studentName",
-        user_email AS "studentEmail",
-        student_branch AS "studentBranch",
-        student_semester AS "studentSemester",
-        module_title AS "moduleTitle",
-        module_type AS "moduleType",
-        COALESCE(company_name, '') AS "companyName",
-        COALESCE(branch_name, '') AS "learningBranch",
-        score,
-        correct_count AS "correctCount",
-        total_questions AS "totalQuestions",
-        xp_earned AS "xpEarned",
-        created_at AS "submittedAt"
-      FROM first_attempts
-      ORDER BY created_at DESC
-    `);
-    res.json({ success: true, attempts: result.rows });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+
 
 exports.getScores = async (req, res) => {
   const userId = req.user ? req.user.id : null;
@@ -1355,11 +1329,21 @@ exports.getModuleQuestions = async (req, res) => {
         includeCorrectAnswers = true;
       } else {
         const completedCheck = await pool.query(
-          "SELECT 1 FROM first_attempts WHERE user_id = $1 AND module_id = $2",
-          [userId, id]
+          "SELECT module_scores FROM users WHERE id = $1",
+          [userId]
         );
         if (completedCheck.rows.length > 0) {
-          includeCorrectAnswers = true;
+          let scores = completedCheck.rows[0].module_scores || {};
+          if (typeof scores === "string") {
+            try {
+              scores = JSON.parse(scores);
+            } catch (e) {
+              scores = {};
+            }
+          }
+          if (scores[id]) {
+            includeCorrectAnswers = true;
+          }
         }
       }
     }
