@@ -37,6 +37,9 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
   const [editForm, setEditForm] = useState({ name: "", email: "", password: "", role: "content_manager" });
   const [editError, setEditError] = useState("");
 
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+  const [tableSearchQuery, setTableSearchQuery] = useState("");
+
   const fetchAdmins = async () => {
     try {
       const res = await api.get("/admin_users");
@@ -784,7 +787,7 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
 
       {/* Student Accounts */}
       <div className="glass-panel border-indigo-500/20 rounded-xl p-6 shadow-sm">
-        <div className="mb-6 flex flex-wrap justify-between items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">
               Student Accounts
@@ -793,14 +796,22 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
               Manage registered students and their data.
             </p>
           </div>
-          <button
-            onClick={handleExportFirstAttempts}
-            className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm"
-            title="Download Excel/CSV of all student 1st attempt exam scores"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Download 1st Attempt Report (Excel/CSV)</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+            <input
+              type="text"
+              placeholder="Search student by name or email..."
+              value={tableSearchQuery}
+              onChange={(e) => setTableSearchQuery(e.target.value)}
+              className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm"
+            />
+            <button
+              onClick={handleExportFirstAttempts}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center space-x-2 shadow-sm"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Download 1st Attempt Report (Excel/CSV)</span>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
@@ -822,7 +833,12 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-slate-950 divide-y divide-slate-200 dark:divide-slate-800">
-              {students.map((student) => {
+              {students
+                .filter(student => 
+                  (student.name || "").toLowerCase().includes(tableSearchQuery.toLowerCase()) ||
+                  (student.email || "").toLowerCase().includes(tableSearchQuery.toLowerCase())
+                )
+                .map((student) => {
                 const currentMax = student.maxDevices !== undefined ? Number(student.maxDevices) : 1;
                 const allowedCount = Array.isArray(student.allowedDevices)
                   ? student.allowedDevices.length
@@ -877,7 +893,10 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
                   </tr>
                 );
               })}
-              {students.length === 0 && (
+              {students.filter(student => 
+                (student.name || "").toLowerCase().includes(tableSearchQuery.toLowerCase()) ||
+                (student.email || "").toLowerCase().includes(tableSearchQuery.toLowerCase())
+              ).length === 0 && (
                 <tr>
                   <td
                     colSpan={4}
@@ -912,19 +931,33 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Select Student
               </label>
-              <select
-                required
-                value={selectedStudentId}
-                onChange={(e) => setSelectedStudentId(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-              >
-                <option value="">Select a student...</option>
-                {students.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.email})
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Filter student list..."
+                  value={studentSearchQuery}
+                  onChange={(e) => setStudentSearchQuery(e.target.value)}
+                  className="w-full px-4 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs"
+                />
+                <select
+                  required
+                  value={selectedStudentId}
+                  onChange={(e) => setSelectedStudentId(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                >
+                  <option value="">Select a student...</option>
+                  {students
+                    .filter((s) => 
+                      (s.name || "").toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+                      (s.email || "").toLowerCase().includes(studentSearchQuery.toLowerCase())
+                    )
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.email})
+                      </option>
+                    ))}
+                </select>
+              </div>
             </div>
 
             <div className="space-y-2">

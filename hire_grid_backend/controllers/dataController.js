@@ -944,7 +944,8 @@ exports.updateUser = async (req, res) => {
       grantedSubjectAccess: user.granted_subject_access || {},
       grantedTopicAccess: user.granted_topic_access || {},
       grantedExamAccess: user.granted_exam_access || {},
-      grantedModuleAccess: user.granted_module_access || {}
+      grantedModuleAccess: user.granted_module_access || {},
+      theme: user.theme || 'dark'
     };
 
     // 2. Apply updates (including nested properties with dot notation)
@@ -979,8 +980,8 @@ exports.updateUser = async (req, res) => {
            active_plan_id = $12, plan_expiry = $13, purchased_companies = $14, 
            granted_company_access = $15, granted_subject_access = $16, 
            granted_topic_access = $17, granted_exam_access = $18, 
-           granted_module_access = $19, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $20`,
+           granted_module_access = $19, theme = $20, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $21`,
       [
         data.name,
         data.branch,
@@ -1001,6 +1002,7 @@ exports.updateUser = async (req, res) => {
         JSON.stringify(data.grantedTopicAccess),
         JSON.stringify(data.grantedExamAccess),
         JSON.stringify(data.grantedModuleAccess),
+        data.theme,
         id
       ]
     );
