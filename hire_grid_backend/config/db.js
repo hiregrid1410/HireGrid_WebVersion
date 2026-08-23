@@ -687,6 +687,46 @@ async function initDb() {
         console.error("Failed to run Performance Indexes migration v4:", errV4.message);
       }
     }
+
+    // --- Production Scale Up v5 Migrations ---
+    const migrationCheckV5 = await pool.query(`SELECT 1 FROM schema_migrations WHERE version = 'v5'`);
+    if (migrationCheckV5.rows.length === 0) {
+      console.log("Running Scale Up schema migrations (v5)...");
+      try {
+        await pool.query(`
+          -- Add metadata columns to questions
+          ALTER TABLE questions ADD COLUMN IF NOT EXISTS explanation TEXT;
+          ALTER TABLE questions ADD COLUMN IF NOT EXISTS difficulty VARCHAR(50) DEFAULT 'medium';
+          ALTER TABLE questions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'published';
+          ALTER TABLE questions ADD COLUMN IF NOT EXISTS created_by VARCHAR(255);
+          ALTER TABLE questions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+          ALTER TABLE questions ADD COLUMN IF NOT EXISTS image_key TEXT;
+          ALTER TABLE questions ADD COLUMN IF NOT EXISTS explanation_image_key TEXT;
+
+          -- Create exam_questions mapping table for MCQ reusability
+          CREATE TABLE IF NOT EXISTS exam_questions (
+            exam_id VARCHAR(255) NOT NULL,
+            question_id VARCHAR(255) REFERENCES questions(id) ON DELETE CASCADE,
+            question_order INTEGER,
+            marks NUMERIC(10,2),
+            negative_marks NUMERIC(10,2),
+            PRIMARY KEY (exam_id, question_id)
+          );
+
+          -- Performance Optimization Indexes
+          CREATE INDEX IF NOT EXISTS idx_modules_parent_pub ON modules(parent_id, publication_status);
+          CREATE INDEX IF NOT EXISTS idx_modules_type_pub ON modules(module_type, publication_status);
+          CREATE INDEX IF NOT EXISTS idx_hierarchy_nodes_parent_type_pub ON hierarchy_nodes(parent_id, type, publication_status);
+          CREATE INDEX IF NOT EXISTS idx_leaderboard_snapshots_cycle_rank ON leaderboard_snapshots(cycle_id, rank ASC);
+          CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(status);
+          CREATE INDEX IF NOT EXISTS idx_exam_questions_exam_id ON exam_questions(exam_id);
+        `);
+        await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v5') ON CONFLICT DO NOTHING`);
+        console.log("Scale Up schema migrations (v5) run successfully.");
+      } catch (errV5) {
+        console.error("Failed to run Scale Up migration v5:", errV5.message);
+      }
+    }
   } catch (err) {
     console.error("Database initialization failed:", err.message);
   }

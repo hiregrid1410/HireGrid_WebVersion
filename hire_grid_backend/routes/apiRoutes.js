@@ -85,6 +85,7 @@ router.get("/gate/papers", dataController.getGatePapers);
 router.post("/gate/papers", dataController.saveGatePaper);
 
 // User Management (Admin)
+router.get("/admin/questions", dataController.getQuestionsAdmin);
 router.get("/users", dataController.getUsers);
 router.get("/users/:id", dataController.getUserById);
 router.put("/users/:id", dataController.updateUser);

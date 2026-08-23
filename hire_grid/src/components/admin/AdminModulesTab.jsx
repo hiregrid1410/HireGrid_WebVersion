@@ -29,6 +29,65 @@ const getSafeUUID = () =>
     ? crypto.randomUUID()
     : Date.now().toString(36) + Math.random().toString(36).substring(2);
 
+const dataURLtoBlob = (dataurl) => {
+  const arr = dataurl.split(",");
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+};
+
+const uploadImageToStorage = async (dataUrl, originalName) => {
+  const blob = dataURLtoBlob(dataUrl);
+  const fileType = blob.type || "image/jpeg";
+  const fileName = originalName ? originalName.replace(/\.[^/.]+$/, "") + ".jpg" : "question_image.jpg";
+  const fileSize = blob.size;
+
+  // 1. Get signed upload URL authorization
+  const authRes = await api.get(
+    `/storage/presigned-url?fileName=${encodeURIComponent(fileName)}&fileType=${encodeURIComponent(fileType)}&fileSize=${fileSize}`
+  );
+  if (!authRes.success) {
+    throw new Error(authRes.error || "Failed to authorize upload.");
+  }
+
+  const { provider, uploadUrl, publicUrl, key } = authRes;
+
+  // 2. Perform direct upload
+  if (provider === "s3") {
+    // S3 direct upload via PUT request
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": fileType
+      },
+      body: blob
+    });
+    if (!response.ok) {
+      throw new Error(`S3 upload failed with status ${response.status}`);
+    }
+  } else {
+    // Local fallback direct upload via POST FormData
+    const formData = new FormData();
+    formData.append("file", blob, fileName);
+
+    const response = await fetch(uploadUrl, {
+      method: "POST",
+      body: formData
+    });
+    const localRes = await response.json();
+    if (!localRes.success) {
+      throw new Error(localRes.error || "Local upload failed.");
+    }
+  }
+
+  return { publicUrl, key };
+};
+
 export function AdminModulesTab({
   moduleType = "general",
   parentId = undefined,
@@ -375,9 +434,33 @@ export function AdminModulesTab({
         }
 
         const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+        
+        // Show local preview instantly
         const updated = [...parsedQuestions];
-        updated[index] = { ...updated[index], image: dataUrl };
+        updated[index] = { ...updated[index], image: dataUrl, isUploading: true };
         setParsedQuestions(updated);
+
+        // Upload in the background to storage service (S3/R2/local fallback)
+        uploadImageToStorage(dataUrl, file.name)
+          .then(({ publicUrl, key }) => {
+            setParsedQuestions((prev) => {
+              const next = [...prev];
+              if (next[index]) {
+                next[index] = { ...next[index], image: publicUrl, imageKey: key, isUploading: false };
+              }
+              return next;
+            });
+          })
+          .catch((err) => {
+            showToast("Failed to upload image: " + err.message, "error");
+            setParsedQuestions((prev) => {
+              const next = [...prev];
+              if (next[index]) {
+                next[index] = { ...next[index], image: null, isUploading: false };
+              }
+              return next;
+            });
+          });
       };
       if (ev.target?.result) {
         img.src = ev.target.result;
@@ -1879,11 +1962,12 @@ Please generate the requested JSON now.`;
                         <div className="mt-2 flex items-center justify-between pt-1 text-xs text-slate-500">
                           <label className="cursor-pointer inline-flex items-center px-2.5 py-1 border border-slate-300 dark:border-slate-600 shadow-sm text-xs font-medium rounded-md text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                             <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
-                            <span>{q.image ? "Replace Image" : "Attach Diagram"}</span>
+                            <span>{q.isUploading ? "Uploading..." : (q.image ? "Replace Image" : "Attach Diagram")}</span>
                             <input
                               type="file"
                               accept="image/*"
                               className="hidden"
+                              disabled={q.isUploading}
                               onChange={(e) => handleImageUpload(globalIdx, e)}
                             />
                           </label>

@@ -329,19 +329,26 @@ exports.submitMissionAttempt = async (req, res) => {
   const { answers = {} } = req.body;
   const userId = req.user.id;
 
+  const client = await pool.connect();
   try {
+    await client.query("BEGIN");
+
     // 1. Verify premium status
     const isPremium = await isUserPremium(userId);
     if (!isPremium) {
+      await client.query("ROLLBACK");
+      client.release();
       return res.status(403).json({ error: "Premium membership required." });
     }
 
     // 2. Fetch attempt
-    const attemptRes = await pool.query(
+    const attemptRes = await client.query(
       "SELECT * FROM placement_mission_attempts WHERE id = $1 AND user_id = $2 AND status = 'active'",
       [id, userId]
     );
     if (attemptRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      client.release();
       return res.status(404).json({ error: "Active mission attempt not found or already submitted." });
     }
     const attempt = attemptRes.rows[0];
@@ -358,8 +365,10 @@ exports.submitMissionAttempt = async (req, res) => {
     delete mergedAnswers._question_order;
 
     // 3. Fetch module config
-    const modRes = await pool.query("SELECT * FROM modules WHERE id = $1", [moduleId]);
+    const modRes = await client.query("SELECT * FROM modules WHERE id = $1", [moduleId]);
     if (modRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      client.release();
       return res.status(404).json({ error: "Module not found." });
     }
     const moduleItem = modRes.rows[0];
@@ -369,10 +378,19 @@ exports.submitMissionAttempt = async (req, res) => {
     const timeLimitSeconds = timeLimitMinutes * 60;
 
     // 4. Fetch correct answers from DB
-    const questionsRes = await pool.query(
-      "SELECT id, correct_answer_index FROM questions WHERE module_id = $1",
+    let questionsRes = await client.query(
+      `SELECT q.id, q.correct_answer_index, eq.marks AS "positive_marks_override", eq.negative_marks AS "negative_marks_override"
+       FROM questions q
+       INNER JOIN exam_questions eq ON q.id = eq.question_id
+       WHERE eq.exam_id = $1`,
       [moduleId]
     );
+    if (questionsRes.rows.length === 0) {
+      questionsRes = await client.query(
+        "SELECT id, correct_answer_index, positive_marks_override FROM questions WHERE module_id = $1",
+        [moduleId]
+      );
+    }
     const dbQuestions = questionsRes.rows;
 
     let finalScore = 0;
@@ -388,7 +406,7 @@ exports.submitMissionAttempt = async (req, res) => {
 
     dbQuestions.forEach(q => {
       const qPos = (q.positive_marks_override !== undefined && q.positive_marks_override !== null) ? Number(q.positive_marks_override) : modPositive;
-      const qNeg = modNegative;
+      const qNeg = (q.negative_marks_override !== undefined && q.negative_marks_override !== null) ? Number(q.negative_marks_override) : modNegative;
 
       const studentAnswer = mergedAnswers[q.id];
       if (studentAnswer !== undefined && studentAnswer !== null) {
@@ -429,7 +447,7 @@ exports.submitMissionAttempt = async (req, res) => {
     const statusToSave = isLate ? "expired" : "submitted";
 
     // 6. Update database record
-    await pool.query(
+    await client.query(
       `UPDATE placement_mission_attempts
        SET status = $1, submitted_at = $2, answers = $3, score = $4, accuracy = $5,
            completion_time = $6, xp_earned = $7, speed_bonus = $8
@@ -446,6 +464,9 @@ exports.submitMissionAttempt = async (req, res) => {
         id
       ]
     );
+
+    await client.query("COMMIT");
+    client.release();
 
     // Return the correct answers map to let the student review instantly
     const correctAnswersMap = {};
@@ -465,6 +486,8 @@ exports.submitMissionAttempt = async (req, res) => {
       correctAnswers: correctAnswersMap
     });
   } catch (err) {
+    await client.query("ROLLBACK");
+    client.release();
     console.error("submitMissionAttempt error:", err);
     res.status(500).json({ error: "Failed to submit attempt." });
   }
