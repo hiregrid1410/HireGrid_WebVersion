@@ -670,6 +670,23 @@ async function initDb() {
         console.error("Failed to run Draft/Publish migration v3:", errV3.message);
       }
     }
+
+    // --- Performance Indexes v4 Migrations ---
+    const migrationCheckV4 = await pool.query(`SELECT 1 FROM schema_migrations WHERE version = 'v4'`);
+    if (migrationCheckV4.rows.length === 0) {
+      console.log("Running Performance Indexes schema migrations (v4)...");
+      try {
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS idx_modules_placement_cycle ON modules(is_placement_mission, is_active, cycle_id);
+          CREATE INDEX IF NOT EXISTS idx_p_mission_attempts_user_cycle ON placement_mission_attempts(user_id, cycle_id);
+          CREATE INDEX IF NOT EXISTS idx_p_mission_attempts_cycle_status_valid ON placement_mission_attempts(cycle_id, status, is_valid);
+        `);
+        await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v4') ON CONFLICT DO NOTHING`);
+        console.log("Performance Indexes schema migrations (v4) run successfully.");
+      } catch (errV4) {
+        console.error("Failed to run Performance Indexes migration v4:", errV4.message);
+      }
+    }
   } catch (err) {
     console.error("Database initialization failed:", err.message);
   }

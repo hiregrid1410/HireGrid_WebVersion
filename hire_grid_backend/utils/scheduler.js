@@ -16,7 +16,12 @@ const getKolkataDateString = () => {
   const parts = formatter.formatToParts(new Date());
   const map = {};
   parts.forEach(p => { map[p.type] = p.value; });
-  return `${map.year}-${map.month}-${map.day}`;
+  
+  // Suffix AM/PM to run leaderboard calculations twice a day
+  const hourVal = Number(map.hour);
+  const suffix = hourVal < 12 ? "AM" : "PM";
+  
+  return `${map.year}-${map.month}-${map.day}_${suffix}`;
 };
 
 const runLeaderboardJob = async () => {

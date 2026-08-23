@@ -56,7 +56,7 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
 
   // 2. Fetch User Record from cache or database
   let user = dbCache.get(`user:${userId}`);
-  if (!user) {
+  if (!user) {            
     const userResult = await pool.query(
       `SELECT id, role, has_full_premium, active_plan_id, plan_expiry, 
               purchased_companies, granted_company_access, granted_subject_access, 
