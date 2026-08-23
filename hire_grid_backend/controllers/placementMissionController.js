@@ -614,6 +614,14 @@ exports.createCycleCM = async (req, res) => {
     );
 
     await client.query("COMMIT");
+    
+    // Auto-initialize leaderboard snapshots for the newly created cycle
+    try {
+      await recalculateLeaderboardSnapshots(cycleId);
+    } catch (recalcErr) {
+      console.error("[CYCLE] Failed to auto-initialize snapshots:", recalcErr.message);
+    }
+
     res.json({ success: true, message: `New weekly cycle '${name}' started successfully.` });
   } catch (err) {
     await client.query("ROLLBACK");
