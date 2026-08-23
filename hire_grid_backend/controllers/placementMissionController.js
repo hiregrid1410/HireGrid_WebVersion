@@ -447,6 +447,12 @@ exports.submitMissionAttempt = async (req, res) => {
       ]
     );
 
+    // Return the correct answers map to let the student review instantly
+    const correctAnswersMap = {};
+    dbQuestions.forEach((q) => {
+      correctAnswersMap[q.id] = q.correct_answer_index;
+    });
+
     res.json({
       success: true,
       score: finalScoreToSave,
@@ -455,7 +461,8 @@ exports.submitMissionAttempt = async (req, res) => {
       totalQuestions: dbQuestions.length,
       xpEarned: finalXpToSave,
       speedBonus: finalSpeedBonusToSave,
-      isLate
+      isLate,
+      correctAnswers: correctAnswersMap
     });
   } catch (err) {
     console.error("submitMissionAttempt error:", err);
