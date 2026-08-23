@@ -75,6 +75,8 @@ export default function StudentDashboard() {
   const [isReviewing, setIsReviewing] = useState(false);
   const [moduleScores, setModuleScores] = useState({});
   const [assessmentPlanFilter, setAssessmentPlanFilter] = useState(null);
+  const [isPlacementAttempt, setIsPlacementAttempt] = useState(false);
+  const [submittedResult, setSubmittedResult] = useState(null);
 
   // Anti-Cheating & Auto-Fullscreen System
   const [warningCount, setWarningCount] = useState(0);
@@ -797,7 +799,12 @@ export default function StudentDashboard() {
       setActiveMasterModule(mod);
     } else {
       try {
-        const res = await api.post("/attempts/start", { moduleId: mod.id });
+        const isPlacement = activeTab === "placement-mission" || mod.is_placement_mission || mod.isPlacementMission;
+        setIsPlacementAttempt(isPlacement);
+        setSubmittedResult(null);
+
+        const url = isPlacement ? "/placement-mission/attempts/start" : "/attempts/start";
+        const res = await api.post(url, { moduleId: mod.id });
         const fetchedQuestions = res.questions || [];
         const fullModuleObj = { ...mod, questions: fetchedQuestions };
         setActiveModule(fullModuleObj);
@@ -841,7 +848,8 @@ export default function StudentDashboard() {
           clearTimeout(syncTimeoutRef.current);
         }
         syncTimeoutRef.current = setTimeout(() => {
-          api.post(`/attempts/${attemptId}/sync`, { answers: { [currentQ.id]: index } }).catch(() => {});
+          const url = isPlacementAttempt ? `/placement-mission/attempts/${attemptId}/sync` : `/attempts/${attemptId}/sync`;
+          api.post(url, { answers: { [currentQ.id]: index } }).catch(() => {});
         }, 1500);
       }
       return updated;
@@ -862,7 +870,8 @@ export default function StudentDashboard() {
 
     try {
       // Submit and grade attempt securely on the backend
-      const result = await api.post(`/attempts/${attemptId}/submit`, {
+      const url = isPlacementAttempt ? `/placement-mission/attempts/${attemptId}/submit` : `/attempts/${attemptId}/submit`;
+      const result = await api.post(url, {
         answers
       });
 
@@ -871,6 +880,13 @@ export default function StudentDashboard() {
         const correctCount = result.correctCount;
         const totalQ = result.totalQuestions;
         const gainedXP = result.xpEarned;
+
+        setSubmittedResult({
+          score: percentage,
+          correctCount,
+          totalQuestions: totalQ,
+          xpEarned: gainedXP
+        });
 
         if (result.correctAnswers) {
           setCorrectAnswers(result.correctAnswers);
@@ -928,6 +944,11 @@ export default function StudentDashboard() {
 
   const calculateScore = () => {
     if (!activeModule) return 0;
+
+    if (submittedResult && submittedResult.correctCount !== undefined) {
+      return submittedResult.correctCount;
+    }
+
     let score = 0;
     const modPositive =
       activeModule.marksPerQuestion !== undefined
@@ -948,10 +969,16 @@ export default function StudentDashboard() {
           ? Number(q.negativeMarksOverride)
           : modNegative;
 
-      if (answers[q.id] === q.correctAnswerIndex) {
-        score += qPos;
-      } else if (answers[q.id] !== undefined) {
-        score -= qNeg;
+      const correctIdx = q.correctAnswerIndex !== undefined && q.correctAnswerIndex !== null
+        ? q.correctAnswerIndex
+        : correctAnswers[q.id];
+
+      if (answers[q.id] !== undefined && answers[q.id] !== null) {
+        if (Number(answers[q.id]) === Number(correctIdx)) {
+          score += qPos;
+        } else {
+          score -= qNeg;
+        }
       }
     });
     return Math.max(0, score);
@@ -2188,8 +2215,8 @@ export default function StudentDashboard() {
                       <div className="text-center py-10">
                         {(() => {
                           const score = calculateScore();
-                          const total = activeModule.questions.length;
-                          const percentage = Math.round((score / total) * 100);
+                          const total = submittedResult ? submittedResult.totalQuestions : activeModule.questions.length;
+                          const percentage = submittedResult ? submittedResult.score : Math.round((score / total) * 100);
                           const isPassed =
                             percentage >= (activeModule.passPercentage || 60);
 
