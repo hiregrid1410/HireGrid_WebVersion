@@ -102,8 +102,10 @@ startScheduler();
 
 // Load Routes
 app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api", require("./routes/apiRoutes"));
+app.use("/api/storage", require("./routes/storageRoutes"));
 app.use("/api/placement-mission", require("./routes/placementMissionRoutes"));
+app.use("/api", require("./routes/apiRoutes"));
+app.use("/uploads", express.static(require("./services/storageService").LOCAL_UPLOADS_DIR));
 
 // Base health route
 app.get("/", (req, res) => {

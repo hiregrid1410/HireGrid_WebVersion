@@ -2,6 +2,7 @@ const { pool } = require("../config/db");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const { verifyUserItemAccess, dbCache } = require("../utils/accessChecker");
+const cacheService = require("../services/cacheService");
 
 const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DESC') => {
   let sql = baseQuery;
@@ -88,6 +89,12 @@ exports.getModules = async (req, res) => {
       role = req.user.role || "student";
     }
 
+    const cacheKey = `modules:role:${role}:query:${JSON.stringify(req.query)}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, modules: cached });
+    }
+
     let filterClause = "";
     if (role !== "admin" && role !== "content_manager") {
       filterClause = " WHERE (m.publication_status = 'PUBLISHED' OR m.publication_status IS NULL)";
@@ -130,6 +137,7 @@ exports.getModules = async (req, res) => {
       questions: []
     }));
     
+    cacheService.set(cacheKey, formattedModules, 300); // 5 minutes TTL
     res.json({ success: true, modules: formattedModules });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -245,6 +253,7 @@ exports.saveModules = async (req, res) => {
     }
     await pool.query("COMMIT");
     dbCache.clear();
+    cacheService.invalidatePattern("modules");
     res.json({ success: true });
   } catch (err) {
     await pool.query("ROLLBACK");
@@ -257,6 +266,7 @@ exports.deleteModule = async (req, res) => {
   try {
     await pool.query("DELETE FROM modules WHERE id = $1", [id]);
     dbCache.clear();
+    cacheService.invalidatePattern("modules");
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -477,6 +487,12 @@ exports.getCompanies = async (req, res) => {
       role = req.user.role || "student";
     }
 
+    const cacheKey = `companies:role:${role}:query:${JSON.stringify(req.query)}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, companies: cached });
+    }
+
     let filterClause = "";
     if (role !== "admin" && role !== "content_manager") {
       filterClause = " WHERE (publication_status = 'PUBLISHED' OR publication_status IS NULL)";
@@ -501,6 +517,8 @@ exports.getCompanies = async (req, res) => {
     `;
     const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(display_order, 999999) ASC, created_at ASC');
     const result = await pool.query(sql, values);
+    
+    cacheService.set(cacheKey, result.rows, 300); // 5 minutes TTL
     res.json({ success: true, companies: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -545,6 +563,7 @@ exports.saveCompany = async (req, res) => {
       ]
     );
     dbCache.clear();
+    cacheService.invalidatePattern("companies");
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -556,6 +575,7 @@ exports.deleteCompany = async (req, res) => {
   try {
     await pool.query("DELETE FROM companies WHERE id = $1", [id]);
     dbCache.clear();
+    cacheService.invalidatePattern("companies");
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -743,6 +763,12 @@ exports.getHierarchyNodes = async (req, res) => {
       role = req.user.role || "student";
     }
 
+    const cacheKey = `hierarchy_nodes:role:${role}:query:${JSON.stringify(req.query)}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, nodes: cached });
+    }
+
     let filterClause = "";
     if (role !== "admin" && role !== "content_manager") {
       filterClause = " WHERE (publication_status = 'PUBLISHED' OR publication_status IS NULL)";
@@ -767,6 +793,8 @@ exports.getHierarchyNodes = async (req, res) => {
     `;
     const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(display_order, 999999) ASC, created_at ASC');
     const result = await pool.query(sql, values);
+    
+    cacheService.set(cacheKey, result.rows, 300); // 5 minutes TTL
     res.json({ success: true, nodes: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -810,6 +838,7 @@ exports.saveHierarchyNode = async (req, res) => {
         publicationStatus || 'PUBLISHED'
       ]
     );
+    cacheService.invalidatePattern("hierarchy_nodes");
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -820,6 +849,7 @@ exports.deleteHierarchyNode = async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query("DELETE FROM hierarchy_nodes WHERE id = $1", [id]);
+    cacheService.invalidatePattern("hierarchy_nodes");
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1435,9 +1465,88 @@ exports.getModuleQuestions = async (req, res) => {
   }
 };
 
+exports.getQuestionsAdmin = async (req, res) => {
+  const role = req.user?.role;
+  if (role !== "admin" && role !== "content_manager") {
+    return res.status(403).json({ error: "Access Denied. Admins and Content Managers only." });
+  }
+
+  try {
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const offset = parseInt(req.query.offset, 10) || 0;
+    const search = req.query.search ? String(req.query.search).trim() : null;
+
+    let baseQuery = `
+      SELECT q.id, q.module_id AS "moduleId", q.question, q.options, 
+             q.correct_answer_index AS "correctAnswerIndex", q.svg_code AS "svgCode", 
+             q.display_order AS "displayOrder", q.explanation, q.difficulty, q.status, 
+             q.created_by AS "createdBy", q.updated_at AS "updatedAt", q.image_key AS "imageKey",
+             m.title AS "moduleTitle",
+             COUNT(*) OVER() AS "totalCount"
+      FROM questions q
+      LEFT JOIN modules m ON q.module_id = m.id
+    `;
+
+    const whereClauses = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (search) {
+      whereClauses.push(`q.question ILIKE $${paramIndex++}`);
+      values.push(`%${search}%`);
+    }
+
+    // Apply where_ filters dynamically
+    for (const key of Object.keys(req.query)) {
+      if (key.startsWith('where_')) {
+        const field = key.replace('where_', '');
+        const valStr = req.query[key];
+        const colonIdx = valStr.indexOf(':');
+        if (colonIdx !== -1) {
+          const op = valStr.substring(0, colonIdx);
+          const val = valStr.substring(colonIdx + 1);
+          let sqlOp = '=';
+          if (op === '==') sqlOp = '=';
+          else if (op === '!=') sqlOp = '!=';
+          
+          const colName = field === 'moduleId' ? 'module_id' : field;
+          whereClauses.push(`q.${colName} ${sqlOp} $${paramIndex++}`);
+          values.push(val);
+        }
+      }
+    }
+
+    if (whereClauses.length > 0) {
+      baseQuery += " WHERE " + whereClauses.join(" AND ");
+    }
+
+    baseQuery += ` ORDER BY q.created_at DESC, q.id ASC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    values.push(limit, offset);
+
+    const result = await pool.query(baseQuery, values);
+    const total = result.rows.length > 0 ? parseInt(result.rows[0].totalCount, 10) : 0;
+    
+    const questions = result.rows.map(r => {
+      delete r.totalCount;
+      return r;
+    });
+
+    res.json({ success: true, questions, total });
+  } catch (err) {
+    console.error("getQuestionsAdmin error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // ================= PLANS =================
 exports.getPlans = async (req, res) => {
   try {
+    const cacheKey = `plans:query:${JSON.stringify(req.query)}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, plans: cached });
+    }
+
     const baseQuery = `
       SELECT 
         id, 
@@ -1485,6 +1594,7 @@ exports.getPlans = async (req, res) => {
       }
     }
 
+    cacheService.set(cacheKey, plansList, 300); // 5 minutes TTL
     res.json({ success: true, plans: plansList });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1634,6 +1744,7 @@ exports.savePlan = async (req, res) => {
 
     await pool.query("COMMIT");
     dbCache.clear();
+    cacheService.invalidatePattern("plans");
     res.json({ success: true, plan: { id: planId } });
   } catch (err) {
     await pool.query("ROLLBACK");
@@ -1646,6 +1757,7 @@ exports.deletePlan = async (req, res) => {
   try {
     await pool.query("DELETE FROM plans WHERE id = $1", [id]);
     dbCache.clear();
+    cacheService.invalidatePattern("plans");
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1706,7 +1818,13 @@ exports.startExamAttempt = async (req, res) => {
       const expiresAt = now + timeLimitMs;
 
       // Fetch all questions to determine the list of IDs for shuffling
-      const qRes = await pool.query("SELECT id FROM questions WHERE module_id = $1", [moduleId]);
+      let qRes = await pool.query(
+        `SELECT question_id AS id FROM exam_questions WHERE exam_id = $1 ORDER BY question_order ASC`,
+        [moduleId]
+      );
+      if (qRes.rows.length === 0) {
+        qRes = await pool.query("SELECT id FROM questions WHERE module_id = $1 ORDER BY display_order ASC", [moduleId]);
+      }
       shuffledQuestionIds = qRes.rows.map(r => r.id);
       
       // Fisher-Yates shuffle helper
@@ -1731,12 +1849,21 @@ exports.startExamAttempt = async (req, res) => {
     }
 
     // 4. Fetch the questions (excluding correct answer key)
-    const questionsRes = await pool.query(
-      `SELECT id, question, options, NULL AS "correctAnswerIndex", svg_code AS "svgCode", display_order AS "displayOrder"
-       FROM questions
-       WHERE module_id = $1`,
+    let questionsRes = await pool.query(
+      `SELECT q.id, q.question, q.options, NULL AS "correctAnswerIndex", q.svg_code AS "svgCode", eq.question_order AS "displayOrder"
+       FROM questions q
+       INNER JOIN exam_questions eq ON q.id = eq.question_id
+       WHERE eq.exam_id = $1`,
       [moduleId]
     );
+    if (questionsRes.rows.length === 0) {
+      questionsRes = await pool.query(
+        `SELECT id, question, options, NULL AS "correctAnswerIndex", svg_code AS "svgCode", display_order AS "displayOrder"
+         FROM questions
+         WHERE module_id = $1`,
+        [moduleId]
+      );
+    }
 
     let questionsList = questionsRes.rows;
 
@@ -1827,14 +1954,19 @@ exports.submitExamAttempt = async (req, res) => {
     return res.status(401).json({ error: "Authentication required." });
   }
 
+  const client = await pool.connect();
   try {
+    await client.query("BEGIN");
+
     // 1. Fetch attempt session
-    const attemptRes = await pool.query(
+    const attemptRes = await client.query(
       "SELECT * FROM exam_attempts WHERE id = $1 AND user_id = $2 AND status = 'active'",
       [id, userId]
     );
 
     if (attemptRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      client.release();
       return res.status(404).json({ error: "Active exam session not found or already submitted." });
     }
 
@@ -1850,8 +1982,10 @@ exports.submitExamAttempt = async (req, res) => {
     delete finalAnswers._question_order;
 
     // 2. Fetch module configuration
-    const modRes = await pool.query("SELECT * FROM modules WHERE id = $1", [moduleId]);
+    const modRes = await client.query("SELECT * FROM modules WHERE id = $1", [moduleId]);
     if (modRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      client.release();
       return res.status(404).json({ error: "Module not found." });
     }
     const activeModule = modRes.rows[0];
@@ -1859,10 +1993,19 @@ exports.submitExamAttempt = async (req, res) => {
     const modNegative = activeModule.negative_marks !== null ? Number(activeModule.negative_marks) : 0.5;
 
     // 3. Fetch correct answers from DB
-    const questionsRes = await pool.query(
-      "SELECT id, correct_answer_index FROM questions WHERE module_id = $1",
+    let questionsRes = await client.query(
+      `SELECT q.id, q.correct_answer_index, eq.marks AS "positive_marks_override", eq.negative_marks AS "negative_marks_override"
+       FROM questions q
+       INNER JOIN exam_questions eq ON q.id = eq.question_id
+       WHERE eq.exam_id = $1`,
       [moduleId]
     );
+    if (questionsRes.rows.length === 0) {
+      questionsRes = await client.query(
+        "SELECT id, correct_answer_index, positive_marks_override FROM questions WHERE module_id = $1",
+        [moduleId]
+      );
+    }
     const dbQuestions = questionsRes.rows;
 
     let finalScore = 0;
@@ -1878,7 +2021,7 @@ exports.submitExamAttempt = async (req, res) => {
 
     dbQuestions.forEach((q) => {
       const qPos = (q.positive_marks_override !== undefined && q.positive_marks_override !== null) ? Number(q.positive_marks_override) : modPositive;
-      const qNeg = modNegative; 
+      const qNeg = (q.negative_marks_override !== undefined && q.negative_marks_override !== null) ? Number(q.negative_marks_override) : modNegative;
 
       const studentAnswer = finalAnswers[q.id];
       if (studentAnswer !== undefined && studentAnswer !== null) {
@@ -1896,14 +2039,14 @@ exports.submitExamAttempt = async (req, res) => {
     const xpEarned = correctCount * 10;
 
     // 4. Save score to users table
-    const userRes = await pool.query("SELECT name, email, branch, semester, xp FROM users WHERE id = $1", [userId]);
+    const userRes = await client.query("SELECT name, email, branch, semester, xp FROM users WHERE id = $1", [userId]);
     if (userRes.rows.length > 0) {
       const dbUser = userRes.rows[0];
       const currentXP = Number(dbUser.xp) || 0;
 
       let moduleScores = {};
       try {
-        const scoresRes = await pool.query("SELECT module_scores FROM users WHERE id = $1", [userId]);
+        const scoresRes = await client.query("SELECT module_scores FROM users WHERE id = $1", [userId]);
         moduleScores = scoresRes.rows[0]?.module_scores || {};
         if (typeof moduleScores === "string") {
           moduleScores = JSON.parse(moduleScores);
@@ -1918,7 +2061,7 @@ exports.submitExamAttempt = async (req, res) => {
         const newXP = currentXP + xpEarned;
         const newLevel = Math.max(1, Math.floor(newXP / 100) + 1);
 
-        await pool.query(
+        await client.query(
           "UPDATE users SET module_scores = $1, xp = $2, level = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4",
           [JSON.stringify(moduleScores), newXP, newLevel, userId]
         );
@@ -1930,18 +2073,18 @@ exports.submitExamAttempt = async (req, res) => {
         let branchName = null;
 
         if (activeModule.module_type === "company" && activeModule.branch_id) {
-          const compRes = await pool.query("SELECT name FROM companies WHERE id = $1", [activeModule.branch_id]);
+          const compRes = await client.query("SELECT name FROM companies WHERE id = $1", [activeModule.branch_id]);
           if (compRes.rows.length > 0) {
             companyName = compRes.rows[0].name;
           }
         } else if (activeModule.parent_id) {
-          const branchRes = await pool.query("SELECT name FROM hierarchy_nodes WHERE id = $1", [activeModule.parent_id]);
+          const branchRes = await client.query("SELECT name FROM hierarchy_nodes WHERE id = $1", [activeModule.parent_id]);
           if (branchRes.rows.length > 0) {
             branchName = branchRes.rows[0].name;
           }
         }
 
-        await pool.query(
+        await client.query(
           `INSERT INTO first_attempts (
             id, user_id, user_name, user_email, student_branch, student_semester,
             module_id, module_title, module_type, company_name, branch_name,
@@ -1972,10 +2115,13 @@ exports.submitExamAttempt = async (req, res) => {
     }
 
     // 6. Update attempt status
-    await pool.query(
+    await client.query(
       "UPDATE exam_attempts SET status = 'submitted', last_activity = $1 WHERE id = $2",
       [Date.now(), id]
     );
+
+    await client.query("COMMIT");
+    client.release();
 
     // Return the correct answers map to let the student review instantly
     const correctAnswersMap = {};
@@ -1992,6 +2138,8 @@ exports.submitExamAttempt = async (req, res) => {
       correctAnswers: correctAnswersMap
     });
   } catch (err) {
+    await client.query("ROLLBACK");
+    client.release();
     console.error("Submit exam attempt error:", err);
     res.status(500).json({ error: "Failed to submit and grade exam." });
   }
