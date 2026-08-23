@@ -8,9 +8,9 @@ const pool = process.env.DATABASE_URL
     ssl: {
       rejectUnauthorized: false,
     },
-    max: 50,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 20000,
+    max: 10,
+    idleTimeoutMillis: 15000,
+    connectionTimeoutMillis: 5000,
   })
   
   : new Pool({
@@ -22,9 +22,9 @@ const pool = process.env.DATABASE_URL
     ssl: (process.env.DB_HOST && process.env.DB_HOST.includes("neon.tech"))
       ? { rejectUnauthorized: false }
       : false,
-    max: 50,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 20000,
+    max: 10,
+    idleTimeoutMillis: 15000,
+    connectionTimeoutMillis: 5000,
   });
 
 const createTablesQuery = `
