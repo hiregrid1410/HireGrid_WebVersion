@@ -917,12 +917,15 @@ export default function StudentDashboard() {
     if (currentQuestionIndex < activeModule.questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      // Find first unanswered/pending question
-      const firstPendingIndex = activeModule.questions.findIndex(
+      // On the last question, find the first unanswered question to wrap around
+      const unansweredIdx = activeModule.questions.findIndex(
         (q) => answers[q.id] === undefined
       );
-      if (firstPendingIndex !== -1 && firstPendingIndex !== currentQuestionIndex) {
-        setCurrentQuestionIndex(firstPendingIndex);
+      if (unansweredIdx !== -1) {
+        setCurrentQuestionIndex(unansweredIdx);
+      } else {
+        // If all are answered, wrap to the first question
+        setCurrentQuestionIndex(0);
       }
     }
   };
@@ -2696,16 +2699,13 @@ export default function StudentDashboard() {
                           </button>
                         </div>
                         <div className="flex space-x-3 ml-auto">
-                          {(currentQuestionIndex < activeModule.questions.length - 1 || 
-                            activeModule.questions.some((q, idx) => answers[q.id] === undefined && idx !== currentQuestionIndex)) && (
-                            <button
-                              onClick={handleNextQuestion}
-                              className="flex items-center px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-colors"
-                            >
-                              Next
-                              <ChevronRight className="w-5 h-5 ml-1" />
-                            </button>
-                          )}
+                          <button
+                            onClick={handleNextQuestion}
+                            className="flex items-center px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-colors"
+                          >
+                            Next
+                            <ChevronRight className="w-5 h-5 ml-1" />
+                          </button>
                         </div>
                       </div>
 
