@@ -43,6 +43,7 @@ export function HierarchyBuilder({
   const [price, setPrice] = useState(0);
   const [sellType, setSellType] = useState("pack");
   const [displayOrder, setDisplayOrder] = useState(0);
+  const [publicationStatus, setPublicationStatus] = useState("PUBLISHED");
   const [deleteNodeInfo, setDeleteNodeInfo] = useState(null);
 
   const fetchNodes = async () => {
@@ -130,6 +131,7 @@ export function HierarchyBuilder({
         isPremium,
         sellType,
         displayOrder,
+        publicationStatus,
         createdAt: editingId
           ? nodes.find((n) => n.id === editingId)?.createdAt || Date.now()
           : Date.now(),
@@ -158,6 +160,7 @@ export function HierarchyBuilder({
       setIsPurchasable(false);
       setSellType("pack");
       setPrice(0);
+      setPublicationStatus("PUBLISHED");
       showToast("Saved successfully!", "success");
     } catch (err) {
       showToast("Error: " + err.message, "error");
@@ -264,6 +267,7 @@ export function HierarchyBuilder({
               setIsPurchasable(false);
               setPrice(0);
               setSellType("pack");
+              setPublicationStatus("PUBLISHED");
               setDisplayOrder(
                 nodes.length > 0
                   ? Math.max(...nodes.map((n) => n.displayOrder || 0)) + 100
@@ -324,6 +328,25 @@ export function HierarchyBuilder({
                 className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
                 placeholder="e.g. 100"
               />
+            </div>
+
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Publication Status
+              </label>
+              <select
+                value={publicationStatus}
+                onChange={(e) => setPublicationStatus(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+              >
+                <option value="PUBLISHED">Published</option>
+                <option value="DRAFT">Draft</option>
+              </select>
+              {publicationStatus === "DRAFT" && (
+                <p className="text-xs text-rose-500 font-semibold mt-1">
+                  ⚠️ Draft nodes and their children are hidden from students.
+                </p>
+              )}
             </div>
 
             {!isContentManager && (
@@ -440,6 +463,7 @@ export function HierarchyBuilder({
                 setIsPurchasable(false);
                 setSellType("pack");
                 setPrice(0);
+                setPublicationStatus("PUBLISHED");
               }}
               className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors"
             >
@@ -458,6 +482,11 @@ export function HierarchyBuilder({
           disabled={!isContentManager}
           renderItem={(node) => (
             <div className="relative group bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 dark:hover:border-amber-500/50 transition-colors flex flex-col h-full z-10">
+              {(node.publicationStatus || node.publication_status || "PUBLISHED") === "DRAFT" && (
+                <div className="absolute top-0 left-0 bg-rose-500 text-white text-[10px] font-bold px-2 py-1 uppercase tracking-wider rounded-br-lg z-10">
+                  Draft
+                </div>
+              )}
               {node.accessType && node.accessType !== "free" && (
                 <div
                   className={`absolute top-0 right-0 text-white text-[10px] font-bold px-2 py-1 uppercase tracking-wider rounded-bl-lg z-10 flex items-center ${node.accessType === "demo" ? "bg-indigo-500" : "bg-amber-500"}`}
@@ -518,6 +547,7 @@ export function HierarchyBuilder({
                     );
                     setPrice(node.price || 0);
                     setSellType(node.sellType || "pack");
+                    setPublicationStatus(node.publicationStatus || node.publication_status || "PUBLISHED");
                     setDisplayOrder(node.displayOrder || 0);
                   }}
                   className="flex items-center text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
