@@ -2002,7 +2002,7 @@ exports.submitExamAttempt = async (req, res) => {
     );
     if (questionsRes.rows.length === 0) {
       questionsRes = await client.query(
-        "SELECT id, correct_answer_index, positive_marks_override FROM questions WHERE module_id = $1",
+        'SELECT id, correct_answer_index, NULL AS "positive_marks_override" FROM questions WHERE module_id = $1',
         [moduleId]
       );
     }

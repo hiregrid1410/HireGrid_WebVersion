@@ -387,7 +387,7 @@ exports.submitMissionAttempt = async (req, res) => {
     );
     if (questionsRes.rows.length === 0) {
       questionsRes = await client.query(
-        "SELECT id, correct_answer_index, positive_marks_override FROM questions WHERE module_id = $1",
+        'SELECT id, correct_answer_index, NULL AS "positive_marks_override" FROM questions WHERE module_id = $1',
         [moduleId]
       );
     }
@@ -467,6 +467,11 @@ exports.submitMissionAttempt = async (req, res) => {
 
     await client.query("COMMIT");
     client.release();
+
+    // Recalculate leaderboard snapshots for this cycle automatically in real-time
+    recalculateLeaderboardSnapshots(attempt.cycle_id).catch((e) => {
+      console.error("[LEADERBOARD] Auto recalculate failed:", e);
+    });
 
     // Return the correct answers map to let the student review instantly
     const correctAnswersMap = {};
