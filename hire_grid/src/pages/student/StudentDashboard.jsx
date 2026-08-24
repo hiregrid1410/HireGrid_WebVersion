@@ -916,6 +916,14 @@ export default function StudentDashboard() {
     if (!activeModule) return;
     if (currentQuestionIndex < activeModule.questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
+    } else {
+      // Find first unanswered/pending question
+      const firstPendingIndex = activeModule.questions.findIndex(
+        (q) => answers[q.id] === undefined
+      );
+      if (firstPendingIndex !== -1 && firstPendingIndex !== currentQuestionIndex) {
+        setCurrentQuestionIndex(firstPendingIndex);
+      }
     }
   };
 
@@ -2688,7 +2696,8 @@ export default function StudentDashboard() {
                           </button>
                         </div>
                         <div className="flex space-x-3 ml-auto">
-                          {currentQuestionIndex < activeModule.questions.length - 1 && (
+                          {(currentQuestionIndex < activeModule.questions.length - 1 || 
+                            activeModule.questions.some((q, idx) => answers[q.id] === undefined && idx !== currentQuestionIndex)) && (
                             <button
                               onClick={handleNextQuestion}
                               className="flex items-center px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-colors"
