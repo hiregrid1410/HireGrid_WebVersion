@@ -13,6 +13,7 @@ import {
   CreditCard,
   ShieldAlert,
   Trophy,
+  GitMerge,
 } from "lucide-react";
 import { AdminUsersTab } from "../../components/admin/AdminUsersTab";
 import { AdminSettingsTab } from "../../components/admin/AdminSettingsTab";
@@ -22,6 +23,7 @@ import { AdminFeedbacksTab } from "../../components/admin/AdminFeedbacksTab";
 import { AdminPlansTab } from "../../components/admin/AdminPlansTab";
 import { AdminAuditLogTab } from "../../components/admin/AdminAuditLogTab";
 import { AdminPlacementMissionTab } from "../../components/admin/AdminPlacementMissionTab";
+import { AdminBranchesTab } from "../../components/admin/AdminBranchesTab";
 import { ThemeToggle } from "../../components/common/ThemeToggle";
 
 export default function AdminDashboard() {
@@ -173,6 +175,13 @@ export default function AdminDashboard() {
             onClick={() => setView("system", "placement_missions")}
             isOpen={sidebarOpen}
           />
+          <SidebarItem
+            icon={<GitMerge />}
+            label="Branches & Mappings"
+            active={activeWorkspace === "system" && activeSubTab === "branches_mappings"}
+            onClick={() => setView("system", "branches_mappings")}
+            isOpen={sidebarOpen}
+          />
         </div>
 
         {/* User Profile */}
@@ -268,6 +277,9 @@ export default function AdminDashboard() {
               )}
               {activeWorkspace === "system" && activeSubTab === "placement_missions" && (
                 <AdminPlacementMissionTab userName={userName} />
+              )}
+              {activeWorkspace === "system" && activeSubTab === "branches_mappings" && (
+                <AdminBranchesTab isContentManager={false} userName={userName} />
               )}
             </div>
           </div>

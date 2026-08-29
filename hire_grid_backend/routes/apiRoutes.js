@@ -84,7 +84,23 @@ router.post("/gate/branches", dataController.saveGateBranch);
 router.get("/gate/papers", dataController.getGatePapers);
 router.post("/gate/papers", dataController.saveGatePaper);
 
+// Branches & Access Mappings
+router.get("/branches", dataController.getBranches);
+router.get("/branches/active", dataController.getActiveBranches);
+router.post("/branches", dataController.saveBranch);
+router.put("/branches/:id", dataController.saveBranch);
+router.delete("/branches/:id", dataController.deleteBranch);
+
+router.get("/companies/:companyId/branches", dataController.getCompanyBranches);
+router.put("/companies/:companyId/branches", dataController.saveCompanyBranches);
+router.put("/companies-batch/branches", dataController.saveCompanyBranchesBatch);
+
+router.get("/content-mappings/:contentType/:contentId", dataController.getContentMappings);
+router.put("/content-mappings/:contentType/:contentId", dataController.saveContentMappings);
+router.put("/content-mappings-batch/:contentType", dataController.saveContentMappingsBatch);
+
 // User Management (Admin)
+router.post("/users", dataController.updateUser);
 router.get("/admin/questions", dataController.getQuestionsAdmin);
 router.get("/users", dataController.getUsers);
 router.get("/users/:id", dataController.getUserById);

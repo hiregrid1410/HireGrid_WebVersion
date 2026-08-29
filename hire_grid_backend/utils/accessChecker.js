@@ -27,6 +27,63 @@ class MemoryCache {
 
 const dbCache = new MemoryCache();
 
+const verifyBranchAccess = async (userId, itemId, itemType) => {
+  try {
+    // 1. Get user's branch_id (or fallback to General)
+    const userRes = await pool.query("SELECT branch_id FROM users WHERE id = $1", [userId]);
+    let branchId = userRes.rows.length > 0 ? userRes.rows[0].branch_id : null;
+    if (!branchId) {
+      const generalRes = await pool.query("SELECT id FROM branches WHERE is_general = TRUE LIMIT 1");
+      if (generalRes.rows.length > 0) branchId = generalRes.rows[0].id;
+    }
+    if (!branchId) return true; // Safe fallback if no branches exist in DB yet
+
+    if (itemType === "company") {
+      const mappingRes = await pool.query(
+        `SELECT 1 FROM company_branch_mappings 
+         WHERE company_id = $1 
+           AND (assignment_scope = 'ALL' OR branch_id = $2)`,
+        [itemId, branchId]
+      );
+      return mappingRes.rows.length > 0;
+    } else if (itemType === "module") {
+      const modRes = await pool.query("SELECT module_type, parent_id, id FROM modules WHERE id = $1", [itemId]);
+      if (modRes.rows.length === 0) return false;
+      const mod = modRes.rows[0];
+      if (mod.module_type === "company" && mod.parent_id) {
+        // Inherit from company
+        const mappingRes = await pool.query(
+          `SELECT 1 FROM company_branch_mappings 
+           WHERE company_id = $1 
+             AND (assignment_scope = 'ALL' OR branch_id = $2)`,
+          [mod.parent_id, branchId]
+        );
+        return mappingRes.rows.length > 0;
+      } else {
+        // Independent content: check content_branch_mappings
+        const mappingRes = await pool.query(
+          `SELECT 1 FROM content_branch_mappings 
+           WHERE content_id = $1 AND content_type = 'module'
+             AND (assignment_scope = 'ALL' OR branch_id = $2)`,
+          [mod.id, branchId]
+        );
+        return mappingRes.rows.length > 0;
+      }
+    } else if (itemType === "hierarchy_node" || itemType === "exam") {
+      const mappingRes = await pool.query(
+        `SELECT 1 FROM content_branch_mappings 
+         WHERE content_id = $1 AND content_type = 'hierarchy_node'
+           AND (assignment_scope = 'ALL' OR branch_id = $2)`,
+        [itemId, branchId]
+      );
+      return mappingRes.rows.length > 0;
+    }
+  } catch (err) {
+    console.error("verifyBranchAccess error:", err.message);
+  }
+  return true; // Default allow in case of errors to prevent breaking app
+};
+
 /**
  * Verify if a user has access to a specific item (company/module/exam) based on user state & active plan.
  * @param {string} userId - User's ID
@@ -52,6 +109,12 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
 
   if (role === "admin" || role === "content_manager") {
     return { allowed: true };
+  }
+
+  // Verify branch access first for students
+  const hasBranchAccess = await verifyBranchAccess(userId, itemId, itemType);
+  if (!hasBranchAccess) {
+    return { allowed: false, reason: "This content is not available for your branch." };
   }
 
   // 2. Fetch User Record from cache or database
