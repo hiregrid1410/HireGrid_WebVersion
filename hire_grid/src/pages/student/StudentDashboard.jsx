@@ -275,6 +275,9 @@ export default function StudentDashboard() {
   }, []);
   const [deviceBlocked, setDeviceBlocked] = useState(false);
   const [activeBranches, setActiveBranches] = useState([]);
+  const [isChangingBranch, setIsChangingBranch] = useState(false);
+  const [tempSelectedBranch, setTempSelectedBranch] = useState(null);
+  const [showBranchConfirmation, setShowBranchConfirmation] = useState(false);
 
   useEffect(() => {
     if (currentUserDoc) {
@@ -1125,10 +1128,42 @@ export default function StudentDashboard() {
 
   // Intercept if user is student and has not selected branch
   const [settingBranchId, setSettingBranchId] = useState(null);
+  const [onboardingSelectedBranchId, setOnboardingSelectedBranchId] = useState(null);
   const hasNoBranchSelected = currentUserDoc && currentUserDoc.role === "student" && !currentUserDoc.branchId && !currentUserDoc.branch_id;
   if (hasNoBranchSelected) {
     // Filter out the General system fallback branch so it is not shown as a student choice
     const availableStudentBranches = activeBranches.filter(b => !b.isGeneral && b.status === "ACTIVE");
+
+    const handleSaveOnboardingBranch = async () => {
+      if (!onboardingSelectedBranchId) return;
+      const chosenBranch = availableStudentBranches.find(b => b.id === onboardingSelectedBranchId);
+      if (!chosenBranch) return;
+
+      setSettingBranchId(onboardingSelectedBranchId);
+      try {
+        await setDoc(
+          doc(db, "users", auth.currentUser.uid),
+          {
+            branchId: chosenBranch.id,
+            branch: chosenBranch.name,
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+        showToast(`Branch set to ${chosenBranch.name} successfully!`, "success");
+        // Instantly update local state to dismiss the onboarding screen
+        setCurrentUserDoc(prev => ({
+          ...prev,
+          branchId: chosenBranch.id,
+          branch_id: chosenBranch.id,
+          branch: chosenBranch.name
+        }));
+      } catch (err) {
+        showToast("Failed to set branch: " + err.message, "error");
+      } finally {
+        setSettingBranchId(null);
+      }
+    };
 
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] flex items-center justify-center font-sans p-4 relative overflow-hidden">
@@ -1138,63 +1173,43 @@ export default function StudentDashboard() {
         <div className="glass-panel rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-emerald-500/20 text-center relative z-10 transform transition-all animate-in fade-in zoom-in-95 duration-300">
           <BookOpen className="w-16 h-16 text-emerald-500 mx-auto mb-6 animate-bounce" />
           <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-wide mb-3">
-            Select Your Branch
+            Choose Your Branch
           </h2>
           <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">
-            Please choose your academic branch to personalize your experience. This will unlock modules, company preparation materials, and exams relevant to your specialization.
+            Select your academic branch to personalize companies, learning content and placement opportunities available to you.
           </p>
           
           <div className="grid gap-4 max-h-[300px] overflow-y-auto pr-2 mb-8 select-branch-container animate-fade-in">
             {availableStudentBranches.map((b) => {
-              const isProcessing = settingBranchId === b.id;
+              const isSelected = onboardingSelectedBranchId === b.id;
               return (
                 <button
                   key={b.id}
+                  type="button"
                   disabled={settingBranchId !== null}
-                  onClick={async () => {
-                    setSettingBranchId(b.id);
-                    try {
-                      await setDoc(
-                        doc(db, "users", auth.currentUser.uid),
-                        {
-                          branchId: b.id,
-                          branch: b.name,
-                          updatedAt: Date.now(),
-                        },
-                        { merge: true }
-                      );
-                      showToast(`Branch set to ${b.name} successfully!`, "success");
-                      // Instantly update local state to dismiss the onboarding screen
-                      setCurrentUserDoc(prev => ({
-                        ...prev,
-                        branchId: b.id,
-                        branch_id: b.id,
-                        branch: b.name
-                      }));
-                    } catch (err) {
-                      showToast("Failed to set branch: " + err.message, "error");
-                    } finally {
-                      setSettingBranchId(null);
-                    }
-                  }}
-                  className={`w-full text-left px-6 py-4 rounded-2xl border text-slate-800 dark:text-slate-200 font-bold transition-all flex justify-between items-center group hover:scale-[1.01] ${
-                    isProcessing 
-                      ? "bg-emerald-500/20 border-emerald-500 cursor-not-allowed" 
-                      : "border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-emerald-500/10 hover:border-emerald-500"
+                  onClick={() => setOnboardingSelectedBranchId(b.id)}
+                  className={`w-full text-left px-6 py-4 rounded-2xl border font-bold transition-all flex justify-between items-center group hover:scale-[1.01] ${
+                    isSelected 
+                      ? "bg-emerald-500/10 border-emerald-500 text-slate-900 dark:text-white" 
+                      : "border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-emerald-500/5 hover:border-emerald-500/50 text-slate-800 dark:text-slate-200"
                   }`}
                 >
-                  <div>
-                    <div className="text-base group-hover:text-emerald-500 transition-colors flex items-center">
-                      <span>{b.name}</span>
-                      {isProcessing && (
-                        <span className="ml-2 inline-block w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="flex items-center space-x-4">
+                    {/* Custom Radio Button */}
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                      isSelected ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950"
+                    }`}>
+                      {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                    </div>
+                    <div className="text-left">
+                      <div className={`text-base transition-colors ${isSelected ? "text-emerald-500" : ""}`}>
+                        {b.name}
+                      </div>
+                      {b.description && (
+                        <div className="text-xs text-slate-400 font-medium mt-1">{b.description}</div>
                       )}
                     </div>
-                    {b.description && (
-                      <div className="text-xs text-slate-400 font-medium mt-1">{b.description}</div>
-                    )}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-500 transition-colors" />
                 </button>
               );
             })}
@@ -1205,15 +1220,31 @@ export default function StudentDashboard() {
             )}
           </div>
 
-          <button
-            onClick={() => {
-              logOut();
-              navigate("/");
-            }}
-            className="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors uppercase tracking-widest text-xs"
-          >
-            Sign Out
-          </button>
+          <div className="flex space-x-3 justify-center">
+            <button
+              onClick={() => {
+                logOut();
+                navigate("/");
+              }}
+              className="px-6 py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors uppercase tracking-widest text-xs"
+            >
+              Sign Out
+            </button>
+            <button
+              disabled={!onboardingSelectedBranchId || settingBranchId !== null}
+              onClick={handleSaveOnboardingBranch}
+              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center space-x-2 text-xs uppercase tracking-widest"
+            >
+              {settingBranchId ? (
+                <>
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <span>Continue</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -3046,35 +3077,54 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-700 dark:text-slate-300">
-                    Branch / Specialization
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    Academic Branch
                   </label>
-                  <select
-                    value={activeBranches.some(b => b.id === profileForm.branchId || b.name === profileForm.branch) ? (activeBranches.find(b => b.id === profileForm.branchId)?.id || activeBranches.find(b => b.name === profileForm.branch)?.id || "") : ""}
-                    onChange={(e) => {
-                      const selectedId = e.target.value;
-                      const selectedBranch = activeBranches.find(b => b.id === selectedId);
-                      if (!selectedBranch) return;
+                  <div className="flex justify-between items-center p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                    <div className="truncate pr-2">
+                      <span className="text-xs text-slate-400 block uppercase font-mono tracking-wider font-semibold">Current Branch</span>
+                      <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                        {currentUserDoc?.branch || "No branch selected"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsChangingBranch(prev => !prev)}
+                      className="px-3 py-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white font-bold text-xs rounded-xl transition-all shrink-0"
+                    >
+                      {isChangingBranch ? "Hide Branches" : "Change Branch"}
+                    </button>
+                  </div>
 
-                      const currentBranchId = currentUserDoc?.branchId || activeBranches.find(b => b.name === currentUserDoc?.branch)?.id;
-                      if (currentBranchId && currentBranchId !== selectedId) {
-                        const ok = window.confirm("Changing your branch will change the companies, exams and content available to you. Do you want to proceed?");
-                        if (!ok) return;
-                      }
-
-                      setProfileForm({ ...profileForm, branch: selectedBranch.name, branchId: selectedBranch.id });
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                  >
-                    <option value="" disabled>Select branch</option>
-                    {activeBranches.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
+                  {isChangingBranch && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2 animate-in slide-in-from-top duration-200">
+                      <label className="text-xs font-bold text-slate-500 block uppercase font-mono tracking-wider">Select New Branch</label>
+                      <div className="grid gap-2 max-h-[150px] overflow-y-auto pr-1">
+                        {activeBranches.filter(b => !b.isGeneral && b.status === "ACTIVE" && b.id !== (currentUserDoc?.branchId || currentUserDoc?.branch_id)).map(b => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => {
+                              setTempSelectedBranch(b);
+                              setShowBranchConfirmation(true);
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-xs font-bold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-emerald-500/5 hover:border-emerald-500 rounded-xl transition-all text-slate-800 dark:text-slate-200"
+                          >
+                            {b.name}
+                          </button>
+                        ))}
+                        {activeBranches.filter(b => !b.isGeneral && b.status === "ACTIVE" && b.id !== (currentUserDoc?.branchId || currentUserDoc?.branch_id)).length === 0 && (
+                          <div className="text-center py-4 text-xs text-slate-500 font-semibold">
+                            No other active branches available.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
                     Semester
                   </label>
                   <select
@@ -3099,7 +3149,7 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
                     College Name
                   </label>
                   <input
@@ -3117,7 +3167,7 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
                     University Name
                   </label>
                   <input
@@ -3135,7 +3185,7 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
                     Graduation Year
                   </label>
                   <input
@@ -3155,8 +3205,11 @@ export default function StudentDashboard() {
                 <div className="pt-4 border-t border-emerald-500/20 flex gap-3">
                   <button
                     type="button"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors"
+                    onClick={() => {
+                      setIsChangingBranch(false);
+                      setIsProfileOpen(false);
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors"
                   >
                     Cancel
                   </button>
@@ -3168,6 +3221,79 @@ export default function StudentDashboard() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Switch Branch Confirmation Modal */}
+        {showBranchConfirmation && tempSelectedBranch && (
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <div className="glass-panel rounded-3xl w-full max-w-sm shadow-2xl border border-emerald-500/20 p-6 space-y-6 text-center transform transition-all animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-12 h-12 text-emerald-500 mx-auto bg-emerald-500/10 rounded-full p-2 mb-2 flex items-center justify-center animate-pulse">
+                <GitMerge className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider font-mono">
+                Confirm Branch Switch
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">
+                Switch branch from <span className="font-bold text-emerald-500">'{currentUserDoc?.branch || "None"}'</span> to <span className="font-bold text-emerald-500">'{tempSelectedBranch.name}'</span>?
+              </p>
+              <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-left text-xs text-amber-600 dark:text-amber-400 space-y-1">
+                <p className="font-bold">Important Note:</p>
+                <p className="font-medium">Your available companies, learning content and placement content may change according to the selected branch.</p>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBranchConfirmation(false);
+                    setTempSelectedBranch(null);
+                  }}
+                  className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowBranchConfirmation(false);
+                    setIsChangingBranch(false);
+                    setIsProfileOpen(false);
+                    try {
+                      await setDoc(
+                        doc(db, "users", auth.currentUser.uid),
+                        {
+                          branchId: tempSelectedBranch.id,
+                          branch: tempSelectedBranch.name,
+                          updatedAt: Date.now(),
+                        },
+                        { merge: true }
+                      );
+                      showToast(`Successfully switched to ${tempSelectedBranch.name}!`, "success");
+                      // Instantly update states to refresh dashboard content without logout
+                      setCurrentUserDoc(prev => ({
+                        ...prev,
+                        branchId: tempSelectedBranch.id,
+                        branch_id: tempSelectedBranch.id,
+                        branch: tempSelectedBranch.name
+                      }));
+                      setProfileForm(prev => ({
+                        ...prev,
+                        branch: tempSelectedBranch.name,
+                        branchId: tempSelectedBranch.id
+                      }));
+                      // Refresh dashboard content
+                      window.location.reload();
+                    } catch (err) {
+                      showToast("Failed to switch branch: " + err.message, "error");
+                    }
+                  }}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition-colors"
+                >
+                  Switch Branch
+                </button>
+              </div>
             </div>
           </div>
         )}
