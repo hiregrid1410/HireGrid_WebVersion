@@ -34,7 +34,7 @@ const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DES
       whereClauses.push(`(
         EXISTS (
           SELECT 1 FROM company_branch_mappings cbm
-          WHERE cbm.company_id = id
+          WHERE cbm.company_id = companies.id
             AND (cbm.assignment_scope = 'ALL' OR cbm.branch_id = $${paramIndex++})
         )
       )`);
@@ -58,7 +58,7 @@ const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DES
       whereClauses.push(`(
         EXISTS (
           SELECT 1 FROM content_branch_mappings cobm
-          WHERE cobm.content_id = id AND cobm.content_type = 'hierarchy_node'
+          WHERE cobm.content_id = hierarchy_nodes.id AND cobm.content_type = 'hierarchy_node'
             AND (cobm.assignment_scope = 'ALL' OR cobm.branch_id = $${paramIndex++})
         )
       )`);

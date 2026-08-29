@@ -86,7 +86,7 @@ async function request(method, path, body = null) {
             data.message ||
             `Request failed with status ${res.status}`;
 
-          if (res.status === 401) {
+          if (res.status === 401 || (res.status === 404 && path.includes("/users/"))) {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
 
