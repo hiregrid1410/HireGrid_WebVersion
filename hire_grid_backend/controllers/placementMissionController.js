@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { verifyUserItemAccess } = require("../utils/accessChecker");
 const crypto = require("crypto");
 
 const getUserBranchId = async (userId) => {
@@ -51,21 +52,23 @@ exports.getMissions = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    // 1. Verify premium status
-    const isPremium = await isUserPremium(userId);
-    if (!isPremium) {
-      return res.status(403).json({
-        success: false,
-        premiumLocked: true,
-        error: "This section is exclusively for Premium Members. Upgrade to Premium to attempt weekly missions and compete on the leaderboard."
+    // 1. Fetch current active cycle
+    const cycle = await getActiveCycle();
+    if (!cycle) {
+      return res.json({
+        success: true,
+        cycle: null,
+        missions: [],
+        history: []
       });
     }
 
-    // 2. Fetch current active cycle
-    const cycle = await getActiveCycle();
-
-    // 3. Fetch modules for active cycle (excluding draft modules) filtered by branch
+    const isPremium = await isUserPremium(userId);
+    
+    // 2. Fetch student branch
     const studentBranchId = await getUserBranchId(userId);
+
+    // 3. Fetch modules
     const modulesRes = await pool.query(
       `SELECT m.id, m.title, m.description, m.time_limit AS "timeLimit", m.total_marks AS "totalMarks",
               m.start_time AS "startTime", m.end_time AS "endTime", m.publication_status AS "publicationStatus",
@@ -81,6 +84,27 @@ exports.getMissions = async (req, res) => {
        ORDER BY m.display_order ASC, m.created_at ASC`,
       [cycle.id, studentBranchId]
     );
+
+    let allowedModules = [];
+    if (isPremium) {
+      allowedModules = modulesRes.rows;
+    } else {
+      // Filter modules by individual access checks
+      for (const m of modulesRes.rows) {
+        const access = await verifyUserItemAccess(userId, m.id, "module");
+        if (access.allowed) {
+          allowedModules.push(m);
+        }
+      }
+    }
+
+    if (allowedModules.length === 0) {
+      return res.status(403).json({
+        success: false,
+        premiumLocked: true,
+        error: "This section is exclusively for Premium Members. Upgrade to Premium to attempt weekly missions and compete on the leaderboard."
+      });
+    }
 
     // 4. Fetch student attempts for this cycle
     const attemptsRes = await pool.query(
@@ -167,10 +191,13 @@ exports.startMissionAttempt = async (req, res) => {
   }
 
   try {
-    // 1. Verify premium status
+    // 1. Verify premium status or manual access
     const isPremium = await isUserPremium(userId);
     if (!isPremium) {
-      return res.status(403).json({ error: "Premium membership required." });
+      const accessCheck = await verifyUserItemAccess(userId, moduleId, "module");
+      if (!accessCheck.allowed) {
+        return res.status(403).json({ error: accessCheck.reason || "Premium membership required." });
+      }
     }
 
     // 2. Fetch module config
@@ -367,16 +394,58 @@ exports.submitMissionAttempt = async (req, res) => {
 
     // 2. Fetch attempt
     const attemptRes = await client.query(
-      "SELECT * FROM placement_mission_attempts WHERE id = $1 AND user_id = $2 AND status = 'active'",
+      "SELECT * FROM placement_mission_attempts WHERE id = $1 AND user_id = $2",
       [id, userId]
     );
     if (attemptRes.rows.length === 0) {
       await client.query("ROLLBACK");
       client.release();
-      return res.status(404).json({ error: "Active mission attempt not found or already submitted." });
+      return res.status(404).json({ error: "Mission attempt not found." });
     }
     const attempt = attemptRes.rows[0];
     const moduleId = attempt.module_id;
+
+    if (attempt.status === 'submitted' || attempt.status === 'expired') {
+      let questionsRes = await client.query(
+        `SELECT q.id, q.correct_answer_index, eq.marks AS "positive_marks_override", eq.negative_marks AS "negative_marks_override"
+         FROM questions q
+         INNER JOIN exam_questions eq ON q.id = eq.question_id
+         WHERE eq.exam_id = $1`,
+        [moduleId]
+      );
+      if (questionsRes.rows.length === 0) {
+        questionsRes = await client.query(
+          'SELECT id, correct_answer_index, NULL AS "positive_marks_override" FROM questions WHERE module_id = $1',
+          [moduleId]
+        );
+      }
+      const dbQuestions = questionsRes.rows;
+      const correctAnswersMap = {};
+      dbQuestions.forEach((q) => {
+        correctAnswersMap[q.id] = q.correct_answer_index;
+      });
+
+      const correctCount = dbQuestions.filter((q) => {
+        const studentAns = attempt.answers[q.id];
+        return studentAns !== undefined && studentAns !== null && Number(studentAns) === Number(q.correct_answer_index);
+      }).length;
+
+      await client.query("COMMIT");
+      client.release();
+
+      return res.json({
+        success: true,
+        score: Number(attempt.score) || 0,
+        accuracy: Number(attempt.accuracy) || 0,
+        correctCount,
+        totalQuestions: dbQuestions.length,
+        xpEarned: attempt.xp_earned || 0,
+        speedBonus: attempt.speed_bonus || 0,
+        isLate: attempt.status === 'expired',
+        correctAnswers: correctAnswersMap,
+        alreadySubmitted: true
+      });
+    }
 
     // Check time limit with a 15 seconds grace period for network latency
     const GRACE_PERIOD_MS = 15000;

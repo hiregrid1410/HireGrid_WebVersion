@@ -83,6 +83,9 @@ app.use(cookieParser());
 
 // Performance Timing Middleware
 app.use((req, res, next) => {
+  if (req.originalUrl === "/health" || req.path === "/health") {
+    return next();
+  }
   const start = performance.now();
   res.on("finish", () => {
     const duration = (performance.now() - start).toFixed(2);
@@ -91,6 +94,11 @@ app.use((req, res, next) => {
     }
   });
   next();
+});
+
+// Health check route (Render wake-up handling)
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 // Initialize Database & Seeds

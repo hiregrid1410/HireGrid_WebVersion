@@ -5,6 +5,50 @@ const API_BASE = API_URL.endsWith("/api") ? API_URL : `${API_URL}/api`;
 
 const inFlightRequests = new Map();
 
+let isServerWaking = false;
+let wakingPromise = null;
+
+async function checkHealth() {
+  try {
+    const res = await fetch(`${API_URL}/health`, { method: "GET" });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return data.status === "ok";
+    }
+  } catch (e) {
+    // unreachable
+  }
+  return false;
+}
+
+async function waitForServerToWake() {
+  if (wakingPromise) {
+    return wakingPromise;
+  }
+
+  wakingPromise = (async () => {
+    isServerWaking = true;
+    window.dispatchEvent(new CustomEvent("server-waking"));
+
+    const maxRetries = 20; // 60 seconds max wait
+    let attempts = 0;
+    while (attempts < maxRetries) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      attempts++;
+      const ok = await checkHealth();
+      if (ok) {
+        break;
+      }
+    }
+
+    isServerWaking = false;
+    wakingPromise = null;
+    window.dispatchEvent(new CustomEvent("server-ready"));
+  })();
+
+  return wakingPromise;
+}
+
 async function request(method, path, body = null) {
   if (method === "GET" && inFlightRequests.has(path)) {
     return inFlightRequests.get(path);
@@ -30,35 +74,63 @@ async function request(method, path, body = null) {
   }
 
   const reqPromise = (async () => {
-    try {
-      const res = await fetch(`${API_BASE}${path}`, options);
-      const data = await res.json().catch(() => ({}));
+    let attemptsLeft = 2;
+    while (attemptsLeft > 0) {
+      try {
+        const res = await fetch(`${API_BASE}${path}`, options);
+        const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        const message =
-          data.error ||
-          data.message ||
-          `Request failed with status ${res.status}`;
+        if (!res.ok) {
+          const message =
+            data.error ||
+            data.message ||
+            `Request failed with status ${res.status}`;
 
-        if (res.status === 401) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          if (res.status === 401) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
 
-          if (
-            window.location.pathname !== "/" &&
-            window.location.pathname !== "/admin"
-          ) {
-            window.location.href = "/";
+            if (
+              window.location.pathname !== "/" &&
+              window.location.pathname !== "/admin"
+            ) {
+              window.location.href = "/";
+            }
           }
+
+          throw new Error(message);
         }
 
-        throw new Error(message);
-      }
+        return data;
+      } catch (err) {
+        // If it is a business/HTTP error thrown by us above, don't retry
+        if (
+          err.message &&
+          !err.message.includes("Failed to fetch") &&
+          !err.message.includes("NetworkError") &&
+          !err.message.includes("Network Error") &&
+          !err.message.includes("status") &&
+          !err.message.includes("fetch")
+        ) {
+          throw err;
+        }
 
-      return data;
-    } catch (err) {
-      console.error("API Error:", err);
-      throw err;
+        // Check if server is already awake/healthy
+        const isHealthy = await checkHealth();
+        if (isHealthy) {
+          console.error("API Error (Server is healthy):", err);
+          throw err;
+        }
+
+        // Server is sleeping/waking. Wait for it.
+        console.log("Server is sleeping/waking. Waiting for it to start...");
+        await waitForServerToWake();
+
+        attemptsLeft--;
+        if (attemptsLeft === 0) {
+          throw err;
+        }
+      }
     }
   })();
 

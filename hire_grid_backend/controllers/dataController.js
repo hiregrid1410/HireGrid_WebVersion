@@ -2036,18 +2036,109 @@ exports.submitExamAttempt = async (req, res) => {
 
     // 1. Fetch attempt session
     const attemptRes = await client.query(
-      "SELECT * FROM exam_attempts WHERE id = $1 AND user_id = $2 AND status = 'active'",
+      "SELECT * FROM exam_attempts WHERE id = $1 AND user_id = $2",
       [id, userId]
     );
 
     if (attemptRes.rows.length === 0) {
       await client.query("ROLLBACK");
       client.release();
-      return res.status(404).json({ error: "Active exam session not found or already submitted." });
+      return res.status(404).json({ error: "Exam session not found." });
     }
 
     const attempt = attemptRes.rows[0];
     const moduleId = attempt.module_id;
+
+    if (attempt.status === 'submitted' || attempt.status === 'expired') {
+      const firstAttemptRes = await client.query(
+        "SELECT * FROM first_attempts WHERE user_id = $1 AND module_id = $2",
+        [userId, moduleId]
+      );
+
+      // Fetch correct answers map
+      let questionsRes = await client.query(
+        `SELECT q.id, q.correct_answer_index, eq.marks AS "positive_marks_override", eq.negative_marks AS "negative_marks_override"
+         FROM questions q
+         INNER JOIN exam_questions eq ON q.id = eq.question_id
+         WHERE eq.exam_id = $1`,
+        [moduleId]
+      );
+      if (questionsRes.rows.length === 0) {
+        questionsRes = await client.query(
+          'SELECT id, correct_answer_index, NULL AS "positive_marks_override" FROM questions WHERE module_id = $1',
+          [moduleId]
+        );
+      }
+      const dbQuestions = questionsRes.rows;
+      const correctAnswersMap = {};
+      dbQuestions.forEach((q) => {
+        correctAnswersMap[q.id] = q.correct_answer_index;
+      });
+
+      await client.query("COMMIT");
+      client.release();
+
+      if (firstAttemptRes.rows.length > 0) {
+        const fa = firstAttemptRes.rows[0];
+        return res.json({
+          success: true,
+          score: Number(fa.score),
+          correctCount: fa.correct_count,
+          totalQuestions: fa.total_questions,
+          xpEarned: fa.xp_earned,
+          correctAnswers: correctAnswersMap,
+          alreadySubmitted: true
+        });
+      } else {
+        const activeModuleRes = await client.query("SELECT * FROM modules WHERE id = $1", [moduleId]);
+        const activeModule = activeModuleRes.rows[0];
+        const modPositive = activeModule.marks_per_question !== null ? Number(activeModule.marks_per_question) : 1;
+        const modNegative = activeModule.negative_marks !== null ? Number(activeModule.negative_marks) : 0.5;
+
+        let finalScore = 0;
+        let correctCount = 0;
+        let maxPossibleScore = Number(activeModule.total_marks) || 0;
+
+        if (!maxPossibleScore) {
+          dbQuestions.forEach((q) => {
+            const qPos = (q.positive_marks_override !== undefined && q.positive_marks_override !== null) ? Number(q.positive_marks_override) : modPositive;
+            maxPossibleScore += qPos;
+          });
+        }
+
+        const finalAnswers = { ...(attempt.answers || {}) };
+        delete finalAnswers._question_order;
+
+        dbQuestions.forEach((q) => {
+          const qPos = (q.positive_marks_override !== undefined && q.positive_marks_override !== null) ? Number(q.positive_marks_override) : modPositive;
+          const qNeg = (q.negative_marks_override !== undefined && q.negative_marks_override !== null) ? Number(q.negative_marks_override) : modNegative;
+
+          const studentAnswer = finalAnswers[q.id];
+          if (studentAnswer !== undefined && studentAnswer !== null) {
+            if (Number(studentAnswer) === Number(q.correct_answer_index)) {
+              finalScore += qPos;
+              correctCount += 1;
+            } else {
+              finalScore -= qNeg;
+            }
+          }
+        });
+
+        finalScore = Math.max(0, finalScore);
+        const scorePercentage = maxPossibleScore > 0 ? Math.round((finalScore / maxPossibleScore) * 100) : 0;
+        const xpEarned = correctCount * 10;
+
+        return res.json({
+          success: true,
+          score: scorePercentage,
+          correctCount,
+          totalQuestions: dbQuestions.length,
+          xpEarned,
+          correctAnswers: correctAnswersMap,
+          alreadySubmitted: true
+        });
+      }
+    }
 
     // Merge answers
     const finalAnswers = {

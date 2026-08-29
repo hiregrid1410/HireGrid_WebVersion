@@ -100,7 +100,11 @@ export function ToastContainer() {
 
   const addToast = useCallback(({ message, type, duration }) => {
     const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev.slice(-4), { id, message, type, duration }]); // max 5 visible
+    setToasts((prev) => {
+      const exists = prev.some((t) => t.message === message);
+      if (exists) return prev;
+      return [...prev.slice(-4), { id, message, type, duration }]; // max 5 visible
+    });
   }, []);
 
   const removeToast = useCallback((id) => {
