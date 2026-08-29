@@ -43,7 +43,7 @@ const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DES
       whereClauses.push(`(
         (m.module_type = 'company' AND EXISTS (
           SELECT 1 FROM company_branch_mappings cbm
-          WHERE cbm.company_id = m.branch_id
+          WHERE cbm.company_id = m.parent_id
             AND (cbm.assignment_scope = 'ALL' OR cbm.branch_id = $${paramIndex++})
         ))
         OR
@@ -85,7 +85,9 @@ const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DES
         // Map camelCase fields to snake_case for DB columns if necessary
         const colName = field === 'parentId' ? 'parent_id' : 
                         field === 'moduleType' ? 'module_type' :
-                        field === 'accessType' ? 'access_type' : field;
+                        field === 'accessType' ? 'access_type' : 
+                        field === 'isPlacementMission' ? 'is_placement_mission' : 
+                        field === 'cycleId' ? 'cycle_id' : field;
         const dbField = sql.includes('FROM modules m') ? `m.${colName}` : colName;
                         
         if (val === 'null' || val === 'undefined' || val === '') {
@@ -184,6 +186,8 @@ exports.getModules = async (req, res) => {
         m.created_by AS "createdBy",
         m.branch_id AS "branchId",
         m.publication_status AS "publicationStatus",
+        m.is_placement_mission AS "isPlacementMission",
+        m.cycle_id AS "cycleId",
         (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS "questionCount"
       FROM modules m
       ${filterClause}
@@ -1050,6 +1054,13 @@ exports.updateUser = async (req, res) => {
     return res.status(400).json({ error: "User ID is required." });
   }
 
+  // Task 22: Enforce authorization and prevent students from updating arbitrary profiles
+  if (req.user && req.user.role !== "admin" && req.user.role !== "content_manager") {
+    if (id !== req.user.id) {
+      return res.status(403).json({ error: "Access denied. You can only update your own profile." });
+    }
+  }
+
   try {
     // 1. Fetch current user
     const userRes = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
@@ -1084,8 +1095,17 @@ exports.updateUser = async (req, res) => {
     };
 
     // 2. Apply updates (including nested properties with dot notation)
+    const allowedStudentKeys = ["name", "branch", "semester", "theme", "branchId", "branch_id"];
     for (const key of Object.keys(fields)) {
       if (key === "id" || key === "password") continue;
+
+      // Filter fields if user is a student
+      if (req.user && req.user.role !== "admin" && req.user.role !== "content_manager") {
+        const rootKey = key.split(".")[0];
+        if (!allowedStudentKeys.includes(rootKey)) {
+          continue; // Ignore disallowed updates
+        }
+      }
       
       if (key.includes(".")) {
         const [parentKey, childKey] = key.split(".");
@@ -1105,6 +1125,24 @@ exports.updateUser = async (req, res) => {
           data[targetKey] = fields[key];
         }
       }
+    }
+
+    // Task 23: Audit logging for student branch change
+    const oldBranchId = user.branch_id;
+    const newBranchId = data.branchId;
+    if (oldBranchId !== newBranchId) {
+      await pool.query(
+        `INSERT INTO security_logs (id, user_id, user_name, user_email, event_type, details)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          crypto.randomUUID(),
+          req.user.id,
+          req.user.name || user.name || "Student",
+          req.user.email || user.email,
+          "STUDENT_BRANCH_CHANGED",
+          `Changed active branch from '${oldBranchId || "none"}' to '${newBranchId || "none"}'`
+        ]
+      ).catch(e => console.error("Audit log error:", e));
     }
 
     // 3. Write back to database
@@ -2523,6 +2561,20 @@ exports.saveCompanyBranches = async (req, res) => {
     await client.query("COMMIT");
     client.release();
 
+    // Audit logging
+    await pool.query(
+      `INSERT INTO security_logs (id, user_id, user_name, user_email, event_type, details)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        crypto.randomUUID(),
+        req.user ? req.user.id : null,
+        req.user ? req.user.name || "Content Manager" : "System",
+        req.user ? req.user.email : null,
+        "CONTENT_ACCESS_UPDATED",
+        `Updated company access mappings for company ID '${companyId}'. Scope: ${assignmentScope}.`
+      ]
+    ).catch(e => console.error("Mapping audit log error:", e));
+
     // Invalidate caches
     cacheService.clear();
 
@@ -2592,6 +2644,20 @@ exports.saveContentMappings = async (req, res) => {
     await client.query("COMMIT");
     client.release();
 
+    // Audit logging
+    await pool.query(
+      `INSERT INTO security_logs (id, user_id, user_name, user_email, event_type, details)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        crypto.randomUUID(),
+        req.user ? req.user.id : null,
+        req.user ? req.user.name || "Content Manager" : "System",
+        req.user ? req.user.email : null,
+        "CONTENT_ACCESS_UPDATED",
+        `Updated content access mappings for '${contentType}' ID '${contentId}'. Scope: ${assignmentScope}.`
+      ]
+    ).catch(e => console.error("Mapping audit log error:", e));
+
     // Invalidate caches
     cacheService.clear();
 
@@ -2615,37 +2681,76 @@ exports.saveCompanyBranchesBatch = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    for (const companyId of companyIds) {
-      // Remove existing mappings
-      await client.query("DELETE FROM company_branch_mappings WHERE company_id = $1", [companyId]);
+    // 1. Bulk Delete existing mappings
+    await client.query(
+      "DELETE FROM company_branch_mappings WHERE company_id = ANY($1)",
+      [companyIds]
+    );
 
-      if (assignmentScope === "ALL") {
-        const id = crypto.randomUUID();
+    // 2. Bulk Insert new mappings
+    if (assignmentScope === "ALL") {
+      const values = [];
+      const valueStrings = [];
+      let paramIndex = 1;
+
+      companyIds.forEach(companyId => {
+        valueStrings.push(`($${paramIndex++}, $${paramIndex++}, NULL, 'ALL', $${paramIndex++})`);
+        values.push(crypto.randomUUID(), companyId, userId);
+      });
+
+      if (values.length > 0) {
         await client.query(
           `INSERT INTO company_branch_mappings (id, company_id, branch_id, assignment_scope, created_by)
-           VALUES ($1, $2, NULL, 'ALL', $3)`,
-          [id, companyId, userId]
+           VALUES ${valueStrings.join(", ")}
+           ON CONFLICT DO NOTHING`,
+          values
         );
-      } else if (Array.isArray(branchIds)) {
-        for (const branchId of branchIds) {
-          const id = crypto.randomUUID();
-          await client.query(
-            `INSERT INTO company_branch_mappings (id, company_id, branch_id, assignment_scope, created_by)
-             VALUES ($1, $2, $3, 'SPECIFIC', $4)`,
-            [id, companyId, branchId, userId]
-          );
-        }
+      }
+    } else if (Array.isArray(branchIds) && branchIds.length > 0) {
+      const values = [];
+      const valueStrings = [];
+      let paramIndex = 1;
+
+      companyIds.forEach(companyId => {
+        branchIds.forEach(branchId => {
+          valueStrings.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, 'SPECIFIC', $${paramIndex++})`);
+          values.push(crypto.randomUUID(), companyId, branchId, userId);
+        });
+      });
+
+      if (values.length > 0) {
+        await client.query(
+          `INSERT INTO company_branch_mappings (id, company_id, branch_id, assignment_scope, created_by)
+           VALUES ${valueStrings.join(", ")}
+           ON CONFLICT DO NOTHING`,
+          values
+        );
       }
     }
 
     await client.query("COMMIT");
     client.release();
 
+    // Audit logging
+    await pool.query(
+      `INSERT INTO security_logs (id, user_id, user_name, user_email, event_type, details)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        crypto.randomUUID(),
+        req.user ? req.user.id : null,
+        req.user ? req.user.name || "Content Manager" : "System",
+        req.user ? req.user.email : null,
+        "CONTENT_ACCESS_ASSIGNED",
+        `Batch updated company access mappings for ${companyIds.length} companies. Scope: ${assignmentScope}.`
+      ]
+    ).catch(e => console.error("Mapping audit log error:", e));
+
     cacheService.clear();
     res.json({ success: true });
   } catch (err) {
     await client.query("ROLLBACK");
     client.release();
+    console.error("Bulk company mapping error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -2663,40 +2768,76 @@ exports.saveContentMappingsBatch = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    for (const contentId of contentIds) {
-      // Remove existing mappings
-      await client.query(
-        "DELETE FROM content_branch_mappings WHERE content_type = $1 AND content_id = $2",
-        [contentType, contentId]
-      );
+    // 1. Bulk Delete existing mappings
+    await client.query(
+      "DELETE FROM content_branch_mappings WHERE content_type = $1 AND content_id = ANY($2)",
+      [contentType, contentIds]
+    );
 
-      if (assignmentScope === "ALL") {
-        const id = crypto.randomUUID();
+    // 2. Bulk Insert new mappings
+    if (assignmentScope === "ALL") {
+      const values = [];
+      const valueStrings = [];
+      let paramIndex = 1;
+
+      contentIds.forEach(contentId => {
+        valueStrings.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, NULL, 'ALL', $${paramIndex++})`);
+        values.push(crypto.randomUUID(), contentId, contentType, userId);
+      });
+
+      if (values.length > 0) {
         await client.query(
           `INSERT INTO content_branch_mappings (id, content_id, content_type, branch_id, assignment_scope, created_by)
-           VALUES ($1, $2, $3, NULL, 'ALL', $4)`,
-          [id, contentId, contentType, userId]
+           VALUES ${valueStrings.join(", ")}
+           ON CONFLICT DO NOTHING`,
+          values
         );
-      } else if (Array.isArray(branchIds)) {
-        for (const branchId of branchIds) {
-          const id = crypto.randomUUID();
-          await client.query(
-            `INSERT INTO content_branch_mappings (id, content_id, content_type, branch_id, assignment_scope, created_by)
-             VALUES ($1, $2, $3, $4, 'SPECIFIC', $5)`,
-            [id, contentId, contentType, branchId, userId]
-          );
-        }
+      }
+    } else if (Array.isArray(branchIds) && branchIds.length > 0) {
+      const values = [];
+      const valueStrings = [];
+      let paramIndex = 1;
+
+      contentIds.forEach(contentId => {
+        branchIds.forEach(branchId => {
+          valueStrings.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, 'SPECIFIC', $${paramIndex++})`);
+          values.push(crypto.randomUUID(), contentId, contentType, branchId, userId);
+        });
+      });
+
+      if (values.length > 0) {
+        await client.query(
+          `INSERT INTO content_branch_mappings (id, content_id, content_type, branch_id, assignment_scope, created_by)
+           VALUES ${valueStrings.join(", ")}
+           ON CONFLICT DO NOTHING`,
+          values
+        );
       }
     }
 
     await client.query("COMMIT");
     client.release();
 
+    // Audit logging
+    await pool.query(
+      `INSERT INTO security_logs (id, user_id, user_name, user_email, event_type, details)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        crypto.randomUUID(),
+        req.user ? req.user.id : null,
+        req.user ? req.user.name || "Content Manager" : "System",
+        req.user ? req.user.email : null,
+        "CONTENT_ACCESS_ASSIGNED",
+        `Batch updated content access mappings for ${contentIds.length} '${contentType}' items. Scope: ${assignmentScope}.`
+      ]
+    ).catch(e => console.error("Mapping audit log error:", e));
+
     cacheService.clear();
     res.json({ success: true });
   } catch (err) {
     await client.query("ROLLBACK");
     client.release();
+    console.error("Bulk content mapping error:", err);
     res.status(500).json({ error: err.message });
   }
 };

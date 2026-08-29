@@ -38,46 +38,32 @@ const verifyBranchAccess = async (userId, itemId, itemType) => {
     }
     if (!branchId) return true; // Safe fallback if no branches exist in DB yet
 
-    if (itemType === "company") {
-      const mappingRes = await pool.query(
-        `SELECT 1 FROM company_branch_mappings 
-         WHERE company_id = $1 
-           AND (assignment_scope = 'ALL' OR branch_id = $2)`,
-        [itemId, branchId]
-      );
-      return mappingRes.rows.length > 0;
-    } else if (itemType === "module") {
-      const modRes = await pool.query("SELECT module_type, parent_id, id FROM modules WHERE id = $1", [itemId]);
-      if (modRes.rows.length === 0) return false;
-      const mod = modRes.rows[0];
-      if (mod.module_type === "company" && mod.parent_id) {
-        // Inherit from company
+    const normalized = normalizeItemType(itemType);
+    const targetItems = [{ id: itemId, type: normalized }];
+    const ancestors = await getAncestors(itemId, normalized);
+    targetItems.push(...ancestors);
+
+    // Check if ANY of these items are globally mapped or mapped to this branch
+    for (const item of targetItems) {
+      if (item.type === "company") {
         const mappingRes = await pool.query(
           `SELECT 1 FROM company_branch_mappings 
            WHERE company_id = $1 
              AND (assignment_scope = 'ALL' OR branch_id = $2)`,
-          [mod.parent_id, branchId]
+          [item.id, branchId]
         );
-        return mappingRes.rows.length > 0;
+        if (mappingRes.rows.length > 0) return true;
       } else {
-        // Independent content: check content_branch_mappings
         const mappingRes = await pool.query(
           `SELECT 1 FROM content_branch_mappings 
-           WHERE content_id = $1 AND content_type = 'module'
-             AND (assignment_scope = 'ALL' OR branch_id = $2)`,
-          [mod.id, branchId]
+           WHERE content_id = $1 AND (assignment_scope = 'ALL' OR branch_id = $2)`,
+          [item.id, branchId]
         );
-        return mappingRes.rows.length > 0;
+        if (mappingRes.rows.length > 0) return true;
       }
-    } else if (itemType === "hierarchy_node" || itemType === "exam") {
-      const mappingRes = await pool.query(
-        `SELECT 1 FROM content_branch_mappings 
-         WHERE content_id = $1 AND content_type = 'hierarchy_node'
-           AND (assignment_scope = 'ALL' OR branch_id = $2)`,
-        [itemId, branchId]
-      );
-      return mappingRes.rows.length > 0;
     }
+    
+    return false;
   } catch (err) {
     console.error("verifyBranchAccess error:", err.message);
   }
