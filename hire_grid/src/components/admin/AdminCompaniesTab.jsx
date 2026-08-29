@@ -38,6 +38,10 @@ export function AdminCompaniesTab({
   const [displayOrder, setDisplayOrder] = useState(0);
   const [publicationStatus, setPublicationStatus] = useState("PUBLISHED");
 
+  const [activeBranches, setActiveBranches] = useState([]);
+  const [assignmentScope, setAssignmentScope] = useState("ALL");
+  const [selectedBranchIds, setSelectedBranchIds] = useState([]);
+
   const fetchCompanies = async () => {
     try {
       const res = await api.get("/companies");
@@ -68,6 +72,18 @@ export function AdminCompaniesTab({
 
   useEffect(() => {
     fetchCompanies();
+    const fetchActiveBranches = async () => {
+      try {
+        const res = await api.get("/branches/active");
+        if (res.success && res.branches) {
+          setActiveBranches(res.branches);
+        }
+      } catch (err) {
+        console.error("Failed to load active branches:", err);
+      }
+    };
+    fetchActiveBranches();
+
     const unsub = onSnapshot(
       query(collection(db, "companies")),
       (snapshot) => {
@@ -165,6 +181,12 @@ export function AdminCompaniesTab({
         ),
       );
 
+      // Save company branch mappings
+      await api.put(`/companies/${companyId}/branches`, {
+        assignmentScope,
+        branchIds: selectedBranchIds,
+      });
+
       if (isContentManager) {
         await logAudit(
           userName,
@@ -182,6 +204,8 @@ export function AdminCompaniesTab({
       setPrice(99);
       setSellType("pack");
       setPublicationStatus("PUBLISHED");
+      setAssignmentScope("ALL");
+      setSelectedBranchIds([]);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, "companies");
     }
@@ -207,7 +231,7 @@ export function AdminCompaniesTab({
     }
   };
 
-  const handleEdit = (c, e) => {
+  const handleEdit = async (c, e) => {
     e.stopPropagation();
     if (isContentManager && c.createdBy && c.createdBy !== userName) {
       showToast("You are not authorized to edit this company. Only the creator or a Super Admin can edit it.", "warning");
@@ -227,6 +251,21 @@ export function AdminCompaniesTab({
     setSellType(c.sellType || "pack");
     setDisplayOrder(c.displayOrder || 0);
     setPublicationStatus(c.publicationStatus || c.publication_status || "PUBLISHED");
+
+    try {
+      const res = await api.get(`/companies/${c.id}/branches`);
+      if (res.success && res.mappings) {
+        const hasAll = res.mappings.some((m) => m.assignmentScope === "ALL");
+        setAssignmentScope(hasAll ? "ALL" : "SPECIFIC");
+        setSelectedBranchIds(
+          res.mappings
+            .filter((m) => m.assignmentScope === "SPECIFIC")
+            .map((m) => m.branchId)
+        );
+      }
+    } catch (err) {
+      console.error("Failed to load mappings:", err);
+    }
   };
 
   if (activeCompany) {
@@ -298,6 +337,8 @@ export function AdminCompaniesTab({
               setIsPurchasable(false);
               setPrice(99);
               setSellType("pack");
+              setAssignmentScope("ALL");
+              setSelectedBranchIds([]);
               setDisplayOrder(
                 companies.length > 0
                   ? Math.max(...companies.map((c) => c.displayOrder || 0)) + 100
@@ -506,6 +547,62 @@ export function AdminCompaniesTab({
               <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
                 Students won't see this company
               </span>
+            )}
+          </div>
+
+          {/* Branch Mapping Permissions */}
+          <div className="space-y-4 p-4 border border-slate-200 dark:border-slate-700 rounded-xl mt-4 bg-slate-50/50 dark:bg-slate-900/30">
+            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+              Branch Access Permissions
+            </h4>
+            <div className="flex gap-4">
+              <label className="flex items-center space-x-2 text-sm font-semibold">
+                <input
+                  type="radio"
+                  name="companyAssignmentScope"
+                  value="ALL"
+                  checked={assignmentScope === "ALL"}
+                  onChange={() => setAssignmentScope("ALL")}
+                  className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span>All Branches (Global)</span>
+              </label>
+              <label className="flex items-center space-x-2 text-sm font-semibold">
+                <input
+                  type="radio"
+                  name="companyAssignmentScope"
+                  value="SPECIFIC"
+                  checked={assignmentScope === "SPECIFIC"}
+                  onChange={() => setAssignmentScope("SPECIFIC")}
+                  className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span>Specific Branches Only</span>
+              </label>
+            </div>
+
+            {assignmentScope === "SPECIFIC" && (
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                {activeBranches.map((b) => {
+                  const isChecked = selectedBranchIds.includes(b.id);
+                  return (
+                    <label key={b.id} className="flex items-center space-x-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          setSelectedBranchIds((prev) =>
+                            prev.includes(b.id)
+                              ? prev.filter((id) => id !== b.id)
+                              : [...prev, b.id]
+                          );
+                        }}
+                        className="h-3.5 w-3.5 rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>{b.name} ({b.code})</span>
+                    </label>
+                  );
+                })}
+              </div>
             )}
           </div>
 

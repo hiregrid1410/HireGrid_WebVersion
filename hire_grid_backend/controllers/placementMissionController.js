@@ -1,6 +1,24 @@
 const { pool } = require("../config/db");
 const crypto = require("crypto");
 
+const getUserBranchId = async (userId) => {
+  if (!userId) return null;
+  try {
+    const userRes = await pool.query("SELECT branch_id FROM users WHERE id = $1", [userId]);
+    if (userRes.rows.length > 0 && userRes.rows[0].branch_id) {
+      return userRes.rows[0].branch_id;
+    }
+    // Fallback to General branch
+    const generalBranchRes = await pool.query("SELECT id FROM branches WHERE is_general = TRUE LIMIT 1");
+    if (generalBranchRes.rows.length > 0) {
+      return generalBranchRes.rows[0].id;
+    }
+  } catch (err) {
+    console.error("getUserBranchId error:", err.message);
+  }
+  return null;
+};
+
 // Helper: Check if user is premium
 const isUserPremium = async (userId) => {
   const result = await pool.query(
@@ -46,7 +64,8 @@ exports.getMissions = async (req, res) => {
     // 2. Fetch current active cycle
     const cycle = await getActiveCycle();
 
-    // 3. Fetch modules for active cycle (excluding draft modules)
+    // 3. Fetch modules for active cycle (excluding draft modules) filtered by branch
+    const studentBranchId = await getUserBranchId(userId);
     const modulesRes = await pool.query(
       `SELECT m.id, m.title, m.description, m.time_limit AS "timeLimit", m.total_marks AS "totalMarks",
               m.start_time AS "startTime", m.end_time AS "endTime", m.publication_status AS "publicationStatus",
@@ -54,8 +73,13 @@ exports.getMissions = async (req, res) => {
        FROM modules m
        WHERE m.is_placement_mission = TRUE AND m.is_active = TRUE AND m.cycle_id = $1
          AND (m.publication_status = 'PUBLISHED' OR m.publication_status IS NULL)
+         AND EXISTS (
+           SELECT 1 FROM content_branch_mappings cobm
+           WHERE cobm.content_id = m.id AND cobm.content_type = 'module'
+             AND (cobm.assignment_scope = 'ALL' OR cobm.branch_id = $2)
+         )
        ORDER BY m.display_order ASC, m.created_at ASC`,
-      [cycle.id]
+      [cycle.id, studentBranchId]
     );
 
     // 4. Fetch student attempts for this cycle

@@ -4,11 +4,67 @@ const bcrypt = require("bcrypt");
 const { verifyUserItemAccess, dbCache } = require("../utils/accessChecker");
 const cacheService = require("../services/cacheService");
 
-const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DESC') => {
+const getUserBranchId = async (userId) => {
+  if (!userId) return null;
+  try {
+    const userRes = await pool.query("SELECT branch_id FROM users WHERE id = $1", [userId]);
+    if (userRes.rows.length > 0 && userRes.rows[0].branch_id) {
+      return userRes.rows[0].branch_id;
+    }
+    // Fallback to General branch
+    const generalBranchRes = await pool.query("SELECT id FROM branches WHERE is_general = TRUE LIMIT 1");
+    if (generalBranchRes.rows.length > 0) {
+      return generalBranchRes.rows[0].id;
+    }
+  } catch (err) {
+    console.error("getUserBranchId error:", err.message);
+  }
+  return null;
+};
+
+const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DESC', userBranchId = null) => {
   let sql = baseQuery;
   const values = [];
   let paramIndex = 1;
   const whereClauses = [];
+
+  // Branch-Based access filtering
+  if (userBranchId) {
+    if (sql.includes('FROM companies')) {
+      whereClauses.push(`(
+        EXISTS (
+          SELECT 1 FROM company_branch_mappings cbm
+          WHERE cbm.company_id = id
+            AND (cbm.assignment_scope = 'ALL' OR cbm.branch_id = $${paramIndex++})
+        )
+      )`);
+      values.push(userBranchId);
+    } else if (sql.includes('FROM modules')) {
+      whereClauses.push(`(
+        (m.module_type = 'company' AND EXISTS (
+          SELECT 1 FROM company_branch_mappings cbm
+          WHERE cbm.company_id = m.branch_id
+            AND (cbm.assignment_scope = 'ALL' OR cbm.branch_id = $${paramIndex++})
+        ))
+        OR
+        (m.module_type != 'company' AND EXISTS (
+          SELECT 1 FROM content_branch_mappings cobm
+          WHERE cobm.content_id = m.id AND cobm.content_type = 'module'
+            AND (cobm.assignment_scope = 'ALL' OR cobm.branch_id = $${paramIndex++})
+        ))
+      )`);
+      values.push(userBranchId, userBranchId);
+    } else if (sql.includes('FROM hierarchy_nodes')) {
+      whereClauses.push(`(
+        EXISTS (
+          SELECT 1 FROM content_branch_mappings cobm
+          WHERE cobm.content_id = id AND cobm.content_type = 'hierarchy_node'
+            AND (cobm.assignment_scope = 'ALL' OR cobm.branch_id = $${paramIndex++})
+        )
+      )`);
+      values.push(userBranchId);
+    }
+  }
 
   // Parse where clauses
   for (const key of Object.keys(reqQuery)) {
@@ -85,11 +141,15 @@ const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DES
 exports.getModules = async (req, res) => {
   try {
     let role = "student";
+    let userBranchId = null;
     if (req.user) {
       role = req.user.role || "student";
+      if (role !== "admin" && role !== "content_manager") {
+        userBranchId = await getUserBranchId(req.user.id);
+      }
     }
 
-    const cacheKey = `modules:role:${role}:query:${JSON.stringify(req.query)}`;
+    const cacheKey = `modules:role:${role}:branch:${userBranchId}:query:${JSON.stringify(req.query)}`;
     const cached = cacheService.get(cacheKey);
     if (cached) {
       return res.json({ success: true, modules: cached });
@@ -128,7 +188,7 @@ exports.getModules = async (req, res) => {
       FROM modules m
       ${filterClause}
     `;
-    const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(m.display_order, 999999) ASC, m.created_at ASC');
+    const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(m.display_order, 999999) ASC, m.created_at ASC', userBranchId);
     const result = await pool.query(sql, values);
     
     // Return questionCount and keep questions empty to optimize payload size
@@ -483,11 +543,15 @@ exports.getStats = async (req, res) => {
 exports.getCompanies = async (req, res) => {
   try {
     let role = "student";
+    let userBranchId = null;
     if (req.user) {
       role = req.user.role || "student";
+      if (role !== "admin" && role !== "content_manager") {
+        userBranchId = await getUserBranchId(req.user.id);
+      }
     }
 
-    const cacheKey = `companies:role:${role}:query:${JSON.stringify(req.query)}`;
+    const cacheKey = `companies:role:${role}:branch:${userBranchId}:query:${JSON.stringify(req.query)}`;
     const cached = cacheService.get(cacheKey);
     if (cached) {
       return res.json({ success: true, companies: cached });
@@ -515,7 +579,7 @@ exports.getCompanies = async (req, res) => {
       FROM companies
       ${filterClause}
     `;
-    const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(display_order, 999999) ASC, created_at ASC');
+    const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(display_order, 999999) ASC, created_at ASC', userBranchId);
     const result = await pool.query(sql, values);
     
     cacheService.set(cacheKey, result.rows, 300); // 5 minutes TTL
@@ -759,11 +823,15 @@ exports.updatePaymentRequest = async (req, res) => {
 exports.getHierarchyNodes = async (req, res) => {
   try {
     let role = "student";
+    let userBranchId = null;
     if (req.user) {
       role = req.user.role || "student";
+      if (role !== "admin" && role !== "content_manager") {
+        userBranchId = await getUserBranchId(req.user.id);
+      }
     }
 
-    const cacheKey = `hierarchy_nodes:role:${role}:query:${JSON.stringify(req.query)}`;
+    const cacheKey = `hierarchy_nodes:role:${role}:branch:${userBranchId}:query:${JSON.stringify(req.query)}`;
     const cached = cacheService.get(cacheKey);
     if (cached) {
       return res.json({ success: true, nodes: cached });
@@ -791,7 +859,7 @@ exports.getHierarchyNodes = async (req, res) => {
       FROM hierarchy_nodes
       ${filterClause}
     `;
-    const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(display_order, 999999) ASC, created_at ASC');
+    const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'COALESCE(display_order, 999999) ASC, created_at ASC', userBranchId);
     const result = await pool.query(sql, values);
     
     cacheService.set(cacheKey, result.rows, 300); // 5 minutes TTL
@@ -928,7 +996,7 @@ exports.getUsers = async (req, res) => {
              has_full_premium AS "hasFullPremium", device_id AS "deviceId", 
              max_devices AS "maxDevices", allowed_devices AS "allowedDevices",
              active_plan_id AS "activePlanId", plan_expiry AS "planExpiry", 
-             purchased_companies AS "purchasedCompanies" 
+             purchased_companies AS "purchasedCompanies", branch_id AS "branchId" 
       FROM users
     `;
     const { sql, values } = applyQueryModifiers(baseQuery, req.query, 'created_at DESC');
@@ -953,7 +1021,8 @@ exports.getUserById = async (req, res) => {
               granted_topic_access AS "grantedTopicAccess",
               granted_exam_access AS "grantedExamAccess",
               granted_module_access AS "grantedModuleAccess",
-              module_scores AS "moduleScores" 
+              module_scores AS "moduleScores",
+              branch_id AS "branchId" 
        FROM users 
        WHERE id = $1`,
       [id]
@@ -974,8 +1043,12 @@ exports.getUserById = async (req, res) => {
 };
 
 exports.updateUser = async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id || req.body.id;
   const fields = req.body;
+
+  if (!id) {
+    return res.status(400).json({ error: "User ID is required." });
+  }
 
   try {
     // 1. Fetch current user
@@ -1006,7 +1079,8 @@ exports.updateUser = async (req, res) => {
       grantedTopicAccess: user.granted_topic_access || {},
       grantedExamAccess: user.granted_exam_access || {},
       grantedModuleAccess: user.granted_module_access || {},
-      theme: user.theme || 'dark'
+      theme: user.theme || 'dark',
+      branchId: user.branch_id
     };
 
     // 2. Apply updates (including nested properties with dot notation)
@@ -1024,10 +1098,11 @@ exports.updateUser = async (req, res) => {
           data[parentKey][childKey] = fields[key];
         }
       } else {
+        const targetKey = key === "branchId" || key === "branch_id" ? "branchId" : key;
         if (fields[key] === "DELETE_FIELD") {
-          data[key] = null;
+          data[targetKey] = null;
         } else {
-          data[key] = fields[key];
+          data[targetKey] = fields[key];
         }
       }
     }
@@ -1041,8 +1116,8 @@ exports.updateUser = async (req, res) => {
            active_plan_id = $12, plan_expiry = $13, purchased_companies = $14, 
            granted_company_access = $15, granted_subject_access = $16, 
            granted_topic_access = $17, granted_exam_access = $18, 
-           granted_module_access = $19, theme = $20, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $21`,
+           granted_module_access = $19, theme = $20, branch_id = $21, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $22`,
       [
         data.name,
         data.branch,
@@ -1064,6 +1139,7 @@ exports.updateUser = async (req, res) => {
         JSON.stringify(data.grantedExamAccess),
         JSON.stringify(data.grantedModuleAccess),
         data.theme,
+        data.branchId,
         id
       ]
     );
@@ -2207,3 +2283,330 @@ exports.getSecurityLogs = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ================= BRANCHES =================
+
+exports.getBranches = async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM branches ORDER BY name ASC");
+    const formatted = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      code: row.code,
+      description: row.description,
+      status: row.status,
+      isGeneral: row.is_general,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+    res.json({ success: true, branches: formatted });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getActiveBranches = async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM branches WHERE status = 'ACTIVE' ORDER BY name ASC");
+    const formatted = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      code: row.code,
+      description: row.description,
+      status: row.status,
+      isGeneral: row.is_general
+    }));
+    res.json({ success: true, branches: formatted });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.saveBranch = async (req, res) => {
+  const { id, name, code, description, status, isGeneral } = req.body;
+  const branchId = id || crypto.randomUUID();
+  const userId = req.user ? req.user.id : "system";
+
+  try {
+    // Check if isGeneral is true and ensure only one general branch exists
+    if (isGeneral) {
+      await pool.query("UPDATE branches SET is_general = FALSE WHERE is_general = TRUE");
+    }
+
+    const check = await pool.query("SELECT id FROM branches WHERE id = $1", [branchId]);
+    if (check.rows.length > 0) {
+      await pool.query(
+        `UPDATE branches 
+         SET name = $1, code = $2, description = $3, status = $4, is_general = $5, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $6`,
+        [name, code, description, status || "ACTIVE", !!isGeneral, branchId]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO branches (id, name, code, description, status, is_general, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [branchId, name, code, description, status || "ACTIVE", !!isGeneral, userId]
+      );
+    }
+
+    // Invalidate caches
+    cacheService.clear();
+
+    res.json({ success: true, id: branchId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.deleteBranch = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Prevent deleting general branch
+    const check = await pool.query("SELECT is_general FROM branches WHERE id = $1", [id]);
+    if (check.rows.length > 0 && check.rows[0].is_general) {
+      return res.status(400).json({ error: "Cannot delete the default General branch fallback." });
+    }
+
+    await pool.query("DELETE FROM branches WHERE id = $1", [id]);
+
+    // Invalidate caches
+    cacheService.clear();
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ================= COMPANY BRANCH MAPPINGS =================
+
+exports.getCompanyBranches = async (req, res) => {
+  const { companyId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM company_branch_mappings WHERE company_id = $1`,
+      [companyId]
+    );
+    const mappings = result.rows.map(row => ({
+      id: row.id,
+      companyId: row.company_id,
+      branchId: row.branch_id,
+      assignmentScope: row.assignment_scope
+    }));
+    res.json({ success: true, mappings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.saveCompanyBranches = async (req, res) => {
+  const { companyId } = req.params;
+  const { assignmentScope, branchIds } = req.body; // branchIds is array of branch IDs if scope is SPECIFIC
+  const userId = req.user ? req.user.id : "system";
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Remove existing mappings
+    await client.query("DELETE FROM company_branch_mappings WHERE company_id = $1", [companyId]);
+
+    if (assignmentScope === "ALL") {
+      const id = crypto.randomUUID();
+      await client.query(
+        `INSERT INTO company_branch_mappings (id, company_id, branch_id, assignment_scope, created_by)
+         VALUES ($1, $2, NULL, 'ALL', $3)`,
+        [id, companyId, userId]
+      );
+    } else if (Array.isArray(branchIds)) {
+      for (const branchId of branchIds) {
+        const id = crypto.randomUUID();
+        await client.query(
+          `INSERT INTO company_branch_mappings (id, company_id, branch_id, assignment_scope, created_by)
+           VALUES ($1, $2, $3, 'SPECIFIC', $4)`,
+          [id, companyId, branchId, userId]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+    client.release();
+
+    // Invalidate caches
+    cacheService.clear();
+
+    res.json({ success: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    client.release();
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ================= CONTENT BRANCH MAPPINGS =================
+
+exports.getContentMappings = async (req, res) => {
+  const { contentType, contentId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM content_branch_mappings WHERE content_type = $1 AND content_id = $2`,
+      [contentType, contentId]
+    );
+    const mappings = result.rows.map(row => ({
+      id: row.id,
+      contentId: row.content_id,
+      contentType: row.content_type,
+      branchId: row.branch_id,
+      assignmentScope: row.assignment_scope
+    }));
+    res.json({ success: true, mappings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.saveContentMappings = async (req, res) => {
+  const { contentType, contentId } = req.params;
+  const { assignmentScope, branchIds } = req.body;
+  const userId = req.user ? req.user.id : "system";
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Remove existing mappings
+    await client.query(
+      "DELETE FROM content_branch_mappings WHERE content_type = $1 AND content_id = $2",
+      [contentType, contentId]
+    );
+
+    if (assignmentScope === "ALL") {
+      const id = crypto.randomUUID();
+      await client.query(
+        `INSERT INTO content_branch_mappings (id, content_id, content_type, branch_id, assignment_scope, created_by)
+         VALUES ($1, $2, $3, NULL, 'ALL', $4)`,
+        [id, contentId, contentType, userId]
+      );
+    } else if (Array.isArray(branchIds)) {
+      for (const branchId of branchIds) {
+        const id = crypto.randomUUID();
+        await client.query(
+          `INSERT INTO content_branch_mappings (id, content_id, content_type, branch_id, assignment_scope, created_by)
+           VALUES ($1, $2, $3, $4, 'SPECIFIC', $5)`,
+          [id, contentId, contentType, branchId, userId]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+    client.release();
+
+    // Invalidate caches
+    cacheService.clear();
+
+    res.json({ success: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    client.release();
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.saveCompanyBranchesBatch = async (req, res) => {
+  const { companyIds, assignmentScope, branchIds } = req.body;
+  const userId = req.user ? req.user.id : "system";
+
+  if (!Array.isArray(companyIds) || companyIds.length === 0) {
+    return res.status(400).json({ error: "companyIds array is required." });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    for (const companyId of companyIds) {
+      // Remove existing mappings
+      await client.query("DELETE FROM company_branch_mappings WHERE company_id = $1", [companyId]);
+
+      if (assignmentScope === "ALL") {
+        const id = crypto.randomUUID();
+        await client.query(
+          `INSERT INTO company_branch_mappings (id, company_id, branch_id, assignment_scope, created_by)
+           VALUES ($1, $2, NULL, 'ALL', $3)`,
+          [id, companyId, userId]
+        );
+      } else if (Array.isArray(branchIds)) {
+        for (const branchId of branchIds) {
+          const id = crypto.randomUUID();
+          await client.query(
+            `INSERT INTO company_branch_mappings (id, company_id, branch_id, assignment_scope, created_by)
+             VALUES ($1, $2, $3, 'SPECIFIC', $4)`,
+            [id, companyId, branchId, userId]
+          );
+        }
+      }
+    }
+
+    await client.query("COMMIT");
+    client.release();
+
+    cacheService.clear();
+    res.json({ success: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    client.release();
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.saveContentMappingsBatch = async (req, res) => {
+  const { contentType } = req.params;
+  const { contentIds, assignmentScope, branchIds } = req.body;
+  const userId = req.user ? req.user.id : "system";
+
+  if (!Array.isArray(contentIds) || contentIds.length === 0) {
+    return res.status(400).json({ error: "contentIds array is required." });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    for (const contentId of contentIds) {
+      // Remove existing mappings
+      await client.query(
+        "DELETE FROM content_branch_mappings WHERE content_type = $1 AND content_id = $2",
+        [contentType, contentId]
+      );
+
+      if (assignmentScope === "ALL") {
+        const id = crypto.randomUUID();
+        await client.query(
+          `INSERT INTO content_branch_mappings (id, content_id, content_type, branch_id, assignment_scope, created_by)
+           VALUES ($1, $2, $3, NULL, 'ALL', $4)`,
+          [id, contentId, contentType, userId]
+        );
+      } else if (Array.isArray(branchIds)) {
+        for (const branchId of branchIds) {
+          const id = crypto.randomUUID();
+          await client.query(
+            `INSERT INTO content_branch_mappings (id, content_id, content_type, branch_id, assignment_scope, created_by)
+             VALUES ($1, $2, $3, $4, 'SPECIFIC', $5)`,
+            [id, contentId, contentType, branchId, userId]
+          );
+        }
+      }
+    }
+
+    await client.query("COMMIT");
+    client.release();
+
+    cacheService.clear();
+    res.json({ success: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    client.release();
+    res.status(500).json({ error: err.message });
+  }
+};
+

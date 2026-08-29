@@ -10,7 +10,7 @@ const pool = process.env.DATABASE_URL
     },
     max: 10,
     idleTimeoutMillis: 15000,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 30000,
   })
   
   : new Pool({
@@ -24,8 +24,137 @@ const pool = process.env.DATABASE_URL
       : false,
     max: 10,
     idleTimeoutMillis: 15000,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 30000,
   });
+
+// Handle pool errors so idle connection socket drops don't crash Node process
+pool.on("error", (err, client) => {
+  console.error("Unexpected error on idle database client:", err.message);
+});
+
+// Helper function to check if an error is a database connection/socket issue
+function isDbConnectionError(err) {
+  if (!err) return false;
+  const msg = (err.message || "").toLowerCase();
+  const code = (err.code || "").toString().toUpperCase();
+  return (
+    code === "ECONNRESET" ||
+    code === "EPIPE" ||
+    code === "ETIMEDOUT" ||
+    code === "57P01" || // admin_shutdown
+    code === "57P02" || // crash_shutdown
+    code === "57P03" || // cannot_connect_now
+    msg.includes("econnreset") ||
+    msg.includes("connection terminated unexpectedly") ||
+    msg.includes("terminated due to administrator command") ||
+    msg.includes("socket") ||
+    msg.includes("read") ||
+    msg.includes("connection timeout")
+  );
+}
+
+// Wrapper for pool.query with retry logic
+const originalPoolQuery = pool.query;
+pool.query = function (text, params, callback) {
+  let actualParams = params;
+  let actualCallback = callback;
+  if (typeof params === 'function') {
+    actualCallback = params;
+    actualParams = undefined;
+  }
+
+  if (actualCallback) {
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    const tryQuery = () => {
+      originalPoolQuery.call(pool, text, actualParams, (err, result) => {
+        if (err) {
+          attempts++;
+          if (isDbConnectionError(err) && attempts < maxAttempts) {
+            console.warn(`[DB pool.query callback warning] Connection error: ${err.message}. Retrying (attempt ${attempts + 1}/${maxAttempts}) in ${attempts}s...`);
+            setTimeout(tryQuery, attempts * 1000);
+            return;
+          }
+          return actualCallback(err, result);
+        }
+        return actualCallback(null, result);
+      });
+    };
+
+    tryQuery();
+    return;
+  }
+
+  return new Promise(async (resolve, reject) => {
+    let attempts = 0;
+    const maxAttempts = 3;
+    while (attempts < maxAttempts) {
+      try {
+        const result = await originalPoolQuery.call(pool, text, actualParams);
+        resolve(result);
+        return;
+      } catch (err) {
+        attempts++;
+        if (isDbConnectionError(err) && attempts < maxAttempts) {
+          console.warn(`[DB pool.query promise warning] Connection error: ${err.message}. Retrying (attempt ${attempts + 1}/${maxAttempts}) in ${attempts}s...`);
+          await new Promise((r) => setTimeout(r, attempts * 1000));
+          continue;
+        }
+        reject(err);
+        return;
+      }
+    }
+  });
+};
+
+// Wrapper for pool.connect with retry logic
+const originalPoolConnect = pool.connect;
+pool.connect = function (callback) {
+  if (callback) {
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    const tryConnect = () => {
+      originalPoolConnect.call(pool, (err, client, release) => {
+        if (err) {
+          attempts++;
+          if (isDbConnectionError(err) && attempts < maxAttempts) {
+            console.warn(`[DB pool.connect callback warning] Connection error: ${err.message}. Retrying (attempt ${attempts + 1}/${maxAttempts}) in ${attempts}s...`);
+            setTimeout(tryConnect, attempts * 1000);
+            return;
+          }
+          return callback(err, client, release);
+        }
+        return callback(null, client, release);
+      });
+    };
+
+    tryConnect();
+    return;
+  }
+
+  return new Promise(async (resolve, reject) => {
+    let attempts = 0;
+    const maxAttempts = 3;
+    while (attempts < maxAttempts) {
+      try {
+        const client = await originalPoolConnect.apply(pool);
+        resolve(client);
+        return;
+      } catch (err) {
+        attempts++;
+        if (isDbConnectionError(err) && attempts < maxAttempts) {
+          console.warn(`[DB pool.connect promise warning] Connection error: ${err.message}. Retrying (attempt ${attempts + 1}/${maxAttempts}) in ${attempts}s...`);
+          await new Promise((r) => setTimeout(r, attempts * 1000));
+          continue;
+        }
+        reject(err);
+        return;
+      }
+    }
+  });
+};
 
 const createTablesQuery = `
   -- 1. users
@@ -725,6 +854,110 @@ async function initDb() {
         console.log("Scale Up schema migrations (v5) run successfully.");
       } catch (errV5) {
         console.error("Failed to run Scale Up migration v5:", errV5.message);
+      }
+    }
+
+    // --- Branch-Based Access System v6 Migrations ---
+    const migrationCheckV6 = await pool.query(`SELECT 1 FROM schema_migrations WHERE version = 'v6'`);
+    if (migrationCheckV6.rows.length === 0) {
+      console.log("Running Branch-Based Access System schema migrations (v6)...");
+      try {
+        await pool.query(`
+          -- Branches table
+          CREATE TABLE IF NOT EXISTS branches (
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) UNIQUE NOT NULL,
+            code VARCHAR(50) UNIQUE NOT NULL,
+            description TEXT,
+            status VARCHAR(50) DEFAULT 'ACTIVE',
+            is_general BOOLEAN DEFAULT FALSE,
+            created_by VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          -- Ensure only one general branch can be true
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_branches_unique_general ON branches (is_general) WHERE (is_general = TRUE);
+
+          -- Company branch mappings
+          CREATE TABLE IF NOT EXISTS company_branch_mappings (
+            id VARCHAR(255) PRIMARY KEY,
+            company_id VARCHAR(255) REFERENCES companies(id) ON DELETE CASCADE,
+            branch_id VARCHAR(255) REFERENCES branches(id) ON DELETE CASCADE,
+            assignment_scope VARCHAR(50) DEFAULT 'SPECIFIC',
+            created_by VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_company_branch_all ON company_branch_mappings (company_id) WHERE (assignment_scope = 'ALL');
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_company_branch_specific ON company_branch_mappings (company_id, branch_id) WHERE (assignment_scope = 'SPECIFIC');
+
+          -- Content branch mappings (independent modules/hierarchy nodes)
+          CREATE TABLE IF NOT EXISTS content_branch_mappings (
+            id VARCHAR(255) PRIMARY KEY,
+            content_id VARCHAR(255) NOT NULL,
+            content_type VARCHAR(100) NOT NULL,
+            branch_id VARCHAR(255) REFERENCES branches(id) ON DELETE CASCADE,
+            assignment_scope VARCHAR(50) DEFAULT 'SPECIFIC',
+            created_by VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_content_branch_all ON content_branch_mappings (content_id, content_type) WHERE (assignment_scope = 'ALL');
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_content_branch_specific ON content_branch_mappings (content_id, content_type, branch_id) WHERE (assignment_scope = 'SPECIFIC');
+
+          -- Add branch_id to users
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id VARCHAR(255) REFERENCES branches(id) ON DELETE SET NULL;
+
+          -- Performance Indexes
+          CREATE INDEX IF NOT EXISTS idx_users_branch_id ON users(branch_id);
+          CREATE INDEX IF NOT EXISTS idx_cbm_company_id ON company_branch_mappings(company_id);
+          CREATE INDEX IF NOT EXISTS idx_cbm_branch_id ON company_branch_mappings(branch_id);
+          CREATE INDEX IF NOT EXISTS idx_cobm_content ON content_branch_mappings(content_id, content_type);
+        `);
+
+        // Seed default general branch
+        const generalBranchCheck = await pool.query("SELECT id FROM branches WHERE is_general = TRUE LIMIT 1");
+        let generalBranchId = "branch_general";
+        if (generalBranchCheck.rows.length === 0) {
+          await pool.query(`
+            INSERT INTO branches (id, name, code, status, is_general, description, created_by)
+            VALUES ($1, 'General', 'GENERAL', 'ACTIVE', TRUE, 'Default branch for general aptitude and safe system fallback.', 'system')
+            ON CONFLICT DO NOTHING
+          `, [generalBranchId]);
+          console.log("Default General branch seeded successfully.");
+        } else {
+          generalBranchId = generalBranchCheck.rows[0].id;
+        }
+
+        // Seed ALL mappings for existing companies
+        await pool.query(`
+          INSERT INTO company_branch_mappings (id, company_id, branch_id, assignment_scope, created_by)
+          SELECT 'cbm_all_' || id, id, NULL, 'ALL', 'system'
+          FROM companies
+          ON CONFLICT (company_id) WHERE (assignment_scope = 'ALL') DO NOTHING
+        `);
+
+        // Seed ALL mappings for existing modules
+        await pool.query(`
+          INSERT INTO content_branch_mappings (id, content_id, content_type, branch_id, assignment_scope, created_by)
+          SELECT 'cobm_all_mod_' || id, id, 'module', NULL, 'ALL', 'system'
+          FROM modules
+          ON CONFLICT (content_id, content_type) WHERE (assignment_scope = 'ALL') DO NOTHING
+        `);
+
+        // Seed ALL mappings for existing hierarchy_nodes
+        await pool.query(`
+          INSERT INTO content_branch_mappings (id, content_id, content_type, branch_id, assignment_scope, created_by)
+          SELECT 'cobm_all_hn_' || id, id, 'hierarchy_node', NULL, 'ALL', 'system'
+          FROM hierarchy_nodes
+          ON CONFLICT (content_id, content_type) WHERE (assignment_scope = 'ALL') DO NOTHING
+        `);
+
+        await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v6') ON CONFLICT DO NOTHING`);
+        console.log("Branch-Based Access System migrations (v6) run successfully.");
+      } catch (errV6) {
+        console.error("Failed to run Branch-Based Access System migration v6:", errV6.message);
       }
     }
   } catch (err) {

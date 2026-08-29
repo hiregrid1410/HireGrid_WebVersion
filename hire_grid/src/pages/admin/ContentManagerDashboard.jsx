@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useLocation, Navigate, useNavigate } from "react-router-dom";
-import { ShieldCheck, LogOut, BookOpen, Server, MessageSquare, Trophy } from "lucide-react";
+import { ShieldCheck, LogOut, BookOpen, Server, MessageSquare, Trophy, GitMerge } from "lucide-react";
 import { AdminCompaniesTab } from "../../components/admin/AdminCompaniesTab";
 import { HierarchyBuilder } from "../../components/admin/HierarchyBuilder";
 import { AdminFeedbacksTab } from "../../components/admin/AdminFeedbacksTab";
 import { AdminPlacementMissionTab } from "../../components/admin/AdminPlacementMissionTab";
+import { AdminBranchesTab } from "../../components/admin/AdminBranchesTab";
 
 export default function ContentManagerDashboard() {
   const location = useLocation();
@@ -88,6 +89,13 @@ export default function ContentManagerDashboard() {
           <MessageSquare className="w-4 h-4" />
           <span>Feedbacks</span>
         </button>
+        <button
+          onClick={() => setActiveTab("branches-mappings")}
+          className={`flex items-center space-x-2 pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "branches-mappings" ? "border-indigo-500 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
+        >
+          <GitMerge className="w-4 h-4" />
+          <span>Branches & Mappings</span>
+        </button>
       </div>
 
       <main className="max-w-7xl mx-auto pb-10 px-4 sm:px-6 lg:px-8">
@@ -97,6 +105,8 @@ export default function ContentManagerDashboard() {
           <HierarchyBuilder isContentManager={true} userName={userName} />
         ) : activeTab === "placement-missions" ? (
           <AdminPlacementMissionTab userName={userName} />
+        ) : activeTab === "branches-mappings" ? (
+          <AdminBranchesTab isContentManager={true} userName={userName} />
         ) : (
           <AdminFeedbacksTab isContentManager={true} />
         )}
