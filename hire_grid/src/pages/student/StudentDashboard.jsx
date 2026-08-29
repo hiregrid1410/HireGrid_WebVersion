@@ -248,6 +248,9 @@ export default function StudentDashboard() {
   const [earnedXP, setEarnedXP] = useState(0);
   const [currentUserDoc, setCurrentUserDoc] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isStartingModule, setIsStartingModule] = useState(false);
+  const [submitState, setSubmitState] = useState(null); // null | 'submitting' | 'grading' | 'failed'
+  const [showPreparingResult, setShowPreparingResult] = useState(false);
 
   const [activeTab, setActiveTab] = useState(() => {
     return location.pathname === "/placement-mission" ? "placement-mission" : "general";
@@ -796,15 +799,19 @@ export default function StudentDashboard() {
   }
 
   const handleStartModule = async (mod, path) => {
-    if (!hasItemAccess(mod, "module", path)) {
-      showToast("Access Denied. You do not have permission to view this content.", "warning");
-      return;
-    }
+    if (isStartingModule) return;
+    setIsStartingModule(true);
 
-    if (mod.isMaster) {
-      setActiveMasterModule(mod);
-    } else {
-      try {
+    try {
+      if (!hasItemAccess(mod, "module", path)) {
+        showToast("Access Denied. You do not have permission to view this content.", "warning");
+        setIsStartingModule(false);
+        return;
+      }
+
+      if (mod.isMaster) {
+        setActiveMasterModule(mod);
+      } else {
         const isPlacement = activeTab === "placement-mission" || mod.is_placement_mission || mod.isPlacementMission;
         setIsPlacementAttempt(isPlacement);
         setSubmittedResult(null);
@@ -827,9 +834,11 @@ export default function StudentDashboard() {
         setShowWarningModal(false);
         setTimeLeft(res.timeLeft);
         setCurrentQuestionIndex(-1);
-      } catch (err) {
-        showToast("Failed to initialize secure assessment: " + err.message, "error");
       }
+    } catch (err) {
+      showToast("Failed to initialize secure assessment: " + err.message, "error");
+    } finally {
+      setIsStartingModule(false);
     }
   };
 
@@ -863,6 +872,7 @@ export default function StudentDashboard() {
   };
 
   const handleFinishTest = async (bypassConfirm = false) => {
+    if (submitState) return;
     if (!activeModule || !auth.currentUser) return;
 
     if (!bypassConfirm) {
@@ -872,14 +882,28 @@ export default function StudentDashboard() {
 
     exitFullscreen();
     setShowWarningModal(false);
-    setIsFinished(true);
+
+    setSubmitState("submitting");
+    setShowPreparingResult(false);
+
+    // Setup preparing status timer if grading takes > 3 seconds
+    const preparingTimer = setTimeout(() => {
+      setShowPreparingResult(true);
+    }, 3000);
 
     try {
+      // Small artificial delays to let students notice submitting/grading phases
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      setSubmitState("grading");
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       // Submit and grade attempt securely on the backend
       const url = isPlacementAttempt ? `/placement-mission/attempts/${attemptId}/submit` : `/attempts/${attemptId}/submit`;
       const result = await api.post(url, {
         answers
       });
+
+      clearTimeout(preparingTimer);
 
       if (result.success) {
         const percentage = result.score;
@@ -908,12 +932,17 @@ export default function StudentDashboard() {
 
         setEarnedXP(gainedXP);
         setModuleScores(newScores);
+        setIsFinished(true);
+        setSubmitState(null);
         showToast(`Test finished successfully! Score: ${percentage}%, XP Earned: ${gainedXP}`, "success");
       } else {
+        setSubmitState(null);
         showToast("Error scoring test: " + (result.error || "Unknown error"), "error");
       }
     } catch (err) {
+      clearTimeout(preparingTimer);
       console.error("Score submission error:", err);
+      setSubmitState(null);
       showToast("Submission failed: " + err.message, "error");
     }
   };
@@ -1192,6 +1221,26 @@ export default function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] font-sans transition-colors text-slate-700 dark:text-slate-300 relative overflow-hidden flex">
+      {submitState && (
+        <div className="fixed inset-0 z-[9999] bg-[#070D19]/90 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-300">
+          <div className="max-w-md w-full glass-panel border border-emerald-500/20 rounded-3xl p-8 shadow-2xl relative overflow-hidden flex flex-col items-center animate-in zoom-in-95 duration-200">
+            {/* Spinning/progress indicator */}
+            <div className="relative mb-6">
+              <div className="h-16 w-16 rounded-full border-4 border-emerald-500/10 border-t-emerald-500 animate-spin"></div>
+              <div className="absolute inset-0 m-auto h-8 w-8 rounded-full bg-emerald-500/10 animate-ping"></div>
+            </div>
+
+            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2 font-mono">
+              {submitState === "submitting" ? "Submitting your exam..." : "Calculating your score..."}
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+              {showPreparingResult
+                ? "Your answers were submitted successfully. We're preparing your result..."
+                : "Please wait, your assessment is being finalized."}
+            </p>
+          </div>
+        </div>
+      )}
       {/* Background Grid */}
       <div className="absolute inset-0 z-0 pointer-events-none bg-circuit-pattern opacity-10 animate-circuit" />
 
@@ -2614,9 +2663,10 @@ export default function StudentDashboard() {
                         <div className="flex flex-wrap items-center gap-3">
                           <button
                             onClick={handleFinishTest}
-                            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center hover:-translate-y-0.5"
+                            disabled={submitState !== null}
+                            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center hover:-translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none"
                           >
-                            Submit Test
+                            {submitState ? "Submitting..." : "Submit Test"}
                           </button>
                           <div className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center shadow-sm ${warningCount > 0 ? "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 border border-amber-300" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300"}`}>
                             <ShieldAlert className="w-4 h-4 mr-1.5" />

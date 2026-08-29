@@ -84,6 +84,81 @@ const verifyBranchAccess = async (userId, itemId, itemType) => {
   return true; // Default allow in case of errors to prevent breaking app
 };
 
+const normalizeItemType = (type) => {
+  if (!type) return "module";
+  const t = type.toLowerCase();
+  if (t.includes("subject")) return "general_subject";
+  if (t.includes("topic")) return "general_topic";
+  if (t.includes("branch")) return "general_branch";
+  return t;
+};
+
+const parseObj = (val) => {
+  if (val && typeof val === "object" && !Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return {};
+};
+
+const parseArray = (val) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return [];
+};
+
+const fetchHierarchyAncestors = async (nodeId, ancestorsList) => {
+  try {
+    const res = await pool.query(
+      `WITH RECURSIVE ancestors AS (
+         SELECT id, parent_id, type FROM hierarchy_nodes WHERE id = $1
+         UNION ALL
+         SELECT hn.id, hn.parent_id, hn.type FROM hierarchy_nodes hn
+         INNER JOIN ancestors a ON a.parent_id = hn.id
+       )
+       SELECT id, type FROM ancestors`,
+      [nodeId]
+    );
+    res.rows.forEach((row) => {
+      if (row.id !== nodeId) {
+        ancestorsList.push({ id: row.id, type: normalizeItemType(row.type) });
+      }
+    });
+  } catch (err) {
+    console.error("fetchHierarchyAncestors error:", err.message);
+  }
+};
+
+const getAncestors = async (itemId, itemType) => {
+  const ancestors = [];
+  
+  if (itemType === "module") {
+    const modRes = await pool.query("SELECT id, module_type, parent_id FROM modules WHERE id = $1", [itemId]);
+    if (modRes.rows.length === 0) return ancestors;
+    const mod = modRes.rows[0];
+    
+    if (mod.module_type === "company" && mod.parent_id) {
+      ancestors.push({ id: mod.parent_id, type: "company" });
+    } else if (mod.parent_id) {
+      const parentNodeRes = await pool.query("SELECT type FROM hierarchy_nodes WHERE id = $1", [mod.parent_id]);
+      const parentType = parentNodeRes.rows.length > 0 ? normalizeItemType(parentNodeRes.rows[0].type) : "hierarchy_node";
+      ancestors.push({ id: mod.parent_id, type: parentType });
+      await fetchHierarchyAncestors(mod.parent_id, ancestors);
+    }
+  } else if (["general_branch", "general_subject", "general_topic", "hierarchy_node"].includes(itemType)) {
+    await fetchHierarchyAncestors(itemId, ancestors);
+  }
+  return ancestors;
+};
+
 /**
  * Verify if a user has access to a specific item (company/module/exam) based on user state & active plan.
  * @param {string} userId - User's ID
@@ -132,33 +207,44 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
       return { allowed: false, reason: "User not found." };
     }
     user = userResult.rows[0];
-    dbCache.set(`user:${userId}`, user, 5000); // Cache user for 5 seconds during rapid requests
+    dbCache.set(`user:${userId}`, user, 5000); // Cache user for 5 seconds
   }
 
   // 3. Fetch Item Details from cache or database
   let item = null;
-  if (itemType === "module") {
+  const normType = normalizeItemType(itemType);
+
+  if (normType === "module") {
     item = dbCache.get(`module:${itemId}`);
     if (!item) {
       const modRes = await pool.query("SELECT * FROM modules WHERE id = $1", [itemId]);
       if (modRes.rows.length > 0) {
         item = modRes.rows[0];
-        dbCache.set(`module:${itemId}`, item, 300000); // Cache for 5 minutes
+        dbCache.set(`module:${itemId}`, item, 300000);
       }
     }
-  } else if (itemType === "company") {
+  } else if (normType === "company") {
     item = dbCache.get(`company:${itemId}`);
     if (!item) {
       const compRes = await pool.query("SELECT * FROM companies WHERE id = $1", [itemId]);
       if (compRes.rows.length > 0) {
         item = compRes.rows[0];
-        dbCache.set(`company:${itemId}`, item, 300000); // Cache for 5 minutes
+        dbCache.set(`company:${itemId}`, item, 300000);
+      }
+    }
+  } else if (["general_branch", "general_subject", "general_topic"].includes(normType)) {
+    item = dbCache.get(`node:${itemId}`);
+    if (!item) {
+      const nodeRes = await pool.query("SELECT * FROM hierarchy_nodes WHERE id = $1", [itemId]);
+      if (nodeRes.rows.length > 0) {
+        item = nodeRes.rows[0];
+        dbCache.set(`node:${itemId}`, item, 300000);
       }
     }
   }
 
   // If item doesn't exist in DB, handle appropriately
-  if (!item && itemType === "module") {
+  if (!item && normType === "module") {
     return { allowed: false, reason: "Module not found." };
   }
 
@@ -166,6 +252,9 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
   if (item && item.publication_status === 'DRAFT' && role !== "admin" && role !== "content_manager") {
     return { allowed: false, reason: "This content is currently in draft and is not visible to students." };
   }
+
+  // Resolve Ancestors Path
+  const ancestors = await getAncestors(itemId, normType);
 
   // 4. Check if Item is Free or Demo (and verify plan inclusions)
   if (item) {
@@ -178,10 +267,12 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
     }
 
     // Check if included in any plan
-    let isIncludedInAnyPlan = dbCache.get(`includedInPlan:${itemType}:${item.id}`);
+    let isIncludedInAnyPlan = dbCache.get(`includedInPlan:${normType}:${item.id}`);
     if (isIncludedInAnyPlan === null || isIncludedInAnyPlan === undefined) {
       isIncludedInAnyPlan = false;
-      if (itemType === "company") {
+      const allResourceIds = [item.id, ...ancestors.map(a => a.id)];
+
+      if (normType === "company") {
         const planCheck = await pool.query(
           `SELECT 1 FROM plan_mappings WHERE company_id = $1 
            UNION 
@@ -191,7 +282,7 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
         if (planCheck.rows.length > 0) {
           isIncludedInAnyPlan = true;
         }
-      } else if (itemType === "module") {
+      } else if (normType === "module") {
         if (item.module_type === "company" && item.parent_id) {
           const planCheckCompany = await pool.query(
             `SELECT 1 FROM plan_mappings WHERE company_id = $1 
@@ -203,41 +294,33 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
             isIncludedInAnyPlan = true;
           }
         } else {
-          // Fetch ancestors
-          let ancestorIds = dbCache.get(`ancestors:${item.parent_id}`);
-          if (!ancestorIds) {
-            const ancestorRes = await pool.query(
-              `WITH RECURSIVE ancestors AS (
-                 SELECT id, parent_id FROM hierarchy_nodes WHERE id = $1
-                 UNION ALL
-                 SELECT hn.id, hn.parent_id FROM hierarchy_nodes hn
-                 INNER JOIN ancestors a ON a.parent_id = hn.id
-               )
-               SELECT id FROM ancestors`,
-              [item.parent_id]
-            );
-            ancestorIds = [item.id, ...ancestorRes.rows.map((row) => row.id)];
-            dbCache.set(`ancestors:${item.parent_id}`, ancestorIds, 600000); // Cache for 10 minutes
-          }
-
           const planCheckAncestors = await pool.query(
             `SELECT 1 FROM plans p, jsonb_array_elements_text(p.learning_content) lc
              WHERE lc = ANY($1)`,
-            [ancestorIds]
+            [allResourceIds]
           );
           if (planCheckAncestors.rows.length > 0) {
             isIncludedInAnyPlan = true;
           }
         }
+      } else if (["general_branch", "general_subject", "general_topic"].includes(normType)) {
+        const planCheckAncestors = await pool.query(
+          `SELECT 1 FROM plans p, jsonb_array_elements_text(p.learning_content) lc
+           WHERE lc = ANY($1)`,
+          [allResourceIds]
+        );
+        if (planCheckAncestors.rows.length > 0) {
+          isIncludedInAnyPlan = true;
+        }
       }
-      dbCache.set(`includedInPlan:${itemType}:${item.id}`, isIncludedInAnyPlan, 300000); // Cache for 5 minutes
+      dbCache.set(`includedInPlan:${normType}:${item.id}`, isIncludedInAnyPlan, 300000);
     }
 
     if (isIncludedInAnyPlan) {
       accessType = "premium_only";
     }
 
-    if (itemType === "module" && accessMode === "inherit" && item.parent_id) {
+    if (normType === "module" && accessMode === "inherit" && item.parent_id) {
       let parentAccessType = dbCache.get(`parentAccessType:${item.parent_id}`);
       if (!parentAccessType) {
         const parentRes = await pool.query(
@@ -252,7 +335,7 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
         } else {
           parentAccessType = "free";
         }
-        dbCache.set(`parentAccessType:${item.parent_id}`, parentAccessType, 300000); // Cache for 5 minutes
+        dbCache.set(`parentAccessType:${item.parent_id}`, parentAccessType, 300000);
       }
 
       if (parentAccessType !== "free" && parentAccessType !== "demo") {
@@ -266,44 +349,37 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
   }
 
   // 5. Check Explicit Admin Grants / Individual Purchases
-  const parseObj = (val) => {
-    if (val && typeof val === "object" && !Array.isArray(val)) return val;
-    if (typeof val === "string") {
-      try {
-        const parsed = JSON.parse(val);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
-      } catch (e) {}
-    }
-    return {};
-  };
-
   const grantedCompanyAccess = parseObj(user.granted_company_access);
+  const grantedSubjectAccess = parseObj(user.granted_subject_access);
+  const grantedTopicAccess = parseObj(user.granted_topic_access);
+  const grantedExamAccess = parseObj(user.granted_exam_access);
   const grantedModuleAccess = parseObj(user.granted_module_access);
-  const purchasedCompanies = Array.isArray(user.purchased_companies)
-    ? user.purchased_companies
-    : typeof user.purchased_companies === "string"
-    ? JSON.parse(user.purchased_companies || "[]")
-    : [];
 
-  if (itemType === "company" && (grantedCompanyAccess[itemId] !== undefined || purchasedCompanies.includes(itemId))) {
-    const expiry = grantedCompanyAccess[itemId];
-    if (expiry === undefined || expiry === null || Date.now() <= Number(expiry)) {
-      return { allowed: true };
-    }
-  }
+  const purchasedCompanies = parseArray(user.purchased_companies);
 
-  if (itemType === "module") {
-    if (grantedModuleAccess[itemId] !== undefined) {
-      const expiry = grantedModuleAccess[itemId];
-      if (expiry === null || expiry === undefined || Date.now() <= Number(expiry)) {
-        return { allowed: true };
-      }
-    }
-    if (item && item.parent_id && (grantedCompanyAccess[item.parent_id] !== undefined || purchasedCompanies.includes(item.parent_id))) {
-      const expiry = grantedCompanyAccess[item.parent_id];
+  // Form a flat list of resources to verify grants against
+  const resourcesToCheck = [{ id: itemId, type: normType }, ...ancestors];
+
+  for (const resource of resourcesToCheck) {
+    const resId = resource.id;
+    const resType = resource.type;
+
+    let accessMap = {};
+    if (resType === "company") accessMap = grantedCompanyAccess;
+    else if (resType === "general_subject") accessMap = grantedSubjectAccess;
+    else if (resType === "general_topic") accessMap = grantedTopicAccess;
+    else if (resType === "general_branch") accessMap = grantedExamAccess;
+    else if (resType === "module") accessMap = grantedModuleAccess;
+
+    if (accessMap[resId] !== undefined) {
+      const expiry = accessMap[resId];
       if (expiry === undefined || expiry === null || Date.now() <= Number(expiry)) {
         return { allowed: true };
       }
+    }
+
+    if (resType === "company" && purchasedCompanies.includes(resId)) {
+      return { allowed: true };
     }
   }
 
@@ -323,36 +399,26 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
         const planRes = await pool.query("SELECT * FROM plans WHERE id = $1", [user.active_plan_id]);
         if (planRes.rows.length > 0) {
           plan = planRes.rows[0];
-          dbCache.set(`plan:${user.active_plan_id}`, plan, 300000); // Cache plan for 5 minutes
+          dbCache.set(`plan:${user.active_plan_id}`, plan, 300000);
         }
       }
 
       if (plan) {
-        const companyModules = Array.isArray(plan.company_modules)
-          ? plan.company_modules
-          : typeof plan.company_modules === "string"
-          ? JSON.parse(plan.company_modules || "[]")
-          : [];
-        const learningContent = Array.isArray(plan.learning_content)
-          ? plan.learning_content
-          : typeof plan.learning_content === "string"
-          ? JSON.parse(plan.learning_content || "[]")
-          : [];
-        const freeDemoModules = Array.isArray(plan.free_demo_modules)
-          ? plan.free_demo_modules
-          : typeof plan.free_demo_modules === "string"
-          ? JSON.parse(plan.free_demo_modules || "[]")
-          : [];
+        const companyModules = parseArray(plan.company_modules);
+        const learningContent = parseArray(plan.learning_content);
+        const freeDemoModules = parseArray(plan.free_demo_modules);
 
-        if (itemType === "company" && companyModules.includes(itemId)) {
-          return { allowed: true };
-        }
+        for (const resource of resourcesToCheck) {
+          const resId = resource.id;
+          const resType = resource.type;
 
-        if (itemType === "module") {
-          if (freeDemoModules.includes(itemId)) return { allowed: true };
-          if (learningContent.includes(itemId)) return { allowed: true };
-          if (item && item.parent_id && (companyModules.includes(item.parent_id) || learningContent.includes(item.parent_id))) {
-            return { allowed: true };
+          if (resType === "company") {
+            if (companyModules.includes(resId) || learningContent.includes(resId)) return { allowed: true };
+          } else if (resType === "module") {
+            if (freeDemoModules.includes(resId)) return { allowed: true };
+            if (learningContent.includes(resId)) return { allowed: true };
+          } else if (["general_branch", "general_subject", "general_topic"].includes(resType)) {
+            if (learningContent.includes(resId)) return { allowed: true };
           }
         }
       }
