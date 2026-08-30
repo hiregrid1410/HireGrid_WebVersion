@@ -280,6 +280,8 @@ export default function StudentDashboard() {
   const [isChangingBranch, setIsChangingBranch] = useState(false);
   const [tempSelectedBranch, setTempSelectedBranch] = useState(null);
   const [showBranchConfirmation, setShowBranchConfirmation] = useState(false);
+  const [settingBranchId, setSettingBranchId] = useState(null);
+  const [onboardingSelectedBranchId, setOnboardingSelectedBranchId] = useState(null);
 
   useEffect(() => {
     if (currentUserDoc) {
@@ -1134,8 +1136,6 @@ export default function StudentDashboard() {
   }
 
   // Intercept if user is student and has not selected branch
-  const [settingBranchId, setSettingBranchId] = useState(null);
-  const [onboardingSelectedBranchId, setOnboardingSelectedBranchId] = useState(null);
   const hasNoBranchSelected = currentUserDoc && currentUserDoc.role === "student" && !currentUserDoc.branchId && !currentUserDoc.branch_id;
   if (hasNoBranchSelected) {
     // Filter out the General system fallback branch so it is not shown as a student choice
