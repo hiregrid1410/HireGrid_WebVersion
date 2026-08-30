@@ -523,7 +523,7 @@ exports.getStats = async (req, res) => {
       pool.query(`
         SELECT m.title AS "moduleName", COALESCE(ROUND(AVG(s.score)), 0) AS "avgScore"
         FROM modules m
-        LEFT JOIN scores s ON s.module_id = m.id
+        LEFT JOIN first_attempts s ON s.module_id = m.id
         GROUP BY m.id, m.title
       `),
     ]);

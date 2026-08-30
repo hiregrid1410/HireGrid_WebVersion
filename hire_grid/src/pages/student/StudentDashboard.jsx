@@ -47,6 +47,8 @@ export default function StudentDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const syncTimeoutRef = useRef(null);
+  const [loadingMetadata, setLoadingMetadata] = useState(true);
+  const [metadataError, setMetadataError] = useState(null);
 
   useEffect(() => {
     return () => {
@@ -563,6 +565,8 @@ export default function StudentDashboard() {
 
     // Fetch master data once on mount
     const fetchMasterData = async () => {
+      setLoadingMetadata(true);
+      setMetadataError(null);
       try {
         const [modsSnap, compSnap, examsSnap, plansSnap, branchesRes] = await Promise.all([
           getDocs(query(collection(db, "modules"), orderBy("createdAt", "asc"))),
@@ -578,8 +582,11 @@ export default function StudentDashboard() {
         if (branchesRes.success && branchesRes.branches) {
           setActiveBranches(branchesRes.branches);
         }
+        setLoadingMetadata(false);
       } catch (err) {
         console.error("Error loading dashboard metadata:", err);
+        setMetadataError(err.message || "Failed to load dashboard data. Please try again.");
+        setLoadingMetadata(false);
       }
     };
     fetchMasterData();
@@ -1243,6 +1250,57 @@ export default function StudentDashboard() {
               ) : (
                 <span>Continue</span>
               )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingMetadata) {
+    return (
+      <div className="min-h-screen bg-[#070D19] flex items-center justify-center">
+        <div className="relative">
+          <div className="h-12 w-12 rounded-full border-t-2 border-b-2 border-emerald-500 animate-spin"></div>
+          <div className="absolute inset-0 m-auto h-6 w-6 rounded-full bg-emerald-500/10 animate-ping"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (metadataError) {
+    return (
+      <div className="min-h-screen bg-[#070D19] flex items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full glass-panel border border-rose-500/20 rounded-3xl p-8 shadow-2xl relative overflow-hidden flex flex-col items-center">
+          <div className="relative mb-6">
+            <div className="h-16 w-16 rounded-full border-4 border-rose-500/10 border-t-rose-500 flex items-center justify-center">
+              <span className="text-rose-500 text-xl font-bold">!</span>
+            </div>
+          </div>
+          
+          <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2 font-mono">
+            Connection Failed
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-6">
+            {metadataError}
+          </p>
+          <div className="flex space-x-4">
+            <button
+              onClick={() => {
+                logOut();
+                navigate("/");
+              }}
+              className="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors uppercase tracking-widest text-[10px]"
+            >
+              Sign Out
+            </button>
+            <button
+              onClick={() => {
+                window.location.reload();
+              }}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-colors uppercase tracking-widest text-[10px]"
+            >
+              Retry
             </button>
           </div>
         </div>

@@ -42,48 +42,71 @@ export function AdminMaintenanceTab() {
   });
 
   const fetchStats = async () => {
+    let usersCount = 0;
+    let modulesCount = 0;
+    let companiesCount = 0;
+    let examsCount = 0;
+    let notificationsCount = 0;
+    let purchasesCount = 0;
+    let auditLogsCount = 0;
+    let retakeCount = 0;
+    let rejectedReqs = 0;
+
     try {
-      const usersSnap = await getDocs(collection(db, "users"));
-      const modulesSnap = await getDocs(collection(db, "modules"));
-      const companiesSnap = await getDocs(collection(db, "companies"));
-      const examsSnap = await getDocs(collection(db, "exams"));
-      const notifSnap = await getDocs(collection(db, "notifications"));
-      const purchasesSnap = await getDocs(collection(db, "purchases"));
-      const auditLogSnap = await getDocs(collection(db, "audit_logs"));
+      const snap = await getDocs(collection(db, "users")).catch(() => ({ size: 0 }));
+      usersCount = snap.size;
+    } catch (e) {}
 
-      const scoresSnap = await getDocs(collection(db, "scores"));
-      let retakeCount = 0;
-      scoresSnap.forEach((doc) => {
-        if (doc.data().isRetake) retakeCount++;
-      });
-      const gateScoresSnap = await getDocs(collection(db, "gateScores"));
-      gateScoresSnap.forEach((doc) => {
-        if (doc.data().isRetake) retakeCount++;
-      });
+    try {
+      const snap = await getDocs(collection(db, "modules")).catch(() => ({ size: 0 }));
+      modulesCount = snap.size;
+    } catch (e) {}
 
-      const reqSnap = await getDocs(collection(db, "payment_requests"));
-      let rejectedReqs = 0;
+    try {
+      const snap = await getDocs(collection(db, "companies")).catch(() => ({ size: 0 }));
+      companiesCount = snap.size;
+    } catch (e) {}
+
+    try {
+      const snap = await getDocs(collection(db, "exams")).catch(() => ({ size: 0 }));
+      examsCount = snap.size;
+    } catch (e) {}
+
+    try {
+      const snap = await getDocs(collection(db, "notifications")).catch(() => ({ size: 0 }));
+      notificationsCount = snap.size;
+    } catch (e) {}
+
+    try {
+      const snap = await getDocs(collection(db, "purchases")).catch(() => ({ size: 0 }));
+      purchasesCount = snap.size;
+    } catch (e) {}
+
+    try {
+      const snap = await getDocs(collection(db, "audit_logs")).catch(() => ({ size: 0 }));
+      auditLogsCount = snap.size;
+    } catch (e) {}
+
+    try {
+      const reqSnap = await getDocs(collection(db, "payment_requests")).catch(() => ({ forEach: () => {} }));
       reqSnap.forEach((doc) => {
         if (doc.data().status === "rejected") rejectedReqs++;
       });
+    } catch (e) {}
 
-      setStats({
-        users: usersSnap.size,
-        modules: modulesSnap.size,
-        companies: companiesSnap.size,
-        exams: examsSnap.size,
-        notifications: notifSnap.size,
-        notificationLogs: notifSnap.size, // Duplicate for UI representation
-        retakeScores: retakeCount,
-        rejectedRequests: rejectedReqs,
-        purchases: purchasesSnap.size,
-        auditLogs: auditLogSnap.size,
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingStats(false);
-    }
+    setStats({
+      users: usersCount,
+      modules: modulesCount,
+      companies: companiesCount,
+      exams: examsCount,
+      notifications: notificationsCount,
+      notificationLogs: notificationsCount,
+      retakeScores: retakeCount,
+      rejectedRequests: rejectedReqs,
+      purchases: purchasesCount,
+      auditLogs: auditLogsCount,
+    });
+    setLoadingStats(false);
   };
 
   useEffect(() => {

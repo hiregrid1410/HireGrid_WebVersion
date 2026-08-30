@@ -171,7 +171,8 @@ export async function getDoc(docRef) {
     }
     return createDocSnap(docRef.id, data);
   } catch (err) {
-    return createDocSnap(docRef.id, null);
+    console.error(`[firebase.js getDoc error] for ${docRef.collectionName}/${docRef.id}:`, err);
+    throw err;
   }
 }
 
@@ -244,7 +245,8 @@ export async function getDocs(queryRef) {
       forEach: (callback) => docs.forEach(callback),
     };
   } catch (err) {
-    return { docs: [], empty: true, size: 0, forEach: () => {} };
+    console.error(`[firebase.js getDocs error] for ${queryRef.collectionName}:`, err);
+    throw err;
   }
 }
 
