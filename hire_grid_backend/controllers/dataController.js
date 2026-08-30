@@ -1396,11 +1396,15 @@ exports.getDeviceRequests = async (req, res) => {
 exports.createDeviceRequest = async (req, res) => {
   const { id, userId, userName, userEmail, deviceId, deviceName, status = "pending" } = req.body;
   const reqId = id || crypto.randomUUID();
+  const resolvedUserId = userId || (req.user && req.user.id);
+  if (!resolvedUserId) {
+    return res.status(400).json({ error: "User ID is required" });
+  }
   try {
     await pool.query(
       `INSERT INTO device_requests (id, user_id, user_name, user_email, device_id, device_name, status) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [reqId, userId, userName || null, userEmail || null, deviceId || null, deviceName || null, status]
+      [reqId, resolvedUserId, userName || null, userEmail || null, deviceId || null, deviceName || null, status]
     );
     res.json({ success: true });
   } catch (err) {

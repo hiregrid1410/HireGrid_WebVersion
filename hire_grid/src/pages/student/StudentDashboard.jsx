@@ -1106,6 +1106,7 @@ export default function StudentDashboard() {
                 try {
                   const deviceId = localStorage.getItem("hiregrid_device_id") || "dev_" + Math.random().toString(36).substring(2);
                   await api.post("/device-requests", {
+                    userId: auth.currentUser?.uid,
                     userName: currentUserDoc?.name || auth.currentUser?.email || "Student",
                     userEmail: currentUserDoc?.email || auth.currentUser?.email,
                     deviceId,
