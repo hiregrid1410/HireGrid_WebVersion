@@ -26,58 +26,79 @@ export function AdminSystemHealthTab() {
 
   useEffect(() => {
     const fetchHealth = async () => {
+      let active = 0;
+      let premium = 0;
+      let companiesCount = 0;
+      let examsCount = 0;
+      let subjectsCount = 0;
+      let modulesCount = 0;
+      let purchasesCount = 0;
+      let pAccess = 0;
+      let pDevice = 0;
+
       try {
-        const usersSnap = await getDocs(collection(db, "users"));
-        let active = usersSnap.size;
-        let premium = 0;
+        const usersSnap = await getDocs(collection(db, "users")).catch(() => ({ size: 0, forEach: () => {} }));
+        active = usersSnap.size;
         usersSnap.forEach((d) => {
-          if (d.data().hasFullPremium) premium++;
+          if (d.data()?.hasFullPremium) premium++;
         });
+      } catch (e) {}
 
-        const companiesSnap = await getDocs(collection(db, "companies"));
-        const examsSnap = await getDocs(collection(db, "exams"));
-        const nodesSnap = await getDocs(collection(db, "hierarchy_nodes")); // For subjects
-        let subjectsCount = 0;
+      try {
+        const companiesSnap = await getDocs(collection(db, "companies")).catch(() => ({ size: 0 }));
+        companiesCount = companiesSnap.size;
+      } catch (e) {}
+
+      try {
+        const examsSnap = await getDocs(collection(db, "exams")).catch(() => ({ size: 0 }));
+        examsCount = examsSnap.size;
+      } catch (e) {}
+
+      try {
+        const nodesSnap = await getDocs(collection(db, "hierarchy_nodes")).catch(() => ({ forEach: () => {} }));
         nodesSnap.forEach((d) => {
-          if (
-            d.data().type === "general_subject" ||
-            d.data().type === "exam_subject"
-          )
+          const type = d.data()?.type;
+          if (type === "general_subject" || type === "exam_subject") {
             subjectsCount++;
+          }
         });
+      } catch (e) {}
 
-        const modulesSnap = await getDocs(collection(db, "modules"));
+      try {
+        const modulesSnap = await getDocs(collection(db, "modules")).catch(() => ({ size: 0 }));
+        modulesCount = modulesSnap.size;
+      } catch (e) {}
 
-        const purchasesSnap = await getDocs(collection(db, "purchases"));
-        // Assuming we could calculate revenue here. Let's just say we get length for now as a placeholder
-        // Normally we'd sum up purchase amounts.
+      try {
+        const purchasesSnap = await getDocs(collection(db, "purchases")).catch(() => ({ size: 0 }));
+        purchasesCount = purchasesSnap.size;
+      } catch (e) {}
 
-        const accessReqSnap = await getDocs(collection(db, "access_requests"));
-        let pAccess = 0;
+      try {
+        const accessReqSnap = await getDocs(collection(db, "access_requests")).catch(() => ({ forEach: () => {} }));
         accessReqSnap.forEach((d) => {
-          if (d.data().status === "pending") pAccess++;
+          if (d.data()?.status === "pending") pAccess++;
         });
+      } catch (e) {}
 
-        const deviceReqSnap = await getDocs(collection(db, "device_requests"));
-        let pDevice = 0;
+      try {
+        const deviceReqSnap = await getDocs(collection(db, "device_requests")).catch(() => ({ forEach: () => {} }));
         deviceReqSnap.forEach((d) => {
-          if (d.data().status === "pending") pDevice++;
+          if (d.data()?.status === "pending") pDevice++;
         });
+      } catch (e) {}
 
-        setStats({
-          activeUsers: active,
-          premiumUsers: premium,
-          companies: companiesSnap.size,
-          exams: examsSnap.size,
-          subjects: subjectsCount,
-          modules: modulesSnap.size,
-          revenue: purchasesSnap.size * 149, // Placeholder calculation
-          pendingAccessRequests: pAccess,
-          pendingDeviceRequests: pDevice,
-        });
-      } catch (err) {
-        console.error(err);
-      }
+      setStats({
+        activeUsers: active,
+        premiumUsers: premium,
+        companies: companiesCount,
+        exams: examsCount,
+        subjects: subjectsCount,
+        modules: modulesCount,
+        revenue: purchasesCount * 149,
+        pendingAccessRequests: pAccess,
+        pendingDeviceRequests: pDevice,
+      });
       setLoading(false);
     };
     fetchHealth();

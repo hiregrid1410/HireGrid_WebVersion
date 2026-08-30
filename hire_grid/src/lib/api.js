@@ -21,6 +21,19 @@ async function checkHealth() {
   return false;
 }
 
+async function checkReady() {
+  try {
+    const res = await fetch(`${API_URL}/ready`, { method: "GET" });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return data.status === "ready";
+    }
+  } catch (e) {
+    // unreachable
+  }
+  return false;
+}
+
 async function waitForServerToWake() {
   if (wakingPromise) {
     return wakingPromise;
@@ -30,14 +43,31 @@ async function waitForServerToWake() {
     isServerWaking = true;
     window.dispatchEvent(new CustomEvent("server-waking"));
 
-    const maxRetries = 20; // 60 seconds max wait
+    const maxRetries = 30; // 90 seconds max wait
     let attempts = 0;
+    let isWoke = false;
+    
+    // 1. Wait for Node.js process to start accepting requests
     while (attempts < maxRetries) {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       attempts++;
       const ok = await checkHealth();
       if (ok) {
+        isWoke = true;
         break;
+      }
+    }
+
+    // 2. Wait for database connection readiness
+    if (isWoke) {
+      attempts = 0;
+      while (attempts < 10) { // Give database up to 30 seconds more if process is already up
+        const ready = await checkReady();
+        if (ready) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        attempts++;
       }
     }
 
@@ -98,14 +128,31 @@ async function request(method, path, body = null) {
             }
           }
 
+          // If it is a 503 Service Unavailable, or a database connection error
+          const lowercaseMsg = message.toLowerCase();
+          const isDbOrUnavailable = res.status === 503 ||
+            lowercaseMsg.includes("econnreset") ||
+            lowercaseMsg.includes("connection reset") ||
+            lowercaseMsg.includes("timeout") ||
+            lowercaseMsg.includes("starting up") ||
+            lowercaseMsg.includes("too many connections") ||
+            lowercaseMsg.includes("admin_shutdown");
+
+          if (isDbOrUnavailable) {
+            // Fallthrough to the catch block to wait/retry
+            throw new Error(`DB_CONN_ERROR: ${message}`);
+          }
+
           throw new Error(message);
         }
 
         return data;
       } catch (err) {
-        // If it is a business/HTTP error thrown by us above, don't retry
+        const isDbConnError = err.message && err.message.startsWith("DB_CONN_ERROR:");
+        // If it is a business/HTTP error thrown by us above (not a DB_CONN_ERROR), don't retry
         if (
           err.message &&
+          !isDbConnError &&
           !err.message.includes("Failed to fetch") &&
           !err.message.includes("NetworkError") &&
           !err.message.includes("Network Error") &&
@@ -115,20 +162,23 @@ async function request(method, path, body = null) {
           throw err;
         }
 
-        // Check if server is already awake/healthy
+        // Check if server and DB are already awake/healthy
         const isHealthy = await checkHealth();
-        if (isHealthy) {
-          console.error("API Error (Server is healthy):", err);
-          throw err;
+        const isReady = isHealthy ? await checkReady() : false;
+        if (isHealthy && isReady) {
+          console.error("API Error (Server & DB are ready):", err);
+          const finalErr = isDbConnError ? new Error(err.message.replace("DB_CONN_ERROR: ", "")) : err;
+          throw finalErr;
         }
 
-        // Server is sleeping/waking. Wait for it.
-        console.log("Server is sleeping/waking. Waiting for it to start...");
+        // Server/DB is sleeping/waking. Wait for it.
+        console.log("Server/DB is sleeping/waking. Waiting for it to start...");
         await waitForServerToWake();
 
         attemptsLeft--;
         if (attemptsLeft === 0) {
-          throw err;
+          const finalErr = isDbConnError ? new Error(err.message.replace("DB_CONN_ERROR: ", "")) : err;
+          throw finalErr;
         }
       }
     }

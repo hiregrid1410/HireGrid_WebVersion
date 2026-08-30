@@ -101,6 +101,18 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// Database Readiness check route
+app.get("/ready", async (req, res) => {
+  try {
+    const { pool } = require("./config/db");
+    await pool.query("SELECT 1");
+    res.json({ status: "ready" });
+  } catch (err) {
+    console.error("[READINESS CHECK FAILED]:", err.message);
+    res.status(503).json({ status: "unready", error: "Database not reachable" });
+  }
+});
+
 // Initialize Database & Seeds
 initDb();
 
@@ -139,6 +151,37 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+// Graceful Shutdown Handlers (Render redeploys and restarts)
+const { pool } = require("./config/db");
+const gracefulShutdown = (signal) => {
+  console.log(`Received ${signal}. Shutting down gracefully...`);
+  server.close(() => {
+    console.log("HTTP server closed.");
+    pool.end(() => {
+      console.log("Database connection pool closed.");
+      process.exit(0);
+    });
+  });
+  
+  // Force shutdown if connections do not close in 10s
+  setTimeout(() => {
+    console.error("Forceful shutdown triggered.");
+    process.exit(1);
+  }, 10000);
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+// Global uncaught process exception handlers to prevent random crashes
+process.on("uncaughtException", (err) => {
+  console.error("[UNCAUGHT EXCEPTION]:", err.stack || err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[UNHANDLED REJECTION]: at:", promise, "reason:", reason);
 });
