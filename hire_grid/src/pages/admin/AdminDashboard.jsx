@@ -180,7 +180,7 @@ export default function AdminDashboard() {
           {sidebarOpen ? (
             <>
               <div className="flex items-center gap-3">
-                <img src="/logo.png" alt="HireGridX Logo" className="h-7 w-auto object-contain bg-transparent" />
+                <img src="/weblogo.png" alt="HireGridX Logo" className="h-11 w-auto object-contain bg-transparent" />
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
@@ -195,7 +195,7 @@ export default function AdminDashboard() {
               className="mx-auto p-1.5 hover:bg-slate-850 rounded-xl transition-all cursor-pointer flex items-center justify-center"
               title="Expand Sidebar"
             >
-              <img src="/logo.png" alt="HireGridX Logo" className="h-7 w-7 object-contain bg-transparent" />
+              <img src="/weblogo.png" alt="HireGridX Logo" className="h-11 w-11 object-contain bg-transparent" />
             </button>
           )}
         </div>
