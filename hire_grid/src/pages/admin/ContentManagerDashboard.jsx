@@ -826,25 +826,31 @@ export default function ContentManagerDashboard() {
                   ) : (
                     <DataTable
                       columns={[
-                        { header: "Question Text", accessor: "question", render: (val) => <span className="line-clamp-2">{val}</span> },
-                        { header: "Module Name", accessor: "moduleTitle", render: (val) => val || <span className="text-slate-500 italic">None</span> },
+                        { label: "Question Text", key: "question", render: (row) => <span className="line-clamp-2">{row.question}</span> },
+                        { label: "Module Name", key: "moduleTitle", render: (row) => row.moduleTitle || <span className="text-slate-500 italic">None</span> },
                         {
-                          header: "Difficulty",
-                          accessor: "difficulty",
-                          render: (val) => (
-                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border uppercase ${val === "easy" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : val === "hard" ? "bg-rose-500/10 text-rose-400 border-rose-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
-                              {val || "medium"}
-                            </span>
-                          )
+                          label: "Difficulty",
+                          key: "difficulty",
+                          render: (row) => {
+                            const val = row.difficulty;
+                            return (
+                              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border uppercase ${val === "easy" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : val === "hard" ? "bg-rose-500/10 text-rose-400 border-rose-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
+                                {val || "medium"}
+                              </span>
+                            );
+                          }
                         },
                         {
-                          header: "Status",
-                          accessor: "status",
-                          render: (val) => (
-                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border uppercase ${val === "ACTIVE" || val === "active" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-800 text-slate-400 border-slate-700"}`}>
-                              {val || "ACTIVE"}
-                            </span>
-                          )
+                          label: "Status",
+                          key: "status",
+                          render: (row) => {
+                            const val = row.status;
+                            return (
+                              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border uppercase ${val === "ACTIVE" || val === "active" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-800 text-slate-400 border-slate-700"}`}>
+                                {val || "ACTIVE"}
+                              </span>
+                            );
+                          }
                         }
                       ]}
                       data={questions}
