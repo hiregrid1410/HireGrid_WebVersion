@@ -1,9 +1,27 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { ShieldCheck, Mail, Lock, User, ArrowLeft, Timer, CheckCircle, RefreshCw } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Mail,
+  Lock,
+  User,
+  CheckCircle,
+  ArrowRight,
+  RefreshCw,
+} from "lucide-react";
 import { api, getDeviceId, getDeviceName } from "../../lib/api";
 import { showToast } from "../../components/common/Toast";
+import AuthLayout from "../../components/auth/AuthLayout";
+import AuthBrand from "../../components/auth/AuthBrand";
+import AuthCard from "../../components/auth/AuthCard";
+import AuthInput from "../../components/auth/AuthInput";
+import PasswordInput from "../../components/auth/PasswordInput";
 
+/* ─────────────────────────────────────────────────────────────
+   StudentAuth
+   Handles both Student Login and Student Sign-Up in one file.
+   All existing API calls, payloads, field names, and redirects
+   are preserved exactly.
+───────────────────────────────────────────────────────────── */
 export default function StudentAuth() {
   const navigate = useNavigate();
 
@@ -12,15 +30,17 @@ export default function StudentAuth() {
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Form states
+  // ── Form state (same field names as original) ──
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     branch: "",
     semester: "1",
   });
 
+  // ── Auto-redirect if already logged in as student ──
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userStr = localStorage.getItem("user");
@@ -30,19 +50,34 @@ export default function StudentAuth() {
         if (user && user.role === "student") {
           navigate("/student-dashboard", { replace: true });
         }
-      } catch (e) {
+      } catch {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
       }
     }
   }, [navigate]);
 
+  // ── Reset form when switching modes ──
+  const switchMode = (toSignUp) => {
+    setIsSignUp(toSignUp);
+    setError("");
+    setSuccessMessage("");
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      branch: "",
+      semester: "1",
+    });
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Submit Login/Signup Form
+  // ── Form submission — unchanged API logic ──
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -51,12 +86,19 @@ export default function StudentAuth() {
 
     try {
       if (isSignUp) {
+        // Client-side validation
         if (!formData.name || !formData.email || !formData.password || !formData.branch) {
           setError("All fields are required for sign up.");
           setLoading(false);
           return;
         }
+        if (formData.password !== formData.confirmPassword) {
+          setError("Passwords do not match.");
+          setLoading(false);
+          return;
+        }
 
+        // ── Sign up API call (payload unchanged) ──
         const res = await api.post("/auth/signup", {
           name: formData.name,
           email: formData.email.trim(),
@@ -70,12 +112,14 @@ export default function StudentAuth() {
         localStorage.setItem("user", JSON.stringify(res.user));
         navigate("/student-dashboard", { state: { user: res.user } });
       } else {
+        // Login validation
         if (!formData.email || !formData.password) {
           setError("Email and password are required.");
           setLoading(false);
           return;
         }
 
+        // ── Login API call (payload unchanged) ──
         const res = await api.post("/auth/login", {
           email: formData.email.trim(),
           password: formData.password,
@@ -89,232 +133,205 @@ export default function StudentAuth() {
         navigate("/student-dashboard", { state: { user: res.user } });
       }
     } catch (err) {
-      setError(err.message || "Authentication failed.");
+      setError(err.message || "Authentication failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 bg-circuit-pattern animate-circuit flex flex-col font-sans overflow-y-auto transition-colors text-slate-700 dark:text-slate-300 relative">
-      <div className="absolute inset-0 bg-white/80 dark:bg-slate-950/80 pointer-events-none z-0" />
+    <AuthLayout variant="student">
+      {/* ── Left: Brand ── */}
+      <AuthBrand variant={isSignUp ? "student-signup" : "student-login"} />
 
-      {/* Header Navigation */}
-      <nav className="glass-panel px-4 md:px-8 py-4 flex justify-between items-center shadow-lg z-10 shrink-0 border-b border-emerald-500/20">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center text-lime-300 font-bold text-xl shadow-[0_0_15px_rgba(4,120,87,0.8)] border border-emerald-400">
-            <ShieldCheck className="w-6 h-6" />
+      {/* ── Right: Form card ── */}
+      <AuthCard>
+        {/* Heading */}
+        <h1 className="auth-card-heading">
+          {isSignUp ? "Create Student Account" : "Student Sign In"}
+        </h1>
+        <p className="auth-card-sub">
+          {isSignUp
+            ? "Fill in your details to get started."
+            : "Welcome back! Please sign in to continue."}
+        </p>
+
+        {/* Global error */}
+        {error && (
+          <div className="auth-alert auth-alert--error" role="alert">
+            {error}
           </div>
-          <span className="text-xl md:text-2xl font-black eng-gradient-text tracking-widest uppercase hidden sm:block">
-            ENGINEERING HUB
-          </span>
-        </div>
-        <div className="flex items-center space-x-6">
-          <span className="text-slate-600 dark:text-slate-400 font-medium hidden lg:block uppercase tracking-widest text-xs">
-            Auth Protocol v2.7
-          </span>
-          <Link
-            to="/admin"
-            className="text-slate-500/50 dark:text-slate-400/50 hover:text-emerald-500 dark:hover:text-emerald-400 font-medium text-sm tracking-wider transition-colors px-2"
-          >
-            श्री हरिवंश 💚
-          </Link>
-        </div>
-      </nav>
+        )}
 
-      {/* Main Content Split */}
-      <main className="flex-1 flex flex-col lg:flex-row p-4 md:p-8 gap-8 overflow-y-auto relative z-10 items-center">
-        {/* Left Column: Welcome */}
-        <div className="w-full lg:w-1/2 flex flex-col justify-center space-y-6 shrink-0 order-2 lg:order-1 pt-8 lg:pt-0 pl-0 lg:pl-12">
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-black text-slate-900 dark:text-slate-100 leading-tight uppercase tracking-widest drop-shadow-lg">
-            Engineering
-            <br />
-            <span className="eng-gradient-text drop-shadow-[0_0_20px_rgba(4,120,87,0.8)]">
-              Command Center
-            </span>
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400 text-lg md:text-xl font-medium tracking-wide max-w-lg">
-            System initialization required. Authenticate to access simulation
-            protocols, placement readiness modules, and your career data grid.
+        {/* Global success */}
+        {successMessage && (
+          <div className="auth-alert auth-alert--success" role="status">
+            <CheckCircle size={15} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 1 }} />
+            {successMessage}
+          </div>
+        )}
+
+        {/* ── Form ── */}
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: "18px", marginTop: error || successMessage ? "18px" : "0" }}
+          noValidate
+        >
+          {/* ── Sign-Up only fields ── */}
+          {isSignUp && (
+            <>
+              <AuthInput
+                label="Full Name"
+                icon={<User size={16} strokeWidth={2} />}
+                type="text"
+                name="name"
+                required
+                autoComplete="name"
+                placeholder="Enter your full name"
+                value={formData.name}
+                onChange={handleInputChange}
+              />
+
+              {/* Branch select */}
+              <div className="auth-field">
+                <label className="auth-label">Academic Branch</label>
+                <select
+                  name="branch"
+                  value={formData.branch}
+                  onChange={handleInputChange}
+                  required
+                  className="auth-select"
+                >
+                  <option value="">Select Branch...</option>
+                  <option value="Mechanical Engineering">Mechanical Engineering</option>
+                  <option value="Electrical Engineering">Electrical Engineering</option>
+                  <option value="Civil Engineering">Civil Engineering</option>
+                  <option value="Chemical Engineering">Chemical Engineering</option>
+                  <option value="Computer Engineering/IT">Computer Engineering / IT</option>
+                  <option value="Electronics & Communication">Electronics &amp; Communication</option>
+                  <option value="Instrumentation & Control">Instrumentation &amp; Control</option>
+                </select>
+              </div>
+
+              {/* Semester select */}
+              <div className="auth-field">
+                <label className="auth-label">Semester</label>
+                <select
+                  name="semester"
+                  value={formData.semester}
+                  onChange={handleInputChange}
+                  className="auth-select"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                    <option key={s} value={s.toString()}>
+                      Semester {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          {/* Email — shown in both modes */}
+          <AuthInput
+            label="Email Address"
+            icon={<Mail size={16} strokeWidth={2} />}
+            type="email"
+            name="email"
+            required
+            autoComplete="email"
+            placeholder="Enter your email"
+            value={formData.email}
+            onChange={handleInputChange}
+          />
+
+          {/* Password */}
+          <PasswordInput
+            label="Password"
+            icon={<Lock size={16} strokeWidth={2} />}
+            name="password"
+            required
+            autoComplete={isSignUp ? "new-password" : "current-password"}
+            placeholder={isSignUp ? "Create a password" : "Enter your password"}
+            value={formData.password}
+            onChange={handleInputChange}
+          />
+
+          {/* Confirm Password — sign-up only */}
+          {isSignUp && (
+            <PasswordInput
+              label="Confirm Password"
+              icon={<Lock size={16} strokeWidth={2} />}
+              name="confirmPassword"
+              required
+              autoComplete="new-password"
+              placeholder="Confirm your password"
+              value={formData.confirmPassword}
+              onChange={handleInputChange}
+            />
+          )}
+
+          {/* Forgot password — login only */}
+          {!isSignUp && (
+            <div className="auth-forgot">
+              {/* Preserve any existing forgot-password route if added later */}
+              <span className="auth-forgot-link" style={{ cursor: "default" }}>
+                Forgot Password?
+              </span>
+            </div>
+          )}
+
+          {/* Submit button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="auth-btn auth-btn--student"
+            style={{ marginTop: "4px" }}
+          >
+            {loading ? (
+              <>
+                <span className="auth-spinner" />
+                Processing...
+              </>
+            ) : (
+              <>
+                {isSignUp ? "Create Account" : "Sign In"}
+                <ArrowRight size={16} strokeWidth={2.5} className="auth-btn-arrow" />
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* ── Switch mode link ── */}
+        <div style={{ marginTop: "24px" }}>
+          <div className="auth-divider" style={{ marginBottom: "20px" }} />
+          <p className="auth-switch">
+            {isSignUp ? (
+              <>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  className="auth-switch-link"
+                  onClick={() => switchMode(false)}
+                >
+                  Sign In
+                </button>
+              </>
+            ) : (
+              <>
+                New here?{" "}
+                <button
+                  type="button"
+                  className="auth-switch-link"
+                  onClick={() => switchMode(true)}
+                >
+                  Create your account
+                </button>
+              </>
+            )}
           </p>
         </div>
-
-        {/* Right Column: Cards */}
-        <div className="flex-1 flex items-center justify-center order-1 lg:order-2 w-full">
-          <div className="glass-panel w-full max-w-[480px] rounded-2xl p-6 md:p-10 relative overflow-hidden shrink-0">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-bl-full -mr-16 -mt-16 pointer-events-none"></div>
-
-            {error && (
-              <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 rounded-xl text-sm font-medium border border-rose-200 dark:border-rose-800 animate-pulse">
-                {error}
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 rounded-xl text-sm font-medium border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 shrink-0 text-emerald-500" />
-                <span>{successMessage}</span>
-              </div>
-            )}
-
-            <div className="mb-8 relative z-10 transition-colors">
-              <h2 className="text-2xl font-bold eng-gradient-text uppercase tracking-widest">
-                {isSignUp ? "Create Account" : "Operator Sign In"}
-              </h2>
-              <p className="text-emerald-400/80 mt-2 text-sm font-mono tracking-wider">
-                {isSignUp ? "Register system credentials..." : "Awaiting operator credentials..."}
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
-              {isSignUp && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                        <User className="h-5 w-5 text-slate-400" />
-                      </span>
-                      <input
-                        type="text"
-                        name="name"
-                        required
-                        placeholder="Operator Name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                      Academic Branch
-                    </label>
-                    <select
-                      name="branch"
-                      value={formData.branch}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                    >
-                      <option value="">Select Branch...</option>
-                      <option value="Mechanical Engineering">Mechanical Engineering</option>
-                      <option value="Electrical Engineering">Electrical Engineering</option>
-                      <option value="Civil Engineering">Civil Engineering</option>
-                      <option value="Chemical Engineering">Chemical Engineering</option>
-                      <option value="Computer Engineering/IT">Computer Engineering/IT</option>
-                      <option value="Electronics & Communication">Electronics & Communication</option>
-                      <option value="Instrumentation & Control">Instrumentation & Control</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                      Semester
-                    </label>
-                    <select
-                      name="semester"
-                      value={formData.semester}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                        <option key={s} value={s.toString()}>
-                          Semester {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Mail className="h-5 w-5 text-slate-400" />
-                  </span>
-                  <input
-                    type="email"
-                    name="email"
-                    required
-                    placeholder="abc@email.com"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                  Security Passphrase
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Lock className="h-5 w-5 text-slate-400" />
-                  </span>
-                  <input
-                    type="password"
-                    name="password"
-                    required
-                    placeholder="••••••••"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-400 outline-none transition-all dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-eng-primary w-full py-4 mt-4 text-lg uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    PROCESSING...
-                  </>
-                ) : isSignUp ? (
-                  "INITIALIZE ACCOUNT"
-                ) : (
-                  "AUTHENTICATE"
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setError("");
-                  setSuccessMessage("");
-                }}
-                className="w-full text-center mt-4 text-emerald-500 dark:text-emerald-400 font-mono text-sm hover:underline"
-              >
-                {isSignUp ? "Already have an operator profile? Sign In" : "Need an operator account? Sign Up"}
-              </button>
-            </form>
-
-            <p className="mt-8 text-center text-slate-500 font-mono text-xs md:text-sm relative z-10 flex items-center justify-center">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2"></span>
-              System active. Connection secure.
-            </p>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer Bar */}
-      <footer className="glass-panel px-4 md:px-8 py-3 flex justify-between text-xs font-mono font-medium shrink-0 relative z-10 border-t border-emerald-500/20 text-emerald-400">
-        <span>[SYS.VER 2.7.0] © ENGINEERING HUB</span>
-        <span className="flex items-center">
-          <span className="w-2 h-2 bg-lime-400 rounded-full mr-2"></span> ONLINE
-        </span>
-      </footer>
-    </div>
+      </AuthCard>
+    </AuthLayout>
   );
 }
