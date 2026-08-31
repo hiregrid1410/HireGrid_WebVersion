@@ -65,6 +65,7 @@ import {
   PlanCardSkeleton,
   ProfileSkeleton
 } from "../../components/loading/Skeletons";
+import { ProgressCircuitLoader } from "../../components/loading/ProgressCircuitLoader";
 
 export default function StudentDashboard() {
   const { syncUserTheme } = useTheme();
