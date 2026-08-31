@@ -253,7 +253,7 @@ export default function StudentDashboard() {
 
   const [stats, setStats] = useState({
     xp: 0,
-    streak: 3,
+    streak: 0,
     categoryXP: {},
   });
 
@@ -265,6 +265,9 @@ export default function StudentDashboard() {
   const [showPreparingResult, setShowPreparingResult] = useState(false);
 
   const [activeTab, setActiveTab] = useState(() => {
+    if (location.state?.activeTab) {
+      return location.state.activeTab;
+    }
     return location.pathname === "/placement-mission" ? "placement-mission" : "dashboard";
   });
   const [activeCompany, setActiveCompany] = useState(null);
@@ -366,9 +369,9 @@ export default function StudentDashboard() {
       setSidebarOpen(false);
     }
     if (tab === "placement-mission") {
-      navigate("/placement-mission");
+      navigate("/placement-mission", { state: { activeTab: tab } });
     } else {
-      navigate("/student-dashboard");
+      navigate("/student-dashboard", { state: { activeTab: tab } });
     }
   };
 
@@ -636,9 +639,23 @@ export default function StudentDashboard() {
           if (d.theme) syncUserTheme(d);
           setCurrentUserDoc({ id: docSnap.id, ...d });
           setModuleScores(d.moduleScores || {});
+          const todayStr = new Date().toLocaleDateString('en-CA');
+          const yesterdayStr = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+          const lastAttemptDate = d.lastExamAttemptDate || "";
+          let currentStreak = d.streak || 0;
+
+          if (lastAttemptDate !== todayStr && lastAttemptDate !== yesterdayStr && currentStreak > 0) {
+            currentStreak = 0;
+            setDoc(
+              doc(db, "users", auth.currentUser.uid),
+              { streak: 0 },
+              { merge: true }
+            ).catch(err => console.error("Error resetting broken streak:", err));
+          }
+
           setStats({
             xp: d.xp || 0,
-            streak: d.streak || 3,
+            streak: currentStreak,
             categoryXP: d.categoryXP || {},
           });
           setProfileForm((prev) => ({
@@ -978,6 +995,35 @@ export default function StudentDashboard() {
 
         setEarnedXP(gainedXP);
         setModuleScores(newScores);
+
+        // Update daily study streak
+        try {
+          const todayStr = new Date().toLocaleDateString('en-CA');
+          const yesterdayStr = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+          const lastAttemptDate = currentUserDoc?.lastExamAttemptDate || "";
+          const currentStreak = currentUserDoc?.streak || 0;
+          let newStreak = currentStreak;
+
+          if (lastAttemptDate === todayStr) {
+            newStreak = currentStreak;
+          } else if (lastAttemptDate === yesterdayStr) {
+            newStreak = currentStreak + 1;
+          } else {
+            newStreak = 1;
+          }
+
+          await setDoc(
+            doc(db, "users", auth.currentUser.uid),
+            {
+              streak: newStreak,
+              lastExamAttemptDate: todayStr,
+            },
+            { merge: true }
+          );
+        } catch (streakErr) {
+          console.error("Failed to update daily streak:", streakErr);
+        }
+
         setIsFinished(true);
         setSubmitState(null);
         showToast(`Test finished successfully! Score: ${percentage}%, XP Earned: ${gainedXP}`, "success");

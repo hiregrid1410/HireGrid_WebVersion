@@ -87,7 +87,7 @@ export function StudentDashboardView({
       xp: "+75 XP",
     });
   }
-  if ((stats?.streak || 3) >= 3) {
+  if ((stats?.streak ?? 0) >= 3) {
     achievements.push({
       title: "Consistent Learner",
       desc: "Maintain a 3+ day study streak",

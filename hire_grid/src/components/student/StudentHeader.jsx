@@ -1,5 +1,5 @@
 import React from "react";
-import { Menu, Flame, ShieldAlert, Award, User, Bell } from "lucide-react";
+import { Menu, Flame, ShieldAlert, Award, User } from "lucide-react";
 
 export function StudentHeader({
   user,
@@ -55,7 +55,7 @@ export function StudentHeader({
         {/* Streak indicator */}
         <div className="std-header-stat-badge std-header-stat-badge--streak" title="Daily Streak">
           <Flame size={16} fill="currentColor" />
-          <span>{stats?.streak || 3} Day Streak</span>
+          <span>{stats?.streak ?? 0} Day Streak</span>
         </div>
 
         {/* Level & Medal indicator */}
@@ -64,10 +64,7 @@ export function StudentHeader({
           <span>{medalInfo?.fullName || "Bronze V"}</span>
         </div>
 
-        {/* Notification Icon */}
-        <button className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent dark:hover:border-slate-700/50">
-          <Bell size={18} />
-        </button>
+
 
         {/* Profile Avatar Button */}
         <button
