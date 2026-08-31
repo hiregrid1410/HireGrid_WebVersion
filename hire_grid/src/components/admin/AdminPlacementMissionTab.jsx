@@ -18,8 +18,14 @@ import {
   Award,
   UploadCloud,
   ImageIcon,
-  Timer
+  Timer,
+  ArrowLeft,
+  ArrowRight,
+  Shield,
+  HelpCircle,
+  Check
 } from "lucide-react";
+import DataTable from "../common/DataTable";
 
 export function AdminPlacementMissionTab({ userName }) {
   const [activeTab, setActiveTab] = useState("cycles"); // 'cycles' | 'modules' | 'attempts'
@@ -33,7 +39,9 @@ export function AdminPlacementMissionTab({ userName }) {
   // Modules State
   const [modules, setModules] = useState([]);
   const [isEditingModule, setIsEditingModule] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1); // 1: Basics, 2: Questions, 3: Scheduling, 4: Security, 5: Scoring, 6: Review
   const [editingModule, setEditingModule] = useState(null);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [timeLimit, setTimeLimit] = useState(30);
@@ -42,7 +50,7 @@ export function AdminPlacementMissionTab({ userName }) {
   const [negativeMarks, setNegativeMarks] = useState(0.5);
   const [isActive, setIsActive] = useState(true);
   const [selectedCycleId, setSelectedCycleId] = useState("");
-  
+
   // MCQ Questions State
   const [rawText, setRawText] = useState("");
   const [parsingAI, setParsingAI] = useState(false);
@@ -410,6 +418,7 @@ export function AdminPlacementMissionTab({ userName }) {
     setSelectedCycleId(activeCycle ? activeCycle.id : "");
     setRawText("");
     setParsedQuestions([]);
+    setWizardStep(1);
     setIsEditingModule(true);
   };
 
@@ -436,8 +445,8 @@ export function AdminPlacementMissionTab({ userName }) {
     setSelectedCycleId(m.cycle_id || "");
     setRawText("");
     setParsedQuestions([]);
+    setWizardStep(1);
 
-    // Lazy load existing questions
     try {
       const res = await api.get(`/modules/${m.id}/questions`);
       if (res.success && res.questions) {
@@ -487,9 +496,7 @@ export function AdminPlacementMissionTab({ userName }) {
     try {
       setLoading(true);
       if (editingModule) {
-        // Update Module API
         await api.put(`/placement-mission/content-manager/modules/${editingModule.id}`, payload);
-        // Also save questions by calling standard modules POST route to update SQL questions tables
         const completeModuleObj = {
           id: editingModule.id,
           title,
@@ -508,10 +515,8 @@ export function AdminPlacementMissionTab({ userName }) {
         await api.post("/modules", completeModuleObj);
         showToast("Placement mission module updated successfully!", "success");
       } else {
-        // Create Module API
         const res = await api.post("/placement-mission/content-manager/modules", payload);
         if (res.success && res.moduleId) {
-          // Save parsed questions array using standard modules POST API
           const completeModuleObj = {
             id: res.moduleId,
             title,
@@ -584,20 +589,34 @@ export function AdminPlacementMissionTab({ userName }) {
     }
   };
 
+  const getLifecycleBadgeClass = (status) => {
+    switch (status) {
+      case "DRAFT":
+        return "bg-slate-500/10 border border-slate-500/30 text-slate-400";
+      case "SCHEDULED":
+        return "bg-indigo-500/10 border border-indigo-500/30 text-indigo-400";
+      case "ACTIVE":
+        return "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400";
+      case "EXPIRED":
+        return "bg-rose-500/10 border border-rose-500/30 text-rose-400";
+      default:
+        return "bg-slate-500/10 border border-slate-500/30 text-slate-400";
+    }
+  };
+
   return (
-    <div className="space-y-6 text-slate-800 dark:text-slate-100">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-800 pb-4 gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center">
-            <Trophy className="h-7 w-7 mr-3 text-emerald-500" />
-            Placement Mission Management
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Manage weekly cycles, configure placement mission modules, and review/audit attempts.
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center">
+            Placement Missions
+          </h2>
+          <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
+            Define Weekly Cycles, construct MCQ evaluation modules, and audit student exam telemetry.
           </p>
         </div>
 
-        <div className="flex space-x-2 bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200 dark:border-slate-800/85">
+        <div className="flex space-x-2 bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl whitespace-nowrap scrollbar-none border border-slate-205/50 dark:border-slate-800">
           {["cycles", "modules", "attempts"].map((tab) => (
             <button
               key={tab}
@@ -605,11 +624,7 @@ export function AdminPlacementMissionTab({ userName }) {
                 setActiveTab(tab);
                 setIsEditingModule(false);
               }}
-              className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition-all uppercase
-                ${activeTab === tab
-                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/10"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === tab ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm" : "text-slate-400 hover:text-slate-655 dark:hover:text-slate-300"}`}
             >
               {tab}
             </button>
@@ -617,165 +632,131 @@ export function AdminPlacementMissionTab({ userName }) {
         </div>
       </div>
 
-      {/* ================= TAB 1: CYCLES MANAGEMENT ================= */}
+      {/* TAB 1: CYCLES */}
       {activeTab === "cycles" && (
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 bg-emerald-600/5 border border-emerald-500/10 p-6 rounded-2xl">
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                Season & Leaderboard Recalculation
-              </h3>
-              <p className="text-xs text-slate-500 max-w-xl">
-                Start a new cycle to reset the leaderboard to 0 and partition student submissions. Recalculate rankings to force sync the Top 10 snapshots instantly.
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-emerald-600/5 border border-emerald-500/10 p-6 rounded-2xl">
+            <div>
+              <h3 className="text-base font-bold text-slate-800 dark:text-white">Seasonal Operations</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Recalculating rank snapshots forces synchronizing Top 10 leaderboards immediately. Starting new cycle archives current active records.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex gap-3">
               <button
                 onClick={handleRecalculateLeaderboard}
                 disabled={loading}
-                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors inline-flex items-center space-x-2 shadow-sm"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-750 rounded-xl text-xs font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                <span>Recalculate Leaderboard</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${loading && "animate-spin text-emerald-500"}`} />
+                <span>Sync Rankings</span>
               </button>
               <button
                 onClick={() => setIsCreatingCycle(true)}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors inline-flex items-center space-x-2 shadow-sm"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Start New Cycle</span>
+                Start New Cycle
               </button>
             </div>
           </div>
 
-          {/* Start Cycle Modal */}
-          {isCreatingCycle && (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-                <h3 className="text-lg font-black uppercase text-slate-900 dark:text-white tracking-wider">
-                  Start New Weekly Cycle
-                </h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  This will mark the current active cycle as completed/inactive. All future submissions will belong to the new cycle. The active leaderboard will show 0 participants until attempts are submitted.
-                </p>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Cycle Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Week 2"
-                    value={newCycleName}
-                    onChange={(e) => setNewCycleName(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none transition-colors dark:text-white"
-                  />
-                </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    onClick={() => {
-                      setIsCreatingCycle(false);
-                      setNewCycleName("");
-                    }}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreateCycle}
-                    disabled={loading}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider disabled:opacity-50"
-                  >
-                    Create & Activate
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Cycles List */}
-          <div className="glass-panel border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-sm">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
-              <thead className="bg-slate-50 dark:bg-slate-900/50">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-450 dark:text-slate-400 text-xs font-mono uppercase tracking-wider">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                    Cycle Name
-                  </th>
-                  <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest">
-                    Created Date
-                  </th>
+                  <th className="px-6 py-4 text-left">Cycle Name</th>
+                  <th className="px-6 py-4 text-center">Status</th>
+                  <th className="px-6 py-4 text-right">Created Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-350">
                 {cycles.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-900/10 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white">
-                      {c.name}
+                  <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{c.name}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${c.is_active ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-slate-100 text-slate-400 border-slate-200"}`}>
+                        {c.is_active ? "ACTIVE" : "COMPLETED"}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
-                      {c.is_active ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-500">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-500">
-                          Completed
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">
-                      {new Date(c.created_at).toLocaleString()}
-                    </td>
+                    <td className="px-6 py-4 text-right font-mono text-xs">{new Date(c.created_at).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* New Cycle modal */}
+          {isCreatingCycle && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-8 animate-in zoom-in duration-200">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white uppercase font-mono tracking-wider text-sm mb-2">New Weekly Cycle</h3>
+                <p className="text-xs text-slate-500 mb-4">Starting a new cycle transitions previous cycles as completed, initializing a blank active leaderboard partition.</p>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Cycle Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Week 4"
+                      value={newCycleName}
+                      onChange={(e) => setNewCycleName(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="flex gap-4 pt-2">
+                    <button
+                      onClick={() => { setIsCreatingCycle(false); setNewCycleName(""); }}
+                      className="flex-1 py-3 bg-slate-100 hover:bg-slate-205 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs uppercase tracking-widest transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateCycle}
+                      disabled={loading}
+                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-md transition-colors"
+                    >
+                      Create & Activate
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ================= TAB 2: PLACEMENT MODULES MANAGEMENT ================= */}
+      {/* TAB 2: MODULES */}
       {activeTab === "modules" && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-in fade-in duration-200">
           {!isEditingModule ? (
             <>
-              <div className="flex justify-between items-center bg-emerald-600/5 border border-emerald-500/10 p-5 rounded-2xl">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-emerald-600/5 border border-emerald-500/10 p-6 rounded-2xl">
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                    Placement Mission Modules List
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Add MCQ testing modules mapped to cycles.
-                  </p>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white">Mission Tests List</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Configure individual testing module segments containing parsed questions.</p>
                 </div>
                 <button
                   onClick={startCreateModule}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors inline-flex items-center space-x-2"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Create Mission Module</span>
+                  <Plus className="w-4 h-4" />
+                  <span>Create Assessment</span>
                 </button>
               </div>
-               <div className="flex flex-wrap bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 my-4 max-w-xl">
-                {["all", "draft", "published", "active", "scheduled", "expired"].map((tab) => (
+
+              {/* Status filtering tabs */}
+              <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl whitespace-nowrap scrollbar-none border border-slate-200/50 dark:border-slate-800 overflow-x-auto max-w-full">
+                {["all", "draft", "published", "active", "scheduled", "expired"].map((f) => (
                   <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setModulesFilter(tab)}
-                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all
-                      ${modulesFilter === tab
-                        ? "bg-emerald-600 text-white shadow-sm"
-                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"
-                      }`}
+                    key={f}
+                    onClick={() => setModulesFilter(f)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${modulesFilter === f ? "bg-white dark:bg-slate-800 text-slate-850 dark:text-white shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
                   >
-                    {tab}
+                    {f}
                   </button>
                 ))}
               </div>
 
-              <div className="grid gap-6 sm:grid-cols-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {modules
                   .filter((m) => {
                     if (modulesFilter === "all") return true;
@@ -786,156 +767,126 @@ export function AdminPlacementMissionTab({ userName }) {
                     if (modulesFilter === "expired") return m.lifecycleStatus === "EXPIRED";
                     return true;
                   })
-                  .map((m) => {
-                    const getLifecycleBadgeClass = (status) => {
-                      switch (status) {
-                        case "DRAFT":
-                          return "bg-slate-500/10 border border-slate-500/30 text-slate-400";
-                        case "SCHEDULED":
-                          return "bg-indigo-500/10 border border-indigo-500/30 text-indigo-400";
-                        case "ACTIVE":
-                          return "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400";
-                        case "EXPIRED":
-                          return "bg-rose-500/10 border border-rose-500/30 text-rose-400";
-                        default:
-                          return "bg-slate-500/10 border border-slate-500/30 text-slate-400";
-                      }
-                    };
-
-                    return (
-                      <div
-                        key={m.id}
-                        className="glass-panel border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/30 transition-all flex flex-col justify-between"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-3 gap-2">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded">
-                              {m.cycleName || "Unassigned Cycle"}
-                            </span>
-                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${getLifecycleBadgeClass(m.lifecycleStatus)}`}>
-                              {m.lifecycleStatus}
-                            </span>
-                            <div className="flex items-center text-xs text-slate-500 font-mono ml-auto">
-                              <Timer className="w-3.5 h-3.5 mr-1 text-emerald-500" />
-                              <span>{m.time_limit} mins</span>
-                            </div>
+                  .map((m) => (
+                    <div key={m.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm flex flex-col justify-between hover:scale-[1.005] transition-all">
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded">
+                            {m.cycleName || "No Cycle"}
+                          </span>
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${getLifecycleBadgeClass(m.lifecycleStatus)}`}>
+                            {m.lifecycleStatus}
+                          </span>
+                          <div className="text-xs text-slate-400 font-mono ml-auto flex items-center gap-1">
+                            <Timer className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>{m.time_limit} mins</span>
                           </div>
-
-                          <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">
-                            {m.title}
-                          </h3>
-
-                          {/* Start / End date display */}
-                          {(m.startTime || m.endTime || m.start_time || m.end_time) && (
-                            <div className="text-[10px] font-mono text-slate-500 space-y-0.5 my-2">
-                              {(m.startTime || m.start_time) && (
-                                <div>Starts: <span className="text-slate-700 dark:text-slate-300">{new Date(Number(m.startTime || m.start_time)).toLocaleString('en-IN')}</span></div>
-                              )}
-                              {(m.endTime || m.end_time) && (
-                                <div>Ends: <span className="text-slate-700 dark:text-slate-300">{new Date(Number(m.endTime || m.end_time)).toLocaleString('en-IN')}</span></div>
-                              )}
-                            </div>
-                          )}
-
-                          <p className="text-xs text-slate-500 leading-relaxed max-w-md line-clamp-3">
-                            {m.description || "No description provided."}
-                          </p>
                         </div>
 
-                        <div className="pt-4 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
-                          <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border
-                            ${m.is_active
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
-                              : "bg-rose-500/10 border-rose-500/30 text-rose-500"
-                            }`}
-                          >
-                            {m.is_active ? "Active" : "Inactive"}
-                          </span>
+                        <h4 className="text-base font-bold text-slate-900 dark:text-white leading-snug">{m.title}</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">{m.description || "No description provided."}</p>
 
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => startEditModule(m)}
-                              className="p-2 bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition-colors border border-slate-200 dark:border-slate-800"
-                              title="Edit Module & Questions"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteModule(m.id)}
-                              className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-lg transition-colors border border-rose-500/20"
-                              title="Delete Module"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                        {(m.startTime || m.start_time || m.endTime || m.end_time) && (
+                          <div className="text-[10px] text-slate-400 font-mono mt-3 space-y-0.5 border-t border-slate-100 dark:border-slate-800/60 pt-2.5">
+                            {m.startTime || m.start_time ? <div>Starts: <span className="font-semibold text-slate-500">{new Date(Number(m.startTime || m.start_time)).toLocaleString()}</span></div> : null}
+                            {m.endTime || m.end_time ? <div>Ends: <span className="font-semibold text-slate-500">{new Date(Number(m.endTime || m.end_time)).toLocaleString()}</span></div> : null}
                           </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100 dark:border-slate-850">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${m.is_active ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"}`}>
+                          {m.is_active ? "ACTIVE" : "INACTIVE"}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => startEditModule(m)}
+                            className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-emerald-500 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteModule(m.id)}
+                            className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-rose-500 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
               </div>
             </>
           ) : (
-            /* Module Creator / Editor Interface */
-            <div className="glass-panel border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-                <h3 className="text-lg font-black uppercase text-slate-900 dark:text-white tracking-wider">
-                  {editingModule ? `Edit Module: ${title}` : "Create Placement Mission Module"}
+            /* Wizard creation UI */
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-2xl shadow-sm space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-4">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                  {editingModule ? `Edit Module: ${title}` : "Create Placement Assessment"}
                 </h3>
                 <button
                   onClick={() => setIsEditingModule(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-xs font-bold uppercase text-slate-600 dark:text-slate-300"
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400"
                 >
-                  Cancel
+                  <XCircle className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Left Pane: Config fields */}
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Module Title
-                    </label>
-                    <input
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none transition-colors dark:text-white"
+              {/* Progress Steps Indicator */}
+              <div>
+                <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest text-slate-450 dark:text-slate-500 mb-2">
+                  <span>Step {wizardStep} of 6</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    {wizardStep === 1 && "Assessment Basics"}
+                    {wizardStep === 2 && "Question Management"}
+                    {wizardStep === 3 && "Scheduling Parameters"}
+                    {wizardStep === 4 && "Exam Security Controls"}
+                    {wizardStep === 5 && "Scoring Configurations"}
+                    {wizardStep === 6 && "Review & Confirm"}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                  {Array.from({ length: 6 }).map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`h-full flex-1 border-r border-white dark:border-slate-900 last:border-0 transition-all ${
+                        idx + 1 <= wizardStep ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-800"
+                      }`}
                     />
-                  </div>
+                  ))}
+                </div>
+              </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Description
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none transition-colors dark:text-white resize-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+              <div className="py-4">
+                {/* Step 1: Basics */}
+                {wizardStep === 1 && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Time Limit (Minutes)
-                      </label>
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Module Title</label>
                       <input
-                        type="number"
-                        value={timeLimit}
-                        onChange={(e) => setTimeLimit(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
+                        placeholder="e.g. Technical Quiz"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Cycle Mapping
-                      </label>
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Description</label>
+                      <textarea
+                        rows={3}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500 resize-none"
+                        placeholder="Provide details about the test..."
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Cycle Mapping</label>
                       <select
                         value={selectedCycleId}
                         onChange={(e) => setSelectedCycleId(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-805 dark:text-white text-xs outline-none focus:border-emerald-500"
                       >
                         <option value="">Select Cycle...</option>
                         {cycles.map((c) => (
@@ -946,572 +897,466 @@ export function AdminPlacementMissionTab({ userName }) {
                       </select>
                     </div>
                   </div>
+                )}
 
-                  <div className="grid grid-cols-2 gap-4">
+                {/* Step 2: Questions Selection */}
+                {wizardStep === 2 && (
+                  <div className="space-y-6 animate-in fade-in duration-200">
+                    <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 max-w-md">
+                      {["auto", "manual", "bulk-code"].map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => { setAddMode(m); setJsonError(""); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${addMode === m ? "bg-emerald-650 dark:bg-emerald-600 text-white shadow-sm" : "text-slate-500 dark:text-slate-400"}`}
+                        >
+                          {m.replace("-", " ")}
+                        </button>
+                      ))}
+                    </div>
+
+                    {addMode === "auto" && (
+                      <div className="space-y-4">
+                        <textarea
+                          rows={5}
+                          value={rawText}
+                          onChange={(e) => setRawText(e.target.value)}
+                          placeholder="Paste raw MCQ question text..."
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleParseQuestionsAI}
+                          disabled={parsingAI}
+                          className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                        >
+                          <Activity className={`w-3.5 h-3.5 ${parsingAI && "animate-spin"}`} />
+                          <span>Parse with Gemini AI</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {addMode === "manual" && (
+                      <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Question Text</label>
+                          <textarea
+                            rows={2}
+                            value={manualQuestion.question}
+                            onChange={(e) => setManualQuestion({ ...manualQuestion, question: e.target.value })}
+                            className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-xs outline-none focus:border-emerald-500"
+                            placeholder="Type question text..."
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {[0, 1, 2, 3].map((i) => (
+                            <div key={i} className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                name="manualCorrectIdx"
+                                checked={manualQuestion.correctAnswerIndex === i}
+                                onChange={() => setManualQuestion({ ...manualQuestion, correctAnswerIndex: i })}
+                                className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 bg-transparent rounded border-slate-300"
+                              />
+                              <input
+                                type="text"
+                                value={manualQuestion.options[i]}
+                                onChange={(e) => {
+                                  const opts = [...manualQuestion.options];
+                                  opts[i] = e.target.value;
+                                  setManualQuestion({ ...manualQuestion, options: opts });
+                                }}
+                                className="w-full px-3 py-1.5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white rounded-lg text-xs outline-none focus:border-emerald-500"
+                                placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="space-y-1.5 pt-2">
+                          <label className="text-[10px] font-bold uppercase text-slate-450 dark:text-slate-500 font-mono block">Image Attachment</label>
+                          <div className="flex items-center space-x-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleManualImageUpload}
+                              className="text-xs text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-500/10 file:text-emerald-500"
+                            />
+                            {manualQuestion.image && (
+                              <button
+                                type="button"
+                                onClick={() => setManualQuestion({ ...manualQuestion, image: "" })}
+                                className="text-xs text-rose-500 hover:text-rose-600 font-bold"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleAddManualQuestion}
+                          className="px-4 py-2 bg-slate-800 dark:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-750 transition-all border border-slate-750"
+                        >
+                          Add Question
+                        </button>
+                      </div>
+                    )}
+
+                    {addMode === "bulk-code" && (
+                      <div className="space-y-4">
+                        {jsonError && (
+                          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-xl text-xs font-mono break-all">{jsonError}</div>
+                        )}
+                        <textarea
+                          rows={5}
+                          value={rawText}
+                          onChange={(e) => setRawText(e.target.value)}
+                          placeholder='[{"question": "Insert question text here", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswerIndex": 1}]'
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleParseJSON}
+                          className="w-full py-2.5 bg-emerald-650 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-widest transition-colors shadow-sm"
+                        >
+                          Import JSON Array
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Parsed questions preview list */}
+                    {parsedQuestions.length > 0 && (
+                      <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex justify-between items-center text-xs font-mono uppercase text-slate-450 dark:text-slate-500 font-bold">
+                          <span>Imported Questions ({parsedQuestions.length})</span>
+                          <button type="button" onClick={() => setParsedQuestions([])} className="text-rose-500 hover:text-rose-600">Clear All</button>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto space-y-3 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl custom-scrollbar">
+                          {parsedQuestions.map((q, idx) => (
+                            <div key={idx} className="text-xs space-y-2 border-b border-slate-200 dark:border-slate-800/80 pb-3 last:border-b-0">
+                              <div className="flex justify-between gap-3">
+                                <div>
+                                  <p className="font-bold text-slate-800 dark:text-white">{idx + 1}. {q.question}</p>
+                                  {(q.image || q.svgCode || q.svg_code) && (
+                                    <div className="max-w-[120px] my-1 border border-slate-200 dark:border-slate-800 rounded overflow-hidden">
+                                      <SvgDiagram svgCode={q.image || q.svgCode || q.svg_code} />
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setParsedQuestions(parsedQuestions.filter((_, i) => i !== idx))}
+                                  className="text-rose-500 font-bold"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 pl-2 text-[10px] text-slate-450">
+                                {q.options?.map((opt, oIdx) => (
+                                  <span key={oIdx} className={Number(q.correctAnswerIndex) === oIdx ? "text-emerald-500 font-bold" : ""}>
+                                    {String.fromCharCode(65 + oIdx)}) {opt}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 3: Scheduling */}
+                {wizardStep === 3 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-200">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Start Time (Optional)
-                      </label>
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Start Schedule Time (Optional)</label>
                       <input
                         type="datetime-local"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        End Time (Optional)
-                      </label>
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">End Schedule Time (Optional)</label>
                       <input
                         type="datetime-local"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Duration Time Limit (Minutes)</label>
+                      <input
+                        type="number"
+                        value={timeLimit}
+                        onChange={(e) => setTimeLimit(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>
+                )}
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Publication Status
-                    </label>
-                    <select
-                      value={publicationStatus}
-                      onChange={(e) => setPublicationStatus(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none dark:text-white text-xs font-bold"
-                    >
-                      <option value="DRAFT">DRAFT (Visible to Admin Only)</option>
-                      <option value="PUBLISHED">PUBLISHED (Visible to Students)</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
+                {/* Step 4: Security */}
+                {wizardStep === 4 && (
+                  <div className="space-y-6 animate-in fade-in duration-200">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Total Marks
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Publication Status</label>
+                      <select
+                        value={publicationStatus}
+                        onChange={(e) => setPublicationStatus(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-805 dark:text-white text-xs outline-none focus:border-emerald-500 font-bold"
+                      >
+                        <option value="DRAFT">DRAFT (Visible to Content Manager / Admins Only)</option>
+                        <option value="PUBLISHED">PUBLISHED (Eligible to students for premium attempts)</option>
+                      </select>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-2xl flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="isActiveCheck"
+                        checked={isActive}
+                        onChange={(e) => setIsActive(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 rounded bg-transparent border-slate-350"
+                      />
+                      <label htmlFor="isActiveCheck" className="text-sm font-semibold text-slate-700 dark:text-slate-300 select-none cursor-pointer">
+                        Mark this mission module as ACTIVE (Eligible to purchase/attempts)
                       </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 5: Scoring */}
+                {wizardStep === 5 && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-200">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Total Marks</label>
                       <input
                         type="number"
                         value={totalMarks}
                         onChange={(e) => setTotalMarks(e.target.value)}
-                        className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Positive Marks
-                      </label>
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Positive Marks / Q</label>
                       <input
                         type="number"
                         step="0.1"
                         value={marksPerQuestion}
                         onChange={(e) => setMarksPerQuestion(e.target.value)}
-                        className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Negative Marks
-                      </label>
+                      <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Negative Marks / Q</label>
                       <input
                         type="number"
                         step="0.1"
                         value={negativeMarks}
                         onChange={(e) => setNegativeMarks(e.target.value)}
-                        className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>
+                )}
 
-                  <div className="flex items-center space-x-3 pt-2">
-                    <input
-                      type="checkbox"
-                      id="isActive"
-                      checked={isActive}
-                      onChange={(e) => setIsActive(e.target.checked)}
-                      className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-slate-300 rounded"
-                    />
-                    <label htmlFor="isActive" className="text-xs font-bold uppercase tracking-wider text-slate-300 select-none cursor-pointer">
-                      Module Status is Active (Eligible for purchase/attempts)
-                    </label>
-                  </div>
-                </div>
-
-                {/* Right Pane: AI MCQ Parser & JSON Import */}
-                <div className="space-y-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 md:pl-6 pt-6 md:pt-0">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                      Add Questions
-                    </h4>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
-                      Configure module test questions using AI generation, manual entries, or bulk JSON imports.
-                    </p>
-                  </div>
-
-                  {/* Add mode tabs */}
-                  <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => { setAddMode("auto"); setJsonError(""); }}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all
-                        ${addMode === "auto"
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"
-                        }`}
-                    >
-                      Auto-Generate
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setAddMode("manual"); setJsonError(""); }}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all
-                        ${addMode === "manual"
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"
-                        }`}
-                    >
-                      Manual Entry
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setAddMode("bulk-code"); setJsonError(""); }}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all
-                        ${addMode === "bulk-code"
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"
-                        }`}
-                    >
-                      Code Import
-                    </button>
-                  </div>
-
-                  {/* Mode-specific content */}
-                  {addMode === "auto" && (
-                    <div className="space-y-4">
-                      <textarea
-                        rows={6}
-                        placeholder="Q1. What is 2+2?
-A) 3
-B) 4
-C) 5
-Answer: B"
-                        value={rawText}
-                        onChange={(e) => setRawText(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none transition-colors dark:text-white resize-none font-mono text-xs"
-                      />
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-mono text-slate-500">
-                          Structured Questions: <strong className="text-emerald-500 font-bold">{parsedQuestions.length}</strong>
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={handleParseQuestionsAI}
-                          disabled={parsingAI}
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors inline-flex items-center space-x-1"
-                        >
-                          <Activity className={`w-3.5 h-3.5 ${parsingAI ? "animate-spin" : ""}`} />
-                          <span>{parsingAI ? "PARSING..." : "Parse with Gemini AI"}</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {addMode === "manual" && (
-                    <div className="space-y-4 bg-slate-50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Question Text
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={manualQuestion.question}
-                          onChange={(e) => setManualQuestion({ ...manualQuestion, question: e.target.value })}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none text-xs dark:text-white"
-                          placeholder="Type question text..."
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {[0, 1, 2, 3].map((idx) => (
-                          <div key={idx} className="flex items-center space-x-2">
-                            <input
-                              type="radio"
-                              name="manualCorrect"
-                              checked={manualQuestion.correctAnswerIndex === idx}
-                              onChange={() => setManualQuestion({ ...manualQuestion, correctAnswerIndex: idx })}
-                              className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-slate-300 rounded"
-                            />
-                            <input
-                              type="text"
-                              value={manualQuestion.options[idx]}
-                              onChange={(e) => {
-                                const newOpts = [...manualQuestion.options];
-                                newOpts[idx] = e.target.value;
-                                setManualQuestion({ ...manualQuestion, options: newOpts });
-                              }}
-                              placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                              className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:border-emerald-500 dark:text-white"
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                          Attach Image / Diagram
-                        </label>
-                        <div className="flex items-center space-x-3">
-                          <label className="cursor-pointer flex items-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
-                            <ImageIcon className="w-3.5 h-3.5 mr-1" />
-                            <span>{manualQuestion.image ? "Change Image" : "Upload Image"}</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={handleManualImageUpload}
-                            />
-                          </label>
-                          {manualQuestion.image && (
-                            <button
-                              type="button"
-                              onClick={() => setManualQuestion({ ...manualQuestion, image: "" })}
-                              className="text-xs text-rose-500 hover:text-rose-600 font-bold"
-                            >
-                              Remove
-                            </button>
-                          )}
+                {/* Step 6: Review */}
+                {wizardStep === 6 && (
+                  <div className="space-y-6 animate-in fade-in duration-200">
+                    <div className="p-5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-2xl space-y-4 text-sm">
+                      <h4 className="font-bold text-slate-800 dark:text-white">Review Assessment details</h4>
+                      <div className="grid grid-cols-2 gap-y-3 gap-x-6">
+                        <div className="flex justify-between">
+                          <span className="text-slate-450">Assessment Title:</span>
+                          <span className="font-bold text-slate-800 dark:text-white">{title}</span>
                         </div>
-                        {manualQuestion.image && (
-                          <div className="mt-2 max-w-[200px] border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-                            <img src={manualQuestion.image} alt="Preview" className="w-full h-auto object-contain max-h-[120px]" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex justify-end pt-1">
-                        <button
-                          type="button"
-                          onClick={handleAddManualQuestion}
-                          className="px-4 py-2 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors border border-slate-700 dark:border-slate-700"
-                        >
-                          Add Question
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {addMode === "bulk-code" && (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-slate-500">Paste JSON array of questions</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const promptText = `Generate a JSON array of placement MCQ questions in this exact structure:
-[
-  {
-    "question": "Insert question text here",
-    "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
-    "correctAnswerIndex": 1
-  }
-]`;
-                            navigator.clipboard.writeText(promptText);
-                            showToast("JSON Prompt template copied to clipboard!", "success");
-                          }}
-                          className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded border border-indigo-200 dark:border-indigo-800/50 flex items-center space-x-1"
-                        >
-                          <UploadCloud className="w-3 h-3" />
-                          <span>Copy Prompt for External AI</span>
-                        </button>
-                      </div>
-
-                      {jsonError && (
-                        <div className="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-600 dark:text-rose-400 text-xs font-mono whitespace-pre-wrap leading-tight">
-                          {jsonError}
+                        <div className="flex justify-between">
+                          <span className="text-slate-450">Total Questions:</span>
+                          <span className="font-bold text-slate-850 dark:text-white">{parsedQuestions.length} Questions</span>
                         </div>
-                      )}
-
-                      <textarea
-                        rows={6}
-                        placeholder='[{"question": "What is 2+2?", "options": ["3", "4", "5", "6"], "correctAnswerIndex": 1}]'
-                        value={rawText}
-                        onChange={(e) => setRawText(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none transition-colors dark:text-white resize-none font-mono text-xs"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={handleParseJSON}
-                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors shadow-sm"
-                      >
-                        Import JSON Code
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Summary of all structured questions */}
-                  {parsedQuestions.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-slate-400">
-                        <span>Structured Questions: <strong className="text-emerald-500 font-mono font-bold">{parsedQuestions.length}</strong></span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm("Clear all structured questions?")) {
-                              setParsedQuestions([]);
-                            }
-                          }}
-                          className="text-rose-500 hover:text-rose-600 text-[10px]"
-                        >
-                          Clear All
-                        </button>
-                      </div>
-                      
-                      <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-slate-50/50 dark:bg-slate-950/40 space-y-3 custom-scrollbar">
-                        {parsedQuestions.map((q, idx) => (
-                          <div key={idx} className="text-xs space-y-2 border-b border-slate-200 dark:border-slate-800/80 pb-3 last:border-b-0">
-                            <div className="flex justify-between items-start gap-2">
-                              <div className="space-y-1">
-                                <p className="font-bold text-slate-700 dark:text-slate-300">
-                                  {idx + 1}. {q.question}
-                                </p>
-                                {(q.image || q.svgCode || q.svg_code) && (
-                                  <div className="max-w-[150px] my-1 border border-slate-200 dark:border-slate-800 rounded overflow-hidden">
-                                    <SvgDiagram svgCode={q.image || q.svgCode || q.svg_code} />
-                                  </div>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = parsedQuestions.filter((_, qIdx) => qIdx !== idx);
-                                  setParsedQuestions(updated);
-                                }}
-                                className="text-rose-500 hover:text-rose-600 text-[10px] uppercase font-bold"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 pl-2 text-[10px] text-slate-500">
-                              {q.options?.map((opt, oIdx) => (
-                                <span key={oIdx} className={Number(q.correctAnswerIndex) === oIdx ? "text-emerald-500 font-bold" : ""}>
-                                  {String.fromCharCode(65 + oIdx)}) {opt}
-                                </span>
-                              ))}
-                            </div>
-                            
-                            {/* Inline edit image for existing items */}
-                            <div className="flex items-center space-x-3 pt-1 border-t border-dashed border-slate-200 dark:border-slate-800/50 pl-2">
-                              <label className="cursor-pointer text-[9px] font-bold uppercase tracking-wider text-slate-400 hover:text-emerald-500 flex items-center space-x-1">
-                                <ImageIcon className="w-3 h-3 mr-0.5" />
-                                <span>{q.image || q.svgCode || q.svg_code ? "Replace Image" : "Attach Image"}</span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  onChange={(e) => handleQuestionListImageUpload(idx, e)}
-                                />
-                              </label>
-                              {(q.image || q.svgCode || q.svg_code) && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveQuestionListImage(idx)}
-                                  className="text-[9px] font-bold uppercase tracking-wider text-rose-500 hover:text-rose-600"
-                                >
-                                  Remove Image
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                        <div className="flex justify-between">
+                          <span className="text-slate-450">Duration:</span>
+                          <span className="font-bold text-slate-800 dark:text-white">{timeLimit} Minutes</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-450">Publication status:</span>
+                          <span className="font-bold text-emerald-500">{publicationStatus}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-455">Total Marks:</span>
+                          <span className="font-bold text-slate-800 dark:text-white">{totalMarks} Marks</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-455">Marking Rules:</span>
+                          <span className="font-bold text-slate-800 dark:text-white">+{marksPerQuestion} / -{negativeMarks} Marks</span>
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+              {/* Navigation Footer */}
+              <div className="flex justify-between border-t border-slate-200 dark:border-slate-800 pt-6">
                 <button
-                  onClick={() => setIsEditingModule(false)}
-                  className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold uppercase tracking-wider"
+                  type="button"
+                  disabled={wizardStep === 1}
+                  onClick={() => setWizardStep((s) => s - 1)}
+                  className="flex items-center space-x-1.5 px-4 py-2 border border-slate-205 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
-                  Cancel
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back</span>
                 </button>
-                <button
-                  onClick={handleSaveModule}
-                  disabled={loading}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider disabled:opacity-50 inline-flex items-center space-x-2"
-                >
-                  {loading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Save Module</span>
-                </button>
+
+                {wizardStep < 6 ? (
+                  <button
+                    type="button"
+                    onClick={() => setWizardStep((s) => s + 1)}
+                    className="flex items-center space-x-1.5 bg-slate-900 hover:bg-slate-850 text-white dark:bg-slate-100 dark:hover:bg-white dark:text-slate-950 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                  >
+                    <span>Continue</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSaveModule}
+                    disabled={loading}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest shadow-md transition-colors inline-flex items-center space-x-1.5"
+                  >
+                    {loading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                    <span>Publish Assessment</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ================= TAB 3: ATTEMPTS AUDIT LOGS ================= */}
+      {/* TAB 3: ATTEMPTS */}
       {activeTab === "attempts" && (
-        <div className="space-y-6">
-          <div className="glass-panel border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-sm">
-            {attempts.length === 0 ? (
-              <div className="text-center py-20 text-slate-500">
-                <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-bold">No student attempts recorded for this cycle yet.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
-                  <thead className="bg-slate-50 dark:bg-slate-900/50">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        Student
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        Module / Cycle
-                      </th>
-                      <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        Metrics
-                      </th>
-                      <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        Status / Validity
-                      </th>
-                      <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
-                    {attempts.map((a) => (
-                      <tr key={a.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-900/10 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="font-semibold text-slate-900 dark:text-white flex items-center">
-                            <User className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
-                            {a.studentName}
-                          </div>
-                          <div className="text-xs text-slate-500">{a.studentEmail}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="font-semibold text-slate-900 dark:text-slate-100">{a.moduleTitle}</div>
-                          <div className="text-xs text-slate-400">{a.cycleName}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-mono">
-                          <div className="text-emerald-500 font-bold">{a.score}% ({a.xpEarned} XP)</div>
-                          <div className="text-xs text-slate-400">Duration: {a.completionTime}s</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
-                          <div className="flex flex-col items-center gap-1.5">
-                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border
-                              ${a.status === "submitted"
-                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
-                                : a.status === "active"
-                                ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
-                                : "bg-rose-500/10 border-rose-500/30 text-rose-500"
-                              }`}
-                            >
-                              {a.status}
-                            </span>
-                            {!a.isValid && (
-                              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-rose-600/10 border border-rose-600/30 text-rose-500 inline-flex items-center" title={`By ${a.invalidatedBy}: ${a.invalidatedReason}`}>
-                                <XCircle className="w-3 h-3 mr-1" />
-                                Invalidated
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                          {a.isValid && a.status === "submitted" ? (
-                            <button
-                              onClick={() => {
-                                setSelectedAttemptId(a.id);
-                                setIsInvalidating(true);
-                              }}
-                              className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 font-bold rounded-lg text-xs uppercase tracking-wider transition-colors"
-                            >
-                              Invalidate
-                            </button>
-                          ) : (
-                            <span className="text-slate-500">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="bg-slate-50 dark:bg-slate-900/50 px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold uppercase rounded-xl disabled:opacity-50"
-                >
-                  Prev
-                </button>
-                <span className="text-xs text-slate-500 font-mono">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold uppercase rounded-xl disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            )}
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-105 dark:divide-slate-800 text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-450 dark:text-slate-400 text-xs font-mono uppercase tracking-wider">
+                <tr>
+                  <th className="px-6 py-4 text-left">Student</th>
+                  <th className="px-6 py-4 text-left">Module / Cycle</th>
+                  <th className="px-6 py-4 text-center">Score Metrics</th>
+                  <th className="px-6 py-4 text-center">Status</th>
+                  <th className="px-6 py-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-350">
+                {attempts.map((a) => (
+                  <tr key={a.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-slate-400" />
+                        {a.studentName}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5">{a.studentEmail}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200">{a.moduleTitle}</div>
+                      <div className="text-xs text-slate-450 dark:text-slate-500 mt-0.5">{a.cycleName}</div>
+                    </td>
+                    <td className="px-6 py-4 text-center whitespace-nowrap font-mono text-xs">
+                      <div className="text-emerald-500 font-bold">{a.score}% ({a.xpEarned} XP)</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Time: {a.completionTime}s</div>
+                    </td>
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${a.status === "submitted" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"}`}>
+                          {a.status.toUpperCase()}
+                        </span>
+                        {!a.isValid && (
+                          <span className="text-[9px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            <XCircle className="w-3.5 h-3.5" /> INVALIDATED
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      {a.isValid && a.status === "submitted" ? (
+                        <button
+                          onClick={() => { setSelectedAttemptId(a.id); setIsInvalidating(true); }}
+                          className="px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 rounded-xl border border-rose-200 dark:border-rose-800 text-xs font-bold uppercase transition-colors"
+                        >
+                          Invalidate
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 font-mono">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          {/* Invalidate Attempt Confirmation Dialog */}
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 rounded-xl font-bold disabled:opacity-40"
+              >
+                Prev
+              </button>
+              <span className="text-slate-400">Page {page} of {totalPages}</span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 rounded-xl font-bold disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
+
+          {/* Invalidation Reason Modal */}
           {isInvalidating && (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
-                <div className="flex items-center text-rose-500 gap-2 mb-2">
-                  <AlertTriangle className="w-6 h-6" />
-                  <h3 className="text-lg font-black uppercase tracking-wider">
-                    Invalidate Attempt
-                  </h3>
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-8 animate-in zoom-in duration-200">
+                <div className="flex items-center gap-2 text-rose-500 mb-4">
+                  <AlertTriangle className="w-5 h-5" />
+                  <h3 className="text-lg font-bold uppercase tracking-wider font-mono text-sm">Invalidate Scored Attempt</h3>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Are you sure you want to invalidate this scored placement attempt? This action cannot be undone. The XP earned will be deducted, and leaderboard ranking snapshots will recalculate immediately.
-                </p>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Reason for Invalidation
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="e.g. Integrity violation / Screen share detected"
-                    value={invalidationReason}
-                    onChange={(e) => setInvalidationReason(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 outline-none transition-colors dark:text-white resize-none text-xs"
-                  />
-                </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    onClick={() => {
-                      setIsInvalidating(false);
-                      setSelectedAttemptId(null);
-                      setInvalidationReason("");
-                    }}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleInvalidateAttempt}
-                    disabled={loading}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider disabled:opacity-50"
-                  >
-                    Invalidate Scored Attempt
-                  </button>
+                <p className="text-xs text-slate-500 mb-4 leading-relaxed">Revoking this scored attempt will deduct the XP points and force recalculate all leaderboard positioning snapshot matrices.</p>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Reason details</label>
+                    <textarea
+                      rows={3}
+                      placeholder="e.g. Tab switching violations flagged"
+                      value={invalidationReason}
+                      onChange={(e) => setInvalidationReason(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500 resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-4 pt-2">
+                    <button
+                      onClick={() => { setIsInvalidating(false); setSelectedAttemptId(null); setInvalidationReason(""); }}
+                      className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs uppercase tracking-widest transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleInvalidateAttempt}
+                      disabled={loading}
+                      className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-md transition-colors"
+                    >
+                      Invalidate Attempt
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

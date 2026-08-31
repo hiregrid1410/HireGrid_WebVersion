@@ -9,11 +9,17 @@ import {
   IndianRupee,
   Menu,
   ChevronRight,
+  ChevronDown,
   MessageSquare,
   CreditCard,
   ShieldAlert,
   Trophy,
   GitMerge,
+  LayoutDashboard,
+  Bell,
+  Search,
+  Database,
+  Calendar,
 } from "lucide-react";
 import { AdminUsersTab } from "../../components/admin/AdminUsersTab";
 import { AdminSettingsTab } from "../../components/admin/AdminSettingsTab";
@@ -24,6 +30,8 @@ import { AdminPlansTab } from "../../components/admin/AdminPlansTab";
 import { AdminAuditLogTab } from "../../components/admin/AdminAuditLogTab";
 import { AdminPlacementMissionTab } from "../../components/admin/AdminPlacementMissionTab";
 import { AdminBranchesTab } from "../../components/admin/AdminBranchesTab";
+import { AdminSystemHealthTab } from "../../components/admin/AdminSystemHealthTab";
+import { AdminMaintenanceTab } from "../../components/admin/AdminMaintenanceTab";
 import { ThemeToggle } from "../../components/common/ThemeToggle";
 
 export default function AdminDashboard() {
@@ -40,13 +48,28 @@ export default function AdminDashboard() {
   const role = location.state?.role || savedUser?.role;
   const userName = location.state?.name || savedUser?.name || "Admin";
 
-  const [activeWorkspace, setActiveWorkspace] = useState("premium");
-  const [activeSubTab, setActiveSubTab] = useState("requests");
+  const [activeWorkspace, setActiveWorkspace] = useState("overview");
+  const [activeSubTab, setActiveSubTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const saved = localStorage.getItem("adminSidebarOpen");
     return saved !== null ? JSON.parse(saved) : window.innerWidth >= 768;
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [openCategories, setOpenCategories] = useState({
+    overview: true,
+    operations: true,
+    people: true,
+    content: true,
+    placement: true,
+    monitoring: true,
+    system: true,
+  });
+
+  const toggleCategory = (cat) => {
+    setOpenCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
+  };
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -76,146 +99,321 @@ export default function AdminDashboard() {
     }
   };
 
+  const getBreadcrumbTitle = () => {
+    switch (activeWorkspace) {
+      case "overview":
+        return "Overview";
+      case "operations":
+        return "Operations";
+      case "people":
+        return "People";
+      case "content":
+        return "Content & Access";
+      case "placement":
+        return "Placement";
+      case "monitoring":
+        return "Monitoring";
+      case "system":
+        return "System";
+      default:
+        return activeWorkspace;
+    }
+  };
+
+  const getSubTabTitle = () => {
+    switch (activeSubTab) {
+      case "dashboard":
+        return "Dashboard";
+      case "purchase_requests":
+        return "Purchase Requests";
+      case "device_access":
+        return "Device Access Requests";
+      case "users":
+        return "Students & Staff";
+      case "branch_access":
+        return "Branch Access";
+      case "plans":
+        return "Subscription Plans";
+      case "placement_mission":
+        return "Placement Mission Cycles";
+      case "feedback":
+        return "Student Feedback";
+      case "security":
+        return "Security Center";
+      case "audit_logs":
+        return "Audit Logs";
+      case "settings":
+        return "Settings";
+      case "maintenance":
+        return "Database Maintenance";
+      default:
+        return activeSubTab.replace("_", " ");
+    }
+  };
+
+  const getFormattedDate = () => {
+    return new Date().toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] font-sans text-slate-900 dark:text-slate-100 flex overflow-hidden">
+    <div className="min-h-screen bg-bg-page font-sans text-slate-800 dark:text-slate-100 flex overflow-hidden">
       {/* Mobile Overlay */}
-      {sidebarOpen && (
+      {sidebarOpen && isMobile && (
         <div
-          className="md:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] z-40 transition-opacity"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <div
-        className={`bg-white dark:bg-slate-900 border-r border-emerald-500/20 flex flex-col transition-all duration-300 z-50 shrink-0
+      <aside
+        className={`bg-[#0B1F3A] dark:bg-slate-950 border-r border-slate-800 flex flex-col transition-all duration-300 z-50 shrink-0
         fixed md:relative inset-y-0 left-0 h-full
         ${sidebarOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0 w-72 md:w-20"}`}
       >
         {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-emerald-500/20 shrink-0">
-          <div
-            className={`flex items-center ${!sidebarOpen ? "hidden md:flex md:w-0 md:opacity-0 md:overflow-hidden" : ""}`}
-          >
-            <ShieldCheck className="h-8 w-8 text-emerald-600 dark:text-emerald-500 shrink-0" />
-            <span className="ml-3 text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400 whitespace-nowrap">
-              Command Center
-            </span>
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800/80 shrink-0">
+          <div className={`flex items-center gap-3 ${!sidebarOpen && "hidden"}`}>
+            <img src="/logo.png" alt="HireGridX Logo" className="h-7 w-auto object-contain" />
           </div>
+          {!sidebarOpen && (
+            <div className="mx-auto">
+              <ShieldCheck className="h-7 w-7 text-emerald-500" />
+            </div>
+          )}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${!sidebarOpen ? "mx-auto" : ""}`}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors"
           >
-            <Menu className="w-5 h-5 pointer-events-auto" />
+            <Menu className="w-5 h-5" />
           </button>
         </div>
 
         {/* Sidebar Nav */}
-        <div className="flex-1 overflow-y-auto py-4 custom-scrollbar px-3 space-y-2">
-          <SidebarItem
-            icon={<IndianRupee />}
-            label="Purchase Requests"
-            active={
-              activeWorkspace === "premium" && activeSubTab === "requests"
-            }
-            onClick={() => setView("premium", "requests")}
-            isOpen={sidebarOpen}
-          />
-          <SidebarItem
-            icon={<Server />}
-            label="Device Change Requests"
-            active={
-              activeWorkspace === "premium" &&
-              activeSubTab === "device_requests"
-            }
-            onClick={() => setView("premium", "device_requests")}
-            isOpen={sidebarOpen}
-          />
-          <SidebarItem
-            icon={<Users />}
-            label="User Management"
-            active={
-              activeWorkspace === "users" && activeSubTab === "management"
-            }
-            onClick={() => setView("users", "management")}
-            isOpen={sidebarOpen}
-          />
-          <SidebarItem
-            icon={<Settings />}
-            label="Settings"
-            active={activeWorkspace === "system" && activeSubTab === "settings"}
-            onClick={() => setView("system", "settings")}
-            isOpen={sidebarOpen}
-          />
-          <SidebarItem
-            icon={<MessageSquare />}
-            label="Student Feedbacks"
-            active={activeWorkspace === "system" && activeSubTab === "feedbacks"}
-            onClick={() => setView("system", "feedbacks")}
-            isOpen={sidebarOpen}
-          />
-          <SidebarItem
-            icon={<ShieldAlert className="w-5 h-5" />}
-            label="Security Logs"
-            active={activeWorkspace === "system" && activeSubTab === "audit_logs"}
-            onClick={() => setView("system", "audit_logs")}
-            isOpen={sidebarOpen}
-          />
-          <SidebarItem
-            icon={<CreditCard />}
-            label="Plan Management"
-            active={activeWorkspace === "system" && activeSubTab === "plans"}
-            onClick={() => setView("system", "plans")}
-            isOpen={sidebarOpen}
-          />
-          <SidebarItem
-            icon={<Trophy />}
-            label="Placement Missions"
-            active={activeWorkspace === "system" && activeSubTab === "placement_missions"}
-            onClick={() => setView("system", "placement_missions")}
-            isOpen={sidebarOpen}
-          />
-          <SidebarItem
-            icon={<GitMerge />}
-            label="Branches & Mappings"
-            active={activeWorkspace === "system" && activeSubTab === "branches_mappings"}
-            onClick={() => setView("system", "branches_mappings")}
-            isOpen={sidebarOpen}
-          />
+        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-5 custom-scrollbar">
+          {/* Category: OVERVIEW */}
+          <div className="space-y-1">
+            <button
+              onClick={() => toggleCategory("overview")}
+              className={`w-full flex items-center justify-between text-slate-400 dark:text-slate-500 font-mono text-[10px] uppercase tracking-wider mb-2 font-bold ${!sidebarOpen && "hidden"}`}
+            >
+              <span>Overview</span>
+              {openCategories.overview ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {openCategories.overview && (
+              <div className="space-y-0.5">
+                <SidebarItem
+                  icon={<LayoutDashboard />}
+                  label="Dashboard"
+                  active={activeWorkspace === "overview" && activeSubTab === "dashboard"}
+                  onClick={() => setView("overview", "dashboard")}
+                  isOpen={sidebarOpen}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Category: OPERATIONS */}
+          <div className="space-y-1">
+            <button
+              onClick={() => toggleCategory("operations")}
+              className={`w-full flex items-center justify-between text-slate-400 dark:text-slate-500 font-mono text-[10px] uppercase tracking-wider mb-2 font-bold ${!sidebarOpen && "hidden"}`}
+            >
+              <span>Operations</span>
+              {openCategories.operations ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {openCategories.operations && (
+              <div className="space-y-0.5">
+                <SidebarItem
+                  icon={<IndianRupee />}
+                  label="Purchase Requests"
+                  active={activeWorkspace === "operations" && activeSubTab === "purchase_requests"}
+                  onClick={() => setView("operations", "purchase_requests")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<Server />}
+                  label="Device Access"
+                  active={activeWorkspace === "operations" && activeSubTab === "device_access"}
+                  onClick={() => setView("operations", "device_access")}
+                  isOpen={sidebarOpen}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Category: PEOPLE */}
+          <div className="space-y-1">
+            <button
+              onClick={() => toggleCategory("people")}
+              className={`w-full flex items-center justify-between text-slate-400 dark:text-slate-500 font-mono text-[10px] uppercase tracking-wider mb-2 font-bold ${!sidebarOpen && "hidden"}`}
+            >
+              <span>People</span>
+              {openCategories.people ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {openCategories.people && (
+              <div className="space-y-0.5">
+                <SidebarItem
+                  icon={<Users />}
+                  label="User Management"
+                  active={activeWorkspace === "people" && activeSubTab === "users"}
+                  onClick={() => setView("people", "users")}
+                  isOpen={sidebarOpen}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Category: CONTENT & ACCESS */}
+          <div className="space-y-1">
+            <button
+              onClick={() => toggleCategory("content")}
+              className={`w-full flex items-center justify-between text-slate-400 dark:text-slate-500 font-mono text-[10px] uppercase tracking-wider mb-2 font-bold ${!sidebarOpen && "hidden"}`}
+            >
+              <span>Content & Access</span>
+              {openCategories.content ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {openCategories.content && (
+              <div className="space-y-0.5">
+                <SidebarItem
+                  icon={<GitMerge />}
+                  label="Branch Access"
+                  active={activeWorkspace === "content" && activeSubTab === "branch_access"}
+                  onClick={() => setView("content", "branch_access")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<CreditCard />}
+                  label="Subscription Plans"
+                  active={activeWorkspace === "content" && activeSubTab === "plans"}
+                  onClick={() => setView("content", "plans")}
+                  isOpen={sidebarOpen}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Category: PLACEMENT */}
+          <div className="space-y-1">
+            <button
+              onClick={() => toggleCategory("placement")}
+              className={`w-full flex items-center justify-between text-slate-400 dark:text-slate-500 font-mono text-[10px] uppercase tracking-wider mb-2 font-bold ${!sidebarOpen && "hidden"}`}
+            >
+              <span>Placement</span>
+              {openCategories.placement ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {openCategories.placement && (
+              <div className="space-y-0.5">
+                <SidebarItem
+                  icon={<Trophy />}
+                  label="Placement Mission"
+                  active={activeWorkspace === "placement" && activeSubTab === "placement_mission"}
+                  onClick={() => setView("placement", "placement_mission")}
+                  isOpen={sidebarOpen}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Category: MONITORING */}
+          <div className="space-y-1">
+            <button
+              onClick={() => toggleCategory("monitoring")}
+              className={`w-full flex items-center justify-between text-slate-400 dark:text-slate-500 font-mono text-[10px] uppercase tracking-wider mb-2 font-bold ${!sidebarOpen && "hidden"}`}
+            >
+              <span>Monitoring</span>
+              {openCategories.monitoring ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {openCategories.monitoring && (
+              <div className="space-y-0.5">
+                <SidebarItem
+                  icon={<MessageSquare />}
+                  label="Student Feedback"
+                  active={activeWorkspace === "monitoring" && activeSubTab === "feedback"}
+                  onClick={() => setView("monitoring", "feedback")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<ShieldAlert />}
+                  label="Security Logs"
+                  active={activeWorkspace === "monitoring" && activeSubTab === "security"}
+                  onClick={() => setView("monitoring", "security")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<Database />}
+                  label="Audit Logs"
+                  active={activeWorkspace === "monitoring" && activeSubTab === "audit_logs"}
+                  onClick={() => setView("monitoring", "audit_logs")}
+                  isOpen={sidebarOpen}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Category: SYSTEM */}
+          <div className="space-y-1">
+            <button
+              onClick={() => toggleCategory("system")}
+              className={`w-full flex items-center justify-between text-slate-400 dark:text-slate-500 font-mono text-[10px] uppercase tracking-wider mb-2 font-bold ${!sidebarOpen && "hidden"}`}
+            >
+              <span>System</span>
+              {openCategories.system ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {openCategories.system && (
+              <div className="space-y-0.5">
+                <SidebarItem
+                  icon={<Settings />}
+                  label="Settings"
+                  active={activeWorkspace === "system" && activeSubTab === "settings"}
+                  onClick={() => setView("system", "settings")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<Database />}
+                  label="Maintenance"
+                  active={activeWorkspace === "system" && activeSubTab === "maintenance"}
+                  onClick={() => setView("system", "maintenance")}
+                  isOpen={sidebarOpen}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* User Profile */}
-        <div className="p-4 border-t border-emerald-500/20 shrink-0">
-          <div
-            className={`flex items-center ${!sidebarOpen && "justify-center"} mb-4`}
-          >
-            <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800/50">
+        <div className="p-4 border-t border-slate-800 shrink-0">
+          <div className={`flex items-center ${!sidebarOpen ? "justify-center" : "px-2"} mb-4`}>
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 font-bold shrink-0">
               {userName.charAt(0).toUpperCase()}
             </div>
             <div className={`ml-3 ${!sidebarOpen && "hidden"}`}>
-              <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-none">
-                {userName}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-sm font-bold text-white leading-none">{userName}</p>
+              <p className="text-[10px] text-slate-400 mt-1 uppercase font-mono tracking-widest">
                 Super Admin
               </p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center justify-center py-2.5 rounded-lg text-sm font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors border border-rose-200 dark:border-rose-800/50 ${!sidebarOpen && "px-0"}`}
+            className={`w-full flex items-center justify-center py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest text-rose-500 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all ${!sidebarOpen && "px-0"}`}
           >
             <LogOut className="w-4 h-4" />
             {sidebarOpen && <span className="ml-2">Sign Out</span>}
           </button>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden max-h-screen">
-        {/* Top Navbar */}
-        <header className="h-16 bg-white/80 dark:bg-[#0B1120]/80 backdrop-blur-md border-b border-emerald-500/20 flex items-center justify-between px-8 shrink-0 relative z-20">
-          <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
+        {/* Top Header */}
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 shrink-0 relative z-20 shadow-sm">
+          {/* Breadcrumbs */}
+          <div className="flex items-center space-x-2 text-xs font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
             <button
               onClick={() => setSidebarOpen(true)}
               className="md:hidden p-2 -ml-2 mr-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -223,63 +421,88 @@ export default function AdminDashboard() {
               <Menu className="w-5 h-5" />
             </button>
             <span className="hidden sm:inline">Command Center</span>
-            <ChevronRight className="w-4 h-4 hidden sm:block" />
-            <span className="font-semibold text-emerald-700 dark:text-emerald-400 capitalize">
-              {activeWorkspace === "overview"
-                ? "Business Overview"
-                : activeWorkspace === "users"
-                  ? "User Management"
-                  : activeWorkspace}
+            <ChevronRight className="w-3.5 h-3.5 hidden sm:block" />
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+              {getBreadcrumbTitle()}
             </span>
-            {activeSubTab && (
-              <>
-                <ChevronRight className="w-4 h-4" />
-                <span className="font-semibold text-slate-900 dark:text-slate-100 capitalize">
-                  {activeSubTab}
-                </span>
-              </>
-            )}
+            <ChevronRight className="w-3.5 h-3.5" />
+            <span className="font-semibold text-slate-800 dark:text-white">
+              {getSubTabTitle()}
+            </span>
           </div>
-          <div className="flex items-center space-x-4">
+
+          {/* Top Bar Actions */}
+          <div className="flex items-center space-x-5">
+            {/* Search Box */}
+            <div className="relative max-w-xs hidden md:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Global search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-52 pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:border-emerald-500 text-slate-800 dark:text-white placeholder-slate-400 transition-all focus:w-64"
+              />
+            </div>
+
+            {/* Current Date */}
+            <div className="hidden lg:flex items-center space-x-1.5 text-xs text-slate-400 dark:text-slate-500 font-mono">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>{getFormattedDate()}</span>
+            </div>
+
+            {/* Notification Bell */}
+            <button className="relative p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full" />
+            </button>
+
             <ThemeToggle />
           </div>
         </header>
 
         {/* Workspace Canvas */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#0B1120] custom-scrollbar p-8">
+        <main className="flex-1 overflow-y-auto bg-bg-page custom-scrollbar p-8">
           <div className="max-w-7xl mx-auto">
-            {/* Render Workspaces dynamically */}
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {activeWorkspace === "premium" && activeSubTab === "requests" && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+              {activeWorkspace === "overview" && activeSubTab === "dashboard" && (
+                <AdminSystemHealthTab />
+              )}
+              {activeWorkspace === "operations" && activeSubTab === "purchase_requests" && (
                 <AdminPaymentRequestsTab userName={userName} />
               )}
-              {activeWorkspace === "premium" &&
-                activeSubTab === "device_requests" && (
-                  <AdminDeviceRequestsTab />
-                )}
-              {activeWorkspace === "users" && activeSubTab === "management" && (
+              {activeWorkspace === "operations" && activeSubTab === "device_access" && (
+                <AdminDeviceRequestsTab />
+              )}
+              {activeWorkspace === "people" && activeSubTab === "users" && (
                 <AdminUsersTab
-                  isSuperAdmin={location.state?.id === "super_admin"}
+                  isSuperAdmin={location.state?.id === "super_admin" || userName === "Admin"}
                   adminName={userName}
                 />
+              )}
+              {activeWorkspace === "content" && activeSubTab === "branch_access" && (
+                <AdminBranchesTab isContentManager={false} userName={userName} />
+              )}
+              {activeWorkspace === "content" && activeSubTab === "plans" && (
+                <AdminPlansTab userName={userName} />
+              )}
+              {activeWorkspace === "placement" && activeSubTab === "placement_mission" && (
+                <AdminPlacementMissionTab userName={userName} />
+              )}
+              {activeWorkspace === "monitoring" && activeSubTab === "feedback" && (
+                <AdminFeedbacksTab isContentManager={false} />
+              )}
+              {activeWorkspace === "monitoring" && activeSubTab === "security" && (
+                <AdminAuditLogTab />
+              )}
+              {activeWorkspace === "monitoring" && activeSubTab === "audit_logs" && (
+                <AdminAuditLogTab />
               )}
               {activeWorkspace === "system" && activeSubTab === "settings" && (
                 <AdminSettingsTab />
               )}
-              {activeWorkspace === "system" && activeSubTab === "feedbacks" && (
-                <AdminFeedbacksTab isContentManager={false} />
-              )}
-              {activeWorkspace === "system" && activeSubTab === "audit_logs" && (
-                <AdminAuditLogTab />
-              )}
-              {activeWorkspace === "system" && activeSubTab === "plans" && (
-                <AdminPlansTab userName={userName} />
-              )}
-              {activeWorkspace === "system" && activeSubTab === "placement_missions" && (
-                <AdminPlacementMissionTab userName={userName} />
-              )}
-              {activeWorkspace === "system" && activeSubTab === "branches_mappings" && (
-                <AdminBranchesTab isContentManager={false} userName={userName} />
+              {activeWorkspace === "system" && activeSubTab === "maintenance" && (
+                <AdminMaintenanceTab />
               )}
             </div>
           </div>
@@ -293,15 +516,18 @@ function SidebarItem({ icon, label, active, onClick, isOpen }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center py-2.5 rounded-xl text-sm font-medium transition-all group ${active ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"} ${!isOpen ? "justify-center px-0" : "px-4"}`}
+      className={`w-full flex items-center py-2.5 rounded-xl text-xs font-semibold uppercase tracking-widest transition-all group ${
+        active
+          ? "bg-emerald-500/10 text-emerald-400 border-l-2 border-emerald-500"
+          : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+      } ${!isOpen ? "justify-center px-0 border-l-0" : "px-4"}`}
       title={!isOpen ? label : undefined}
     >
-      <span
-        className={`${active ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-300"}`}
-      >
+      <span className={`${active ? "text-emerald-400" : "text-slate-400 group-hover:text-slate-300"}`}>
         {React.cloneElement(icon, { className: "w-4 h-4" })}
       </span>
-      <span className={`ml-3 ${!isOpen && "hidden"}`}>{label}</span>
+      <span className={`ml-3 transition-opacity ${!isOpen && "hidden"}`}>{label}</span>
     </button>
   );
 }
+

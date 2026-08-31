@@ -3,9 +3,110 @@
 @import "katex/dist/katex.min.css";
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  --bg-page: #F8FAFC;
+  --bg-sidebar: #0B1F3A;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #F1F5F9;
+  --bg-hover: #E2E8F0;
+  --bg-active: #CBD5E1;
+
+  --text-primary: #17202A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --text-inverse: #F8FAFC;
+
+  --border-default: #E2E8F0;
+  --border-subtle: #F1F5F9;
+
+  --primary: #16A34A;
+  --primary-hover: #15803D;
+  --primary-soft: #DCFCE7;
+
+  --success: #16A34A;
+  --warning: #F5B82E;
+  --danger: #EF4444;
+  --info: #2563EB;
+}
+
+.dark {
+  --bg-page: #17202A;
+  --bg-sidebar: #0B1F3A;
+  --bg-surface: #1E293B;
+  --bg-elevated: #0F172A;
+  --bg-hover: #334155;
+  --bg-active: #475569;
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-inverse: #17202A;
+
+  --border-default: #334155;
+  --border-subtle: #1E293B;
+
+  --primary: #16A34A;
+  --primary-hover: #15803D;
+  --primary-soft: rgba(22, 163, 74, 0.1);
+
+  --success: #16A34A;
+  --warning: #F5B82E;
+  --danger: #EF4444;
+  --info: #2563EB;
+}
+
 @theme {
   --font-sans: "Inter", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Custom Brand Palette */
+  --color-brand-emerald: #16A34A;
+  --color-brand-teal: #0891B2;
+  --color-brand-blue: #2563EB;
+  --color-brand-navy: #0B1F3A;
+  --color-brand-gold: #F5B82E;
+  --color-brand-white: #F8FAFC;
+  --color-brand-charcoal: #17202A;
+
+  /* Global Colors Custom Mappings for backwards compatibility */
+  --color-emerald-50: #F0FDF4;
+  --color-emerald-100: #DCFCE7;
+  --color-emerald-500: #16A34A;
+  --color-emerald-600: #16A34A;
+  --color-emerald-700: #15803D;
+  --color-emerald-800: #166534;
+  --color-emerald-900: #14532D;
+
+  --color-teal-500: #0891B2;
+  --color-teal-600: #0891B2;
+  --color-teal-700: #0E7490;
+
+  --color-blue-500: #2563EB;
+  --color-blue-600: #2563EB;
+
+  --color-slate-50: #F8FAFC;
+  --color-slate-900: #17202A;
+  --color-slate-950: #0B1F3A;
+
+  /* Semantic Theme tokens */
+  --color-bg-page: var(--bg-page);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-hover: var(--color-bg-hover);
+  --color-bg-active: var(--bg-active);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-inverse: var(--text-inverse);
+
+  --color-border-default: var(--border-default);
+  --color-border-subtle: var(--border-subtle);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
 
   --animate-blob: blob 7s infinite;
   --animate-pulse-slow: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;

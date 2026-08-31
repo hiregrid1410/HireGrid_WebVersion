@@ -19,7 +19,10 @@ import {
   CheckSquare,
   Square,
   ListFilter,
+  Trash
 } from "lucide-react";
+import DataTable from "../common/DataTable";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
   const [branches, setBranches] = useState([]);
@@ -41,6 +44,8 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleteBranchId, setDeleteBranchId] = useState(null);
+  const [deleteBranchName, setDeleteBranchName] = useState("");
 
   // Mappings Selection State (Supports Multi-Select)
   const [selectedEntityIds, setSelectedEntityIds] = useState([]);
@@ -130,20 +135,19 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
     setIsEditing(true);
   };
 
-  const handleDeleteBranch = async (id, name) => {
-    const ok = window.confirm(
-      `Are you sure you want to delete the branch "${name}"? This will unlink all students and mappings.`
-    );
-    if (!ok) return;
-
+  const handleDeleteBranch = async () => {
+    if (!deleteBranchId) return;
     try {
-      const res = await api.delete(`/branches/${id}`);
+      const res = await api.delete(`/branches/${deleteBranchId}`);
       if (res.success) {
         showToast("Branch deleted successfully", "success");
         fetchData();
       }
     } catch (err) {
       showToast("Failed to delete branch: " + err.message, "error");
+    } finally {
+      setDeleteBranchId(null);
+      setDeleteBranchName("");
     }
   };
 
@@ -192,11 +196,14 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
   };
 
   // Handle singular & batch saves
-  const handleSaveBatchMappings = async () => {
+  const handleSaveBatchMappings = async (forcedScope, forcedBranchIds) => {
     if (selectedEntityIds.length === 0) {
       showToast("Please select at least one item to map", "warning");
       return;
     }
+
+    const scopeToSave = forcedScope !== undefined ? forcedScope : assignmentScope;
+    const branchesToSave = forcedBranchIds !== undefined ? forcedBranchIds : selectedBranchIds;
 
     setLoading(true);
     try {
@@ -208,20 +215,20 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
         if (companyIds.length > 0) {
           promises.push(api.put("/companies-batch/branches", {
             companyIds,
-            assignmentScope,
-            branchIds: selectedBranchIds,
+            assignmentScope: scopeToSave,
+            branchIds: branchesToSave,
           }));
         }
         if (moduleIds.length > 0) {
           promises.push(api.put("/content-mappings-batch/module", {
             contentIds: moduleIds,
-            assignmentScope,
-            branchIds: selectedBranchIds,
+            assignmentScope: scopeToSave,
+            branchIds: branchesToSave,
           }));
         }
 
         await Promise.all(promises);
-        showToast("Successfully assigned mappings!", "success");
+        showToast("Successfully updated access permissions!", "success");
       } else if (mappingTab === "learning") {
         const nodeIds = [];
         const moduleIds = [];
@@ -250,20 +257,20 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
         if (nodeIds.length > 0) {
           promises.push(api.put("/content-mappings-batch/hierarchy_node", {
             contentIds: nodeIds,
-            assignmentScope,
-            branchIds: selectedBranchIds,
+            assignmentScope: scopeToSave,
+            branchIds: branchesToSave,
           }));
         }
         if (moduleIds.length > 0) {
           promises.push(api.put("/content-mappings-batch/module", {
             contentIds: moduleIds,
-            assignmentScope,
-            branchIds: selectedBranchIds,
+            assignmentScope: scopeToSave,
+            branchIds: branchesToSave,
           }));
         }
 
         await Promise.all(promises);
-        showToast("Successfully assigned mappings!", "success");
+        showToast("Successfully updated access permissions!", "success");
       } else if (mappingTab === "mission") {
         const cycleIds = selectedEntityIds.filter(id => cycles.some(c => c.id === id));
         const moduleIds = selectedEntityIds.filter(id => !cycles.some(c => c.id === id));
@@ -272,25 +279,33 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
         if (cycleIds.length > 0) {
           promises.push(api.put("/content-mappings-batch/cycle", {
             contentIds: cycleIds,
-            assignmentScope,
-            branchIds: selectedBranchIds,
+            assignmentScope: scopeToSave,
+            branchIds: branchesToSave,
           }));
         }
         if (moduleIds.length > 0) {
           promises.push(api.put("/content-mappings-batch/module", {
             contentIds: moduleIds,
-            assignmentScope,
-            branchIds: selectedBranchIds,
+            assignmentScope: scopeToSave,
+            branchIds: branchesToSave,
           }));
         }
 
         await Promise.all(promises);
-        showToast("Successfully assigned mappings!", "success");
+        showToast("Successfully updated access permissions!", "success");
       }
     } catch (err) {
       showToast("Failed to save mappings: " + err.message, "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRevokeAllAccess = async () => {
+    if (window.confirm("Are you sure you want to completely revoke and remove all branch access mappings for the selected items?")) {
+      setAssignmentScope("SPECIFIC");
+      setSelectedBranchIds([]);
+      await handleSaveBatchMappings("SPECIFIC", []);
     }
   };
 
@@ -638,7 +653,6 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
     return parts.length > 0 ? ` • ${parts.join(" • ")}` : "";
   };
 
-  // Helper: resolve name, label, and color for a selected ID
   const getSelectedItemInfo = (id) => {
     const company = companies.find(c => c.id === id);
     if (company) return { name: company.name, label: "COMPANY", color: "emerald" };
@@ -697,7 +711,7 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
           className={`flex items-center justify-between py-2 px-3 rounded-xl hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-xs font-bold transition-all border border-transparent ${
             state === "checked"
               ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-              : "text-slate-700 dark:text-slate-300"
+              : "text-slate-700 dark:text-slate-350"
           }`}
         >
           <div className="flex items-center space-x-2 truncate">
@@ -740,7 +754,7 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
           </div>
 
           {/* Badge indicator */}
-          <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono uppercase bg-slate-100 dark:bg-slate-950 px-2 py-0.5 rounded-full shrink-0">
+          <span className="text-[9px] text-slate-450 dark:text-slate-500 font-mono uppercase bg-slate-100 dark:bg-slate-950 px-2 py-0.5 rounded-full shrink-0">
             {type.replace("general_", "")}
           </span>
         </div>
@@ -772,142 +786,185 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
     );
   }
 
+  // Specialties Columns
+  const specialtiesColumns = [
+    {
+      label: "Branch Code",
+      key: "code",
+      sortable: true,
+      render: (row) => <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{row.code}</span>
+    },
+    {
+      label: "Branch Name",
+      key: "name",
+      sortable: true,
+      render: (row) => <span className="font-bold text-slate-800 dark:text-white">{row.name}</span>
+    },
+    {
+      label: "Default Fallback?",
+      key: "isGeneral",
+      render: (row) => row.isGeneral ? (
+        <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+          General Default
+        </span>
+      ) : <span className="text-slate-400 text-xs">No</span>
+    },
+    {
+      label: "Status",
+      key: "status",
+      render: (row) => (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${row.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"}`}>
+          {row.status}
+        </span>
+      )
+    },
+    {
+      label: "Actions",
+      key: "id",
+      className: "text-right",
+      render: (row) => (
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => handleEditBranch(row)}
+            className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+            title="Edit Specialty details"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          {!row.isGeneral && (
+            <button
+              onClick={() => {
+                setDeleteBranchId(row.id);
+                setDeleteBranchName(row.name);
+              }}
+              className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+              title="Delete Specialty"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )
+    }
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center pb-4 border-b border-emerald-500/20">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 flex items-center">
-            <GitMerge className="w-6 h-6 mr-2 text-emerald-500" />
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <GitMerge className="w-5 h-5 text-emerald-500 shrink-0" />
             Branch & Access Mappings
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Configure academic branches and map preparation modules, companies, and exams.
+          <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
+            Define institutional academic branches and configure strict authorization matrices.
           </p>
+        </div>
+
+        <div className="flex space-x-2 bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl whitespace-nowrap scrollbar-none border border-slate-205/50 dark:border-slate-800">
+          <button
+            onClick={() => setActiveTab("manage-branches")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "manage-branches" ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+          >
+            Manage Branches
+          </button>
+          <button
+            onClick={() => setActiveTab("mappings")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "mappings" ? "bg-white dark:bg-slate-800 text-slate-805 dark:text-white shadow-sm" : "text-slate-400 hover:text-slate-655 dark:hover:text-slate-300"}`}
+          >
+            Assign Content Mappings
+          </button>
         </div>
       </div>
 
-      {/* Workspace Tabs */}
-      <div className="flex space-x-4 border-b border-slate-200 dark:border-slate-800 pb-2">
-        <button
-          onClick={() => setActiveTab("manage-branches")}
-          className={`pb-2 px-4 font-bold text-sm border-b-2 transition-all ${
-            activeTab === "manage-branches"
-              ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
-              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
-          }`}
-        >
-          Manage Academic Branches
-        </button>
-        <button
-          onClick={() => setActiveTab("mappings")}
-          className={`pb-2 px-4 font-bold text-sm border-b-2 transition-all ${
-            activeTab === "mappings"
-              ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
-              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
-          }`}
-        >
-          Assign Content & Access
-        </button>
-      </div>
-
       {activeTab === "manage-branches" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Branch Form */}
-          <div className="bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 rounded-2xl p-6 h-fit space-y-6">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center">
-              {isEditing ? <Edit2 className="w-5 h-5 mr-2 text-emerald-500" /> : <Plus className="w-5 h-5 mr-2 text-emerald-500" />}
-              {isEditing ? "Edit Branch details" : "Add Academic Branch"}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in duration-200">
+          {/* Branch creator panel */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-6">
+            <h3 className="text-sm font-bold uppercase font-mono tracking-wider text-slate-400">
+              {isEditing ? "Modify Specialty Details" : "Create Academic Branch"}
             </h3>
 
             <form onSubmit={handleSaveBranch} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Branch Name
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase text-slate-455 dark:text-slate-500 font-mono">Branch Name</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Computer Engineering"
+                  placeholder="e.g. Computer Science"
                   value={branchForm.name}
                   onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Branch Code (Short Name)
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase text-slate-455 dark:text-slate-500 font-mono">Branch Short Code</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. CSE"
                   value={branchForm.code}
                   onChange={(e) => setBranchForm({ ...branchForm, code: e.target.value.toUpperCase() })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Description
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase text-slate-455 dark:text-slate-500 font-mono">Description</label>
                 <textarea
-                  rows="3"
-                  placeholder="Academic description or details..."
+                  rows={3}
+                  placeholder="Institutional description..."
                   value={branchForm.description}
                   onChange={(e) => setBranchForm({ ...branchForm, description: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500 resize-none"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Status
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase text-slate-455 dark:text-slate-500 font-mono">Default Status</label>
                 <select
                   value={branchForm.status}
                   onChange={(e) => setBranchForm({ ...branchForm, status: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-805 dark:text-white text-xs outline-none focus:border-emerald-500 font-bold"
                 >
-                  <option value="ACTIVE">ACTIVE (Onboard-ready)</option>
+                  <option value="ACTIVE">ACTIVE (Accepting Students)</option>
                   <option value="INACTIVE">INACTIVE (Hidden)</option>
                 </select>
               </div>
 
-              <div className="flex items-center space-x-2 py-2">
+              <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-xl flex items-center space-x-2.5">
                 <input
                   type="checkbox"
                   id="isGeneral"
                   checked={branchForm.isGeneral}
                   onChange={(e) => setBranchForm({ ...branchForm, isGeneral: e.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 focus:outline-none"
+                  className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 rounded bg-transparent border-slate-350"
                 />
-                <label htmlFor="isGeneral" className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                  Set as Default System General Branch
+                <label htmlFor="isGeneral" className="text-xs font-bold text-slate-700 dark:text-slate-300 select-none cursor-pointer">
+                  Default Fallback Branch
                 </label>
               </div>
 
               {branchForm.isGeneral && (
-                <div className="flex bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl items-start space-x-2 text-xs text-amber-600 dark:text-amber-400">
+                <div className="flex bg-amber-500/10 border border-amber-500/25 p-3 rounded-xl items-start gap-2 text-xs text-amber-600 dark:text-amber-400 font-medium leading-relaxed">
                   <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>Only one general branch can be set. This will automatically unset any other active general branch.</span>
+                  <span>Setting this flag makes this the default student registration fallback, overriding any prior defaults.</span>
                 </div>
               )}
 
-              <div className="flex space-x-2 pt-2">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-colors"
+                  className="flex-1 py-3 bg-emerald-650 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-widest transition-colors shadow-md"
                 >
-                  {branchForm.id ? "Update Details" : "Create Branch"}
+                  {branchForm.id ? "Update Specialty" : "Save Specialty"}
                 </button>
                 {isEditing && (
                   <button
                     type="button"
                     onClick={resetBranchForm}
-                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors"
+                    className="px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs uppercase tracking-widest transition-colors"
                   >
                     Cancel
                   </button>
@@ -916,175 +973,76 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
             </form>
           </div>
 
-          {/* Branches List */}
-          <div className="bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 rounded-2xl p-6 lg:col-span-2 overflow-hidden flex flex-col justify-between">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">
-              Academic Specialties List ({branches.length})
-            </h3>
-
-            <div className="overflow-x-auto w-full">
-              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm">
-                <thead>
-                  <tr className="text-slate-500 text-left font-semibold">
-                    <th className="pb-3 pr-4">Branch Code</th>
-                    <th className="pb-3 px-4">Name</th>
-                    <th className="pb-3 px-4">Default general?</th>
-                    <th className="pb-3 px-4">Status</th>
-                    <th className="pb-3 pl-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                  {branches.map((b) => (
-                    <tr key={b.id} className="text-slate-700 dark:text-slate-300">
-                      <td className="py-3 pr-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        {b.code}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
-                        {b.name}
-                      </td>
-                      <td className="py-3 px-4">
-                        {b.isGeneral ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                            General (Default)
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-xs">No</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                            b.status === "ACTIVE"
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                              : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
-                          }`}
-                        >
-                          {b.status}
-                        </span>
-                      </td>
-                      <td className="py-3 pl-4 text-right space-x-2">
-                        <button
-                          onClick={() => handleEditBranch(b)}
-                          className="p-1.5 text-slate-500 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        {!b.isGeneral && (
-                          <button
-                            onClick={() => handleDeleteBranch(b.id, b.name)}
-                            className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {branches.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="text-center py-8 text-slate-500">
-                        No branches configured yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+          {/* Specialties DataTable */}
+          <div className="lg:col-span-2">
+            <DataTable
+              columns={specialtiesColumns}
+              data={branches}
+              loading={loading}
+              searchKey="name"
+              searchPlaceholder="Search branches by name..."
+            />
           </div>
         </div>
       ) : (
-        /* Batch Access Mappings View */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        /* Mappings Matrix Matrix */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in duration-200">
           {/* Target Entities Selector Checklist */}
-          <div className="bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 rounded-2xl p-6 flex flex-col space-y-4 lg:col-span-1 min-h-[500px]">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center">
-              <ListFilter className="w-5 h-5 mr-2 text-emerald-500" />
-              Targets selection
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4 lg:col-span-1 min-h-[500px] flex flex-col">
+            <h3 className="text-sm font-bold uppercase font-mono tracking-wider text-slate-400">
+              Select Target Content
             </h3>
 
             {/* Mapping Type Tabs */}
-            <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl">
+            <div className="grid grid-cols-3 gap-1 bg-slate-105 dark:bg-slate-950 p-1 rounded-xl">
               <button
-                onClick={() => {
-                  setMappingTab("company");
-                  handleDeselectAll();
-                }}
-                className={`py-1.5 text-[10px] font-bold rounded-lg transition-all flex flex-col items-center justify-center space-y-0.5 ${
-                  mappingTab === "company"
-                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-800"
-                }`}
+                onClick={() => { setMappingTab("company"); handleDeselectAll(); }}
+                className={`py-2 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all flex flex-col items-center gap-1 ${mappingTab === "company" ? "bg-white dark:bg-slate-900 text-emerald-500 shadow-sm" : "text-slate-400 hover:text-slate-300"}`}
               >
-                <Building2 className="w-3.5 h-3.5" />
+                <Building2 className="w-4 h-4" />
                 <span>Companies</span>
               </button>
               <button
-                onClick={() => {
-                  setMappingTab("learning");
-                  handleDeselectAll();
-                }}
-                className={`py-1.5 text-[10px] font-bold rounded-lg transition-all flex flex-col items-center justify-center space-y-0.5 ${
-                  mappingTab === "learning"
-                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-800"
-                }`}
+                onClick={() => { setMappingTab("learning"); handleDeselectAll(); }}
+                className={`py-2 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all flex flex-col items-center gap-1 ${mappingTab === "learning" ? "bg-white dark:bg-slate-900 text-emerald-500 shadow-sm" : "text-slate-400 hover:text-slate-300"}`}
               >
-                <BookOpen className="w-3.5 h-3.5" />
+                <BookOpen className="w-4 h-4" />
                 <span>Learning</span>
               </button>
               <button
-                onClick={() => {
-                  setMappingTab("mission");
-                  handleDeselectAll();
-                }}
-                className={`py-1.5 text-[10px] font-bold rounded-lg transition-all flex flex-col items-center justify-center space-y-0.5 ${
-                  mappingTab === "mission"
-                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-800"
-                }`}
+                onClick={() => { setMappingTab("mission"); handleDeselectAll(); }}
+                className={`py-2 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all flex flex-col items-center gap-1 ${mappingTab === "mission" ? "bg-white dark:bg-slate-900 text-emerald-500 shadow-sm" : "text-slate-400 hover:text-slate-300"}`}
               >
-                <Trophy className="w-3.5 h-3.5" />
-                <span>Placement</span>
+                <Trophy className="w-4 h-4" />
+                <span>Missions</span>
               </button>
             </div>
 
-            {/* Live search input */}
+            {/* Live Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                placeholder={`Search ${mappingTab === "company" ? "companies" : mappingTab === "learning" ? "nodes" : "missions"}...`}
+                placeholder={`Search ${mappingTab}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none text-sm"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-205 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-xs outline-none focus:border-emerald-500"
               />
             </div>
 
-            {/* Select helpers */}
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-bold text-slate-500 truncate max-w-[65%]">
-                {selectedEntityIds.length} selected{getSelectionSummaryText()}
+            {/* Selection Options */}
+            <div className="flex justify-between items-center text-xs pt-1">
+              <span className="font-mono text-slate-450 dark:text-slate-500 truncate max-w-[65%]">
+                Selected: {selectedEntityIds.length}{getSelectionSummaryText()}
               </span>
               <div className="space-x-2 shrink-0">
-                <button
-                  onClick={handleSelectAllFiltered}
-                  className="text-emerald-600 dark:text-emerald-400 hover:underline font-bold"
-                >
-                  Select All
-                </button>
-                <span className="text-slate-300">|</span>
-                <button
-                  onClick={handleDeselectAll}
-                  className="text-rose-500 hover:underline font-bold"
-                >
-                  Clear
-                </button>
+                <button onClick={handleSelectAllFiltered} className="text-emerald-500 font-bold">Select All</button>
+                <span className="text-slate-300 dark:text-slate-700">|</span>
+                <button onClick={handleDeselectAll} className="text-rose-500 font-bold">Clear</button>
               </div>
             </div>
 
-            {/* Target Entities checklist box */}
+            {/* Nested Trees */}
             <div className="flex-1 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-3 max-h-[350px] custom-scrollbar space-y-2 bg-slate-50/50 dark:bg-slate-950/20">
               {loadingAllData && (
                 <div className="text-center py-12 text-slate-400 text-xs flex items-center justify-center space-x-2">
@@ -1110,57 +1068,41 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
                 (mappingTab === "learning" && rootBranches.length === 0) ||
                 (mappingTab === "mission" && cycles.length === 0)
               ) && (
-                <div className="text-center py-12 text-slate-400 text-xs">
-                  No targets found.
-                </div>
+                <div className="text-center py-12 text-slate-400 text-xs">No items found.</div>
               )}
             </div>
           </div>
 
-          {/* Mappings Permissions & Bulk Assign Panel */}
-          <div className="bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 rounded-2xl p-6 lg:col-span-2 overflow-hidden flex flex-col justify-between min-h-[500px]">
+          {/* Mappings Permissions Assignment Grid */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-6 lg:col-span-2 min-h-[500px] flex flex-col justify-between">
             <div className="space-y-6">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                    Permissions Assignment
+                  <h3 className="text-sm font-bold uppercase font-mono tracking-wider text-slate-400">
+                    Permissions configuration
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-450 mt-1">
                     {selectedEntityIds.length === 1 ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                        Showing current configuration for single item.
-                      </span>
+                      <span className="text-emerald-500 font-semibold">Active access mapping for chosen item.</span>
                     ) : selectedEntityIds.length > 1 ? (
-                      <span className="text-amber-500 font-semibold">
-                        Bulk editing {selectedEntityIds.length} items. Saving will overwrite their existing mappings.
-                      </span>
+                      <span className="text-amber-500 font-semibold">Editing access scope in bulk mode for {selectedEntityIds.length} items.</span>
                     ) : (
-                      "Please select targets on the left to configure access."
+                      <span>Select target nodes on the left sidebar to assign clearance rules.</span>
                     )}
                   </p>
                 </div>
                 {assignmentScope === "ALL" && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
-                    Global Assignment Active
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/10 text-teal-500 border border-teal-500/20 uppercase tracking-wider font-mono">
+                    GLOBAL ACCESS
                   </span>
                 )}
               </div>
 
-              {/* Selected Targets Removable Chips */}
+              {/* Removable chips */}
               {selectedEntityIds.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Selected Targets ({selectedEntityIds.length})
-                    </span>
-                    <button
-                      onClick={handleDeselectAll}
-                      className="text-[10px] text-rose-500 hover:text-rose-600 font-bold hover:underline"
-                    >
-                      Clear All
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto custom-scrollbar p-3 bg-slate-50/70 dark:bg-slate-950/30 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Active targets list</span>
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-3 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800 rounded-xl">
                     {selectedEntityIds.map(id => {
                       const info = getSelectedItemInfo(id);
                       const colorMap = {
@@ -1170,22 +1112,14 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
                         cyan: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700",
                         indigo: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700",
                         amber: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700",
-                        slate: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600",
+                        slate: "bg-slate-100 dark:bg-slate-800 text-slate-655 dark:text-slate-300 border-slate-300 dark:border-slate-600",
                       };
                       return (
-                        <span
-                          key={id}
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border max-w-[200px] ${colorMap[info.color] || colorMap.slate}`}
-                          title={info.name}
-                        >
-                          <span className="opacity-60 uppercase shrink-0" style={{ fontSize: "8px" }}>{info.label}</span>
-                          <span className="truncate">{info.name}</span>
-                          <button
-                            onClick={() => removeSelectedId(id)}
-                            className="ml-0.5 shrink-0 hover:opacity-70 transition-opacity"
-                            title={`Remove ${info.name}`}
-                          >
-                            <X className="w-3 h-3" />
+                        <span key={id} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-bold border ${colorMap[info.color] || colorMap.slate}`}>
+                          <span className="opacity-60 text-[8px] uppercase tracking-wider font-mono shrink-0">{info.label}</span>
+                          <span className="truncate max-w-[120px]">{info.name}</span>
+                          <button onClick={() => removeSelectedId(id)} className="hover:opacity-75 shrink-0">
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </span>
                       );
@@ -1194,112 +1128,99 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
                 </div>
               )}
 
-              {/* Assignment Scope */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Who can access the selected content?
-                </label>
-                <div className="flex space-x-6 py-1">
-                  <label className="flex items-center space-x-2 text-sm font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+              {/* Assignment matrix option */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Clearance Mappings Scope</label>
+                <div className="flex gap-6">
+                  <label className="flex items-center space-x-2 text-sm font-bold text-slate-700 dark:text-slate-350 cursor-pointer select-none">
                     <input
                       type="radio"
-                      name="assignmentScope"
+                      name="accessScopeRadio"
                       value="ALL"
                       checked={assignmentScope === "ALL"}
                       onChange={() => setAssignmentScope("ALL")}
-                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 bg-transparent border-slate-300"
                     />
-                    <span>All Students (Global)</span>
+                    <span>Global Access (All Students)</span>
                   </label>
-                  <label className="flex items-center space-x-2 text-sm font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+                  <label className="flex items-center space-x-2 text-sm font-bold text-slate-700 dark:text-slate-350 cursor-pointer select-none">
                     <input
                       type="radio"
-                      name="assignmentScope"
+                      name="accessScopeRadio"
                       value="SPECIFIC"
                       checked={assignmentScope === "SPECIFIC"}
                       onChange={() => setAssignmentScope("SPECIFIC")}
-                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 bg-transparent border-slate-300"
                     />
-                    <span>Selected Branches Only</span>
+                    <span>Selected Specialties Only</span>
                   </label>
                 </div>
               </div>
 
               {assignmentScope === "ALL" ? (
-                <div className="flex flex-col items-center justify-center text-center py-12 px-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                  <Check className="w-12 h-12 text-emerald-500 bg-emerald-500/10 rounded-full p-2 mb-4" />
-                  <h4 className="text-base font-bold text-slate-800 dark:text-slate-200 mb-2">
-                    Access open to all students
-                  </h4>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
-                    Because "All Students" is selected, the selected target modules/companies will be globally visible and accessible by every student in the platform.
-                  </p>
+                <div className="flex flex-col items-center justify-center text-center py-12 px-6 border border-dashed border-slate-205 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20">
+                  <Check className="w-10 h-10 text-emerald-500 bg-emerald-500/10 rounded-full p-2 mb-3" />
+                  <h4 className="font-bold text-slate-800 dark:text-white text-sm">Global visibility enabled</h4>
+                  <p className="text-xs text-slate-450 mt-1 max-w-sm">Every user inside the platform will be authorized to access this content node by default.</p>
                 </div>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                   {branches.map((b) => {
                     const isChecked = selectedBranchIds.includes(b.id);
                     return (
                       <button
                         key={b.id}
                         onClick={() => toggleBranchSelection(b.id)}
-                        className={`text-left p-4 rounded-xl border font-bold transition-all flex items-center justify-between hover:scale-[1.01] ${
-                          isChecked
-                            ? "bg-emerald-500/10 border-emerald-500 text-slate-900 dark:text-white"
-                            : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400"
-                        }`}
+                        className={`text-left p-4 rounded-xl border font-bold transition-all flex items-center justify-between hover:scale-[1.005] ${isChecked ? "bg-emerald-500/10 border-emerald-500 text-slate-900 dark:text-white" : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-slate-550 dark:text-slate-400"}`}
                       >
                         <div>
-                          <div className="text-sm">{b.name}</div>
-                          <div className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 mt-1">
-                            {b.code}
-                          </div>
+                          <div className="text-xs">{b.name}</div>
+                          <div className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 mt-1">{b.code}</div>
                         </div>
-                        <div
-                          className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${
-                            isChecked
-                              ? "bg-emerald-500 border-emerald-500 text-white"
-                              : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950"
-                          }`}
-                        >
+                        <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${isChecked ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950"}`}>
                           {isChecked && <Check className="w-4 h-4" />}
                         </div>
                       </button>
                     );
                   })}
-                  {branches.length === 0 && (
-                    <div className="col-span-2 text-center py-12 text-slate-500">
-                      Please configure branches first in the "Manage Branches" tab.
-                    </div>
-                  )}
                 </div>
               )}
             </div>
 
-            <div className="pt-6 border-t border-slate-200 dark:border-slate-800 mt-6 flex justify-between items-center">
-              <span className="text-xs text-slate-400 font-semibold">
-                {selectedEntityIds.length > 0 ? (
-                  `Applying to ${selectedEntityIds.length} chosen target items.`
-                ) : (
-                  "Choose targets to proceed."
-                )}
-              </span>
+            {/* Actions Panel */}
+            <div className="pt-6 border-t border-slate-200 dark:border-slate-800 mt-6 flex flex-wrap gap-4 justify-between items-center">
+              <div className="flex gap-2">
+                <button
+                  disabled={selectedEntityIds.length === 0 || loading}
+                  onClick={handleRevokeAllAccess}
+                  className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold border border-rose-500/20 rounded-xl text-xs uppercase tracking-widest transition-colors flex items-center disabled:opacity-40"
+                >
+                  <Trash className="w-4 h-4 mr-2" />
+                  <span>Revoke All Access</span>
+                </button>
+              </div>
+
               <button
                 disabled={selectedEntityIds.length === 0 || loading}
-                onClick={handleSaveBatchMappings}
-                className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed text-xs uppercase tracking-wider"
+                onClick={() => handleSaveBatchMappings()}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-md transition-colors inline-flex items-center gap-1.5 disabled:opacity-40"
               >
-                {loading ? (
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                <span>{loading ? "Assigning..." : "Assign Access Permissions"}</span>
+                {loading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{loading ? "Saving Mappings..." : "Assign Access Permissions"}</span>
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Delete Branch confirmation */}
+      <ConfirmDialog
+        isOpen={deleteBranchId !== null}
+        title="Delete Academic Branch"
+        message={`Are you sure you want to permanently delete the branch "${deleteBranchName}"? This will unlink all students and access mappings.`}
+        onConfirm={handleDeleteBranch}
+        onCancel={() => { setDeleteBranchId(null); setDeleteBranchName(""); }}
+      />
     </div>
   );
 }
