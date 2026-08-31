@@ -1,28 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import { OperationType, collection, db, deleteDoc, doc, handleFirestoreError, onSnapshot, orderBy, query, updateDoc } from "../../firebase";
-
-import { Check, X, Trash2 } from "lucide-react";
+import { Check, X, Trash2, Search, Filter, ShieldCheck, Download, AlertTriangle } from "lucide-react";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { logAudit } from "../../auditLogger";
+import DataTable from "../common/DataTable";
 
 export function AdminPaymentRequestsTab({ userName = "Admin" }) {
   const [requests, setRequests] = useState([]);
   const [statusFilter, setStatusFilter] = useState("pending");
   const [deleteRequestId, setDeleteRequestId] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const q = query(
       collection(db, "payment_requests"),
-      orderBy("createdAt", "desc"),
+      orderBy("createdAt", "desc")
     );
     const unsub = onSnapshot(
       q,
       (snapshot) => {
         setRequests(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
       },
-      (error) =>
-        handleFirestoreError(error, OperationType.LIST, "payment_requests"),
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, "payment_requests");
+        setLoading(false);
+      }
     );
     return () => unsub();
   }, []);
@@ -33,28 +38,24 @@ export function AdminPaymentRequestsTab({ userName = "Admin" }) {
 
       if (action === "approved") {
         const userRef = doc(db, "users", req.userId);
-
         let updateData = {};
-
         let expiry = null;
+
         if (req.duration !== null) {
           if (req.duration === 99999) {
             expiry = null;
           } else if (req.duration <= 12) {
-            // Legacy month-based duration
             expiry = Date.now() + req.duration * 30 * 24 * 60 * 60 * 1000;
           } else if (req.duration === 999) {
-            // Legacy lifetime representation
             expiry = null;
           } else {
-            // Days-based duration (e.g. 15, 30, 90, 180 days)
             expiry = Date.now() + req.duration * 24 * 60 * 60 * 1000;
           }
         }
 
         if (req.itemType === "full_premium") {
           updateData["fullPremiumExpiry"] = expiry;
-          updateData["hasFullPremium"] = true; // Legacy support
+          updateData["hasFullPremium"] = true;
         } else if (req.itemType === "plan") {
           updateData["activePlanId"] = req.itemId;
           updateData["planExpiry"] = expiry;
@@ -78,8 +79,9 @@ export function AdminPaymentRequestsTab({ userName = "Admin" }) {
 
       await logAudit(
         userName,
-        `${action === "approved" ? "Approved" : "Rejected"} payment request for ${req.itemName} from ${req.userEmail}`,
+        `${action === "approved" ? "Approved" : "Rejected"} payment request for ${req.itemName} from ${req.userEmail}`
       );
+      setSelectedRequest(null);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, "payment_requests");
     }
@@ -96,181 +98,256 @@ export function AdminPaymentRequestsTab({ userName = "Admin" }) {
     }
   };
 
-  const filtered =
-    statusFilter === "all"
-      ? requests
-      : requests.filter((r) => r.status === statusFilter);
+  const filtered = requests.filter((r) => {
+    if (statusFilter === "all") return true;
+    return r.status === statusFilter;
+  });
 
-  const metrics = {
-    total: requests.length,
-    pending: requests.filter((r) => r.status === "pending").length,
-    approved: requests.filter((r) => r.status === "approved").length,
-    rejected: requests.filter((r) => r.status === "rejected").length,
-  };
+  const columns = [
+    {
+      label: "Requested Date",
+      key: "createdAt",
+      sortable: true,
+      render: (row) => (
+        <div className="font-mono text-xs">
+          <div>{new Date(row.createdAt).toLocaleDateString()}</div>
+          <div className="text-slate-400 mt-0.5">{new Date(row.createdAt).toLocaleTimeString()}</div>
+        </div>
+      ),
+    },
+    {
+      label: "Student",
+      key: "userName",
+      sortable: true,
+      render: (row) => (
+        <div>
+          <div className="font-bold text-slate-800 dark:text-white">{row.userName}</div>
+          <div className="text-xs text-slate-400 mt-0.5">{row.userEmail}</div>
+        </div>
+      ),
+    },
+    {
+      label: "Plan & Duration",
+      key: "itemName",
+      render: (row) => (
+        <div>
+          <span className="font-semibold text-slate-750 dark:text-slate-200">{row.itemName}</span>
+          <div className="text-[10px] uppercase font-mono tracking-wider text-slate-400 mt-1 flex items-center gap-2">
+            <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
+              {(row.itemType || "full_premium").replace("_", " ")}
+            </span>
+            <span>• {row.duration ? `${row.duration} Months` : "Permanent"}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      label: "Payment Details",
+      key: "transactionId",
+      render: (row) => (
+        <div>
+          <div className="font-mono text-xs font-semibold">{row.transactionId || "N/A"}</div>
+          {row.paymentMethod && <div className="text-[10px] text-slate-400 mt-0.5 uppercase">{row.paymentMethod}</div>}
+        </div>
+      ),
+    },
+    {
+      label: "Status",
+      key: "status",
+      render: (row) => {
+        const styles = {
+          pending: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+          approved: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+          rejected: "bg-rose-500/10 text-rose-500 border-rose-500/20",
+        };
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${styles[row.status]}`}>
+            {row.status.toUpperCase()}
+          </span>
+        );
+      },
+    },
+    {
+      label: "Action",
+      key: "id",
+      className: "text-right",
+      render: (row) => (
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => setSelectedRequest(row)}
+            className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-emerald-500 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all"
+          >
+            Review
+          </button>
+          {row.status !== "pending" && (
+            <button
+              onClick={() => setDeleteRequestId(row.id)}
+              className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  const filterTabs = (
+    <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl whitespace-nowrap scrollbar-none border border-slate-200/50 dark:border-slate-800">
+      {["all", "pending", "approved", "rejected"].map((s) => (
+        <button
+          key={s}
+          onClick={() => setStatusFilter(s)}
+          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${statusFilter === s ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+        >
+          {s}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm">
-          <div className="text-sm font-medium text-slate-500 mb-1">
-            Total Requests
-          </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white">
-            {metrics.total}
-          </div>
-        </div>
-        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 p-4 rounded-xl shadow-sm">
-          <div className="text-sm font-medium text-amber-600 dark:text-amber-500 mb-1">
-            Pending
-          </div>
-          <div className="text-2xl font-black text-amber-700 dark:text-amber-400">
-            {metrics.pending}
-          </div>
-        </div>
-        <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 p-4 rounded-xl shadow-sm">
-          <div className="text-sm font-medium text-emerald-600 dark:text-emerald-500 mb-1">
-            Approved
-          </div>
-          <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-            {metrics.approved}
-          </div>
-        </div>
-        <div className="bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-800/50 p-4 rounded-xl shadow-sm">
-          <div className="text-sm font-medium text-rose-600 dark:text-rose-500 mb-1">
-            Rejected
-          </div>
-          <div className="text-2xl font-black text-rose-700 dark:text-rose-400">
-            {metrics.rejected}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-4 justify-between md:items-end mb-6">
+      <div className="flex flex-col md:flex-row gap-4 justify-between md:items-end">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-            Payment Requests
-          </h2>
-          <p className="text-sm text-slate-500">
-            Review student purchase requests and grant premium access.
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white">Purchase Requests</h2>
+          <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
+            Review student payment details, verify transaction proof, and grant premium workspace permissions.
           </p>
         </div>
-        <div className="flex space-x-2 bg-slate-100 dark:bg-slate-900/50 p-1 rounded-lg overflow-x-auto max-w-full whitespace-nowrap scrollbar-none shrink-0 self-start md:self-auto">
-          {["all", "pending", "approved", "rejected"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-colors ${statusFilter === s ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
       </div>
 
-      <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl glass-panel shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
-          <thead className="bg-slate-50 dark:bg-slate-900/50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                Student
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                Request Details
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                Transaction ID
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-slate-950 divide-y divide-slate-200 dark:divide-slate-800">
-            {filtered.map((req) => (
-              <tr
-                key={req.id}
-                className="hover:bg-slate-50 dark:hover:bg-slate-900/50"
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={loading}
+        searchKey="userName"
+        searchPlaceholder="Search by student name..."
+        filters={filterTabs}
+      />
+
+      {/* Slide-out Review Drawer */}
+      {selectedRequest && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setSelectedRequest(null)}
+          />
+          <div className="absolute inset-y-0 right-0 max-w-lg w-full bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 p-8 flex flex-col h-full z-50 animate-in slide-in-from-right duration-250">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-850 pb-6 mb-6">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white uppercase font-mono tracking-wider text-sm">
+                Review Request Details
+              </h3>
+              <button
+                onClick={() => setSelectedRequest(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  {new Date(req.createdAt).toLocaleDateString()}
-                  <div className="text-xs text-slate-400">
-                    {new Date(req.createdAt).toLocaleTimeString()}
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-6 custom-scrollbar pr-2">
+              {/* User details */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400">Student Profile</h4>
+                <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-2xl flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 font-bold shrink-0">
+                    {selectedRequest.userName.charAt(0).toUpperCase()}
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-100">
-                  {req.userName}
-                  <div className="text-xs text-slate-500 font-normal">
-                    {req.userEmail}
+                  <div>
+                    <p className="font-bold text-slate-800 dark:text-white">{selectedRequest.userName}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{selectedRequest.userEmail}</p>
                   </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
-                  <span className="font-semibold">{req.itemName}</span>
-                  <div className="text-xs mt-1">
-                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-500 uppercase">
-                      {(req.itemType || "full_premium").replace("_", " ")}
-                    </span>
-                    <span className="ml-2 text-slate-400">
-                      Duration:{" "}
-                      {req.duration ? `${req.duration} Months` : "Permanent"}
-                    </span>
+                </div>
+              </div>
+
+              {/* Request Info */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400">Items Requested</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-xl">
+                    <p className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider">Item Type</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-white mt-1 capitalize">
+                      {(selectedRequest.itemType || "full_premium").replace("_", " ")}
+                    </p>
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-600 dark:text-slate-400">
-                  {req.transactionId}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {req.status === "pending" ? (
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => handleAction(req, "approved")}
-                        className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 dark:text-emerald-400 rounded-lg transition-colors"
-                        title="Approve & Grant Access"
-                      >
-                        <Check className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleAction(req, "rejected")}
-                        className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 dark:text-rose-400 rounded-lg transition-colors"
-                        title="Reject Request"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-end space-x-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${req.status === "approved" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" : "bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400"}`}
-                      >
-                        {req.status.toUpperCase()}
-                      </span>
-                      <button
-                        onClick={() => setDeleteRequestId(req.id)}
-                        className="text-slate-400 hover:text-red-500"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-xl">
+                    <p className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider">Duration</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-white mt-1">
+                      {selectedRequest.duration ? `${selectedRequest.duration} Months` : "Permanent"}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider">Plan Name</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white mt-1">{selectedRequest.itemName}</p>
+                </div>
+              </div>
+
+              {/* Transaction Proof */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400">Transaction Details</h4>
+                <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-xl font-mono text-xs space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Transaction ID:</span>
+                    <span className="font-bold text-slate-800 dark:text-white">{selectedRequest.transactionId || "N/A"}</span>
+                  </div>
+                  {selectedRequest.paymentMethod && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Method:</span>
+                      <span className="font-bold text-slate-800 dark:text-white uppercase">{selectedRequest.paymentMethod}</span>
                     </div>
                   )}
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-6 py-8 text-center text-sm text-slate-500"
-                >
-                  No {statusFilter !== "all" ? statusFilter : ""} payment
-                  requests found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  {selectedRequest.amount && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Amount Paid:</span>
+                      <span className="font-bold text-emerald-500 font-sans">₹{selectedRequest.amount}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Image Proof if exists */}
+              {selectedRequest.paymentProofUrl && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400">Payment Screenshot</h4>
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-black/10">
+                    <img
+                      src={selectedRequest.paymentProofUrl}
+                      alt="Payment proof"
+                      className="max-h-60 w-full object-contain mx-auto"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions Footer */}
+            <div className="border-t border-slate-200 dark:border-slate-850 pt-6 mt-6 flex gap-4">
+              {selectedRequest.status === "pending" ? (
+                <>
+                  <button
+                    onClick={() => handleAction(selectedRequest, "rejected")}
+                    className="flex-1 py-3 border border-rose-500/20 bg-rose-550/10 text-rose-500 hover:bg-rose-550/20 font-bold rounded-xl text-xs uppercase tracking-widest transition-all"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => handleAction(selectedRequest, "approved")}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" /> Approve Purchase
+                  </button>
+                </>
+              ) : (
+                <div className="w-full text-center py-2.5 font-bold uppercase font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-xl">
+                  Request {selectedRequest.status}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         isOpen={deleteRequestId !== null}
