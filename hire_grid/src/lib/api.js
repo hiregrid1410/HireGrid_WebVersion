@@ -4,6 +4,20 @@ const API_URL =
 const API_BASE = API_URL.endsWith("/api") ? API_URL : `${API_URL}/api`;
 
 const inFlightRequests = new Map();
+const responseCache = new Map();
+const CACHE_TTL = 30000; // 30 seconds default TTL
+
+export function invalidateCache(pathPattern) {
+  if (!pathPattern) {
+    responseCache.clear();
+    return;
+  }
+  for (const key of responseCache.keys()) {
+    if (key.includes(pathPattern)) {
+      responseCache.delete(key);
+    }
+  }
+}
 
 let isServerWaking = false;
 let wakingPromise = null;
@@ -79,9 +93,21 @@ async function waitForServerToWake() {
   return wakingPromise;
 }
 
-async function request(method, path, body = null) {
+async function request(method, path, body = null, requestOptions = {}) {
+  const now = Date.now();
+  if (method === "GET" && !requestOptions.bypassCache) {
+    const cached = responseCache.get(path);
+    if (cached && (now - cached.timestamp < (requestOptions.ttl || CACHE_TTL))) {
+      return cached.data;
+    }
+  }
+
   if (method === "GET" && inFlightRequests.has(path)) {
     return inFlightRequests.get(path);
+  }
+
+  if (method !== "GET" && !requestOptions.bypassCacheClear) {
+    responseCache.clear();
   }
 
   const token = localStorage.getItem("token");
@@ -97,6 +123,7 @@ async function request(method, path, body = null) {
   const options = {
     method,
     headers,
+    signal: requestOptions.signal,
   };
 
   if (body) {
@@ -146,8 +173,19 @@ async function request(method, path, body = null) {
           throw new Error(message);
         }
 
+        if (method === "GET") {
+          responseCache.set(path, {
+            data,
+            timestamp: Date.now(),
+          });
+        }
+
         return data;
       } catch (err) {
+        if (err.name === "AbortError") {
+          throw err;
+        }
+
         const isDbConnError = err.message && err.message.startsWith("DB_CONN_ERROR:");
         // If it is a business/HTTP error thrown by us above (not a DB_CONN_ERROR), don't retry
         if (
@@ -222,8 +260,8 @@ export function getDeviceName() {
 }
 
 export const api = {
-  get: (path) => request("GET", path),
-  post: (path, body) => request("POST", path, body),
-  put: (path, body) => request("PUT", path, body),
-  delete: (path) => request("DELETE", path),
+  get: (path, options = {}) => request("GET", path, null, options),
+  post: (path, body, options = {}) => request("POST", path, body, options),
+  put: (path, body, options = {}) => request("PUT", path, body, options),
+  delete: (path, options = {}) => request("DELETE", path, null, options),
 };

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import { showToast } from "../common/Toast";
 import { Lock, Trophy, Award, Timer, BookOpen, AlertTriangle, ShieldCheck, HelpCircle } from "lucide-react";
+import { MissionsSkeleton, LeaderboardSkeleton } from "../loading/Skeletons";
 
 export function PlacementMissionView({ currentUser, onStartModule }) {
   const [activeSubTab, setActiveSubTab] = useState("missions"); // 'missions' | 'leaderboard'
@@ -135,10 +136,7 @@ export function PlacementMissionView({ currentUser, onStartModule }) {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <div className="h-10 w-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-400 font-mono text-sm">LOADING COMPILATION...</p>
-        </div>
+        activeSubTab === "missions" ? <MissionsSkeleton /> : <LeaderboardSkeleton />
       ) : activeSubTab === "missions" ? (
         isPremiumLocked ? (
           /* Locked Premium State for Free Users */

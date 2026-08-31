@@ -54,6 +54,17 @@ import { showToast } from "../../components/common/Toast";
 import { useFullScreenSecurity } from "../../hooks/useFullScreenSecurity";
 import { useWatermark } from "../../hooks/useWatermark";
 import { validateProfile } from "../../utils/validators";
+// Memory cache for Firestore master collections
+let cachedMasterData = null;
+let cachedMasterDataTime = 0;
+const FIRESTORE_CACHE_TTL = 30000; // 30 seconds TTL
+
+import {
+  DashboardSkeleton,
+  CompanyCardSkeleton,
+  PlanCardSkeleton,
+  ProfileSkeleton
+} from "../../components/loading/Skeletons";
 
 export default function StudentDashboard() {
   const { syncUserTheme } = useTheme();
@@ -543,6 +554,20 @@ export default function StudentDashboard() {
     const fetchMasterData = async () => {
       setLoadingMetadata(true);
       setMetadataError(null);
+
+      const now = Date.now();
+      if (cachedMasterData && (now - cachedMasterDataTime < FIRESTORE_CACHE_TTL)) {
+        setModules(cachedMasterData.modules);
+        setCompanies(cachedMasterData.companies);
+        setExams(cachedMasterData.exams);
+        setPlans(cachedMasterData.plans);
+        if (cachedMasterData.activeBranches && cachedMasterData.activeBranches.length > 0) {
+          setActiveBranches(cachedMasterData.activeBranches);
+        }
+        setLoadingMetadata(false);
+        return;
+      }
+
       try {
         const [modsSnap, compSnap, examsSnap, plansSnap, branchesRes] = await Promise.all([
           getDocs(query(collection(db, "modules"), orderBy("createdAt", "asc"))),
@@ -551,13 +576,31 @@ export default function StudentDashboard() {
           getDocs(collection(db, "plans")),
           api.get("/branches/active").catch(() => ({ success: false, branches: [] }))
         ]);
-        setModules(modsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setCompanies(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setExams(examsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setPlans(plansSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        if (branchesRes.success && branchesRes.branches) {
-          setActiveBranches(branchesRes.branches);
+        
+        const freshModules = modsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const freshCompanies = compSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const freshExams = examsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const freshPlans = plansSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const freshBranches = branchesRes.success && branchesRes.branches ? branchesRes.branches : [];
+
+        setModules(freshModules);
+        setCompanies(freshCompanies);
+        setExams(freshExams);
+        setPlans(freshPlans);
+        if (freshBranches.length > 0) {
+          setActiveBranches(freshBranches);
         }
+
+        // Cache the master data
+        cachedMasterData = {
+          modules: freshModules,
+          companies: freshCompanies,
+          exams: freshExams,
+          plans: freshPlans,
+          activeBranches: freshBranches
+        };
+        cachedMasterDataTime = Date.now();
+
         setLoadingMetadata(false);
       } catch (err) {
         console.error("Error loading dashboard metadata:", err);
@@ -892,13 +935,10 @@ export default function StudentDashboard() {
     }, 3000);
 
     try {
-      // Small artificial delays to let students notice submitting/grading phases
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      setSubmitState("grading");
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      // Submit and grade attempt securely on the backend
+      setSubmitState("submitting");
       const url = isPlacementAttempt ? `/placement-mission/attempts/${attemptId}/submit` : `/attempts/${attemptId}/submit`;
+      
+      // Submit and grade attempt securely on the backend immediately without artificial delays
       const result = await api.post(url, {
         answers
       });
@@ -1284,14 +1324,7 @@ export default function StudentDashboard() {
   }
 
   if (loadingMetadata) {
-    return (
-      <div className="min-h-screen bg-[#070D19] flex items-center justify-center">
-        <div className="relative">
-          <div className="h-12 w-12 rounded-full border-t-2 border-b-2 border-emerald-500 animate-spin"></div>
-          <div className="absolute inset-0 m-auto h-6 w-6 rounded-full bg-emerald-500/10 animate-ping"></div>
-        </div>
-      </div>
-    );
+    return <ProgressCircuitLoader fullScreen indeterminate label="Loading your workspace..." />;
   }
 
   if (metadataError) {
@@ -1337,23 +1370,14 @@ export default function StudentDashboard() {
   return (
     <div className="std-layout">
       {submitState && (
-        <div className="fixed inset-0 z-[9999] bg-[#070D19]/90 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-300">
-          <div className="max-w-md w-full bg-[#0E1629] border border-slate-850 rounded-3xl p-8 shadow-2xl relative overflow-hidden flex flex-col items-center animate-in zoom-in-95 duration-200">
-            {/* Spinning/progress indicator */}
-            <div className="relative mb-6">
-              <div className="h-16 w-16 rounded-full border-4 border-emerald-500/10 border-t-emerald-500 animate-spin"></div>
-              <div className="absolute inset-0 m-auto h-8 w-8 rounded-full bg-emerald-500/10 animate-ping"></div>
-            </div>
-
-            <h3 className="text-xl font-black text-slate-100 uppercase tracking-wider mb-2 font-mono">
-              {submitState === "submitting" ? "Submitting your exam..." : "Calculating your score..."}
-            </h3>
-            <p className="text-sm text-slate-400 font-medium">
-              {showPreparingResult
-                ? "Your answers were submitted successfully. We're preparing your result..."
-                : "Please wait, your assessment is being finalized."}
-            </p>
-          </div>
+        <div className="fixed inset-0 z-[9999] bg-[#070D19]/95 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-300">
+          <ProgressCircuitLoader
+            indeterminate
+            label={submitState === "submitting" ? "Submitting your assessment..." : "Calculating your result..."}
+          />
+          <p className="text-sm text-slate-400 font-medium mt-4 max-w-md">
+            Please don't close or refresh this page. Your responses are being processed and graded securely.
+          </p>
         </div>
       )}
 
@@ -2306,19 +2330,23 @@ export default function StudentDashboard() {
               {!activeModule && !activeMasterModule && (
                 <>
                   {activeTab === "dashboard" && (
-                    <StudentDashboardView
-                      user={currentUserDoc || user}
-                      stats={stats}
-                      medalInfo={medalInfo}
-                      modules={modules}
-                      moduleScores={moduleScores}
-                      companies={companies}
-                      activeBranches={activeBranches}
-                      placementMissions={placementMissions}
-                      leaderboard={leaderboard}
-                      onTabChange={handleNavClick}
-                      onStartModule={handleStartModule}
-                    />
+                    loadingMetadata ? (
+                      <DashboardSkeleton />
+                    ) : (
+                      <StudentDashboardView
+                        user={currentUserDoc || user}
+                        stats={stats}
+                        medalInfo={medalInfo}
+                        modules={modules}
+                        moduleScores={moduleScores}
+                        companies={companies}
+                        activeBranches={activeBranches}
+                        placementMissions={placementMissions}
+                        leaderboard={leaderboard}
+                        onTabChange={handleNavClick}
+                        onStartModule={handleStartModule}
+                      />
+                    )
                   )}
 
                   {activeTab === "general" && (
@@ -2332,22 +2360,26 @@ export default function StudentDashboard() {
                   )}
 
                   {activeTab === "companies" && (
-                    <StudentCompaniesView
-                      companies={companies}
-                      activeCompany={activeCompany}
-                      setActiveCompany={setActiveCompany}
-                      assessmentPlanFilter={assessmentPlanFilter}
-                      hasAccessToCompany={hasAccessToCompany}
-                      hasItemAccess={hasItemAccess}
-                      modules={modules}
-                      moduleScores={moduleScores}
-                      purchaseItem={purchaseItem}
-                      onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type })}
-                      onBackFromPurchase={() => setPurchaseItem(null)}
-                      submitAccessRequest={submitAccessRequest}
-                      accessRequestSent={accessRequestSent}
-                      onStartModule={handleStartModule}
-                    />
+                    loadingMetadata ? (
+                      <CompanyCardSkeleton />
+                    ) : (
+                      <StudentCompaniesView
+                        companies={companies}
+                        activeCompany={activeCompany}
+                        setActiveCompany={setActiveCompany}
+                        assessmentPlanFilter={assessmentPlanFilter}
+                        hasAccessToCompany={hasAccessToCompany}
+                        hasItemAccess={hasItemAccess}
+                        modules={modules}
+                        moduleScores={moduleScores}
+                        purchaseItem={purchaseItem}
+                        onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type })}
+                        onBackFromPurchase={() => setPurchaseItem(null)}
+                        submitAccessRequest={submitAccessRequest}
+                        accessRequestSent={accessRequestSent}
+                        onStartModule={handleStartModule}
+                      />
+                    )
                   )}
 
                   {activeTab === "placement-mission" && (
@@ -2358,14 +2390,18 @@ export default function StudentDashboard() {
                   )}
 
                   {activeTab === "plans" && (
-                    <StudentPlansView
-                      plans={plans}
-                      currentUser={currentUserDoc}
-                      purchaseItem={purchaseItem}
-                      onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type })}
-                      onBackFromPurchase={() => setPurchaseItem(null)}
-                      onStartAssessmentFlow={handleStartAssessmentFlow}
-                    />
+                    loadingMetadata ? (
+                      <PlanCardSkeleton />
+                    ) : (
+                      <StudentPlansView
+                        plans={plans}
+                        currentUser={currentUserDoc}
+                        purchaseItem={purchaseItem}
+                        onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type })}
+                        onBackFromPurchase={() => setPurchaseItem(null)}
+                        onStartAssessmentFlow={handleStartAssessmentFlow}
+                      />
+                    )
                   )}
 
                   {activeTab === "feedback" && (
@@ -2373,22 +2409,26 @@ export default function StudentDashboard() {
                   )}
 
                   {activeTab === "profile" && (
-                    <StudentProfileView
-                      currentUser={currentUserDoc}
-                      profileForm={profileForm}
-                      setProfileForm={setProfileForm}
-                      onSaveProfile={handleSaveProfile}
-                      stats={stats}
-                      medalInfo={medalInfo}
-                      moduleScores={moduleScores}
-                      activeBranches={activeBranches}
-                      isChangingBranch={isChangingBranch}
-                      setIsChangingBranch={setIsChangingBranch}
-                      onSwitchBranch={async (b) => {
-                        setTempSelectedBranch(b);
-                        setShowBranchConfirmation(true);
-                      }}
-                    />
+                    loadingMetadata ? (
+                      <ProfileSkeleton />
+                    ) : (
+                      <StudentProfileView
+                        currentUser={currentUserDoc}
+                        profileForm={profileForm}
+                        setProfileForm={setProfileForm}
+                        onSaveProfile={handleSaveProfile}
+                        stats={stats}
+                        medalInfo={medalInfo}
+                        moduleScores={moduleScores}
+                        activeBranches={activeBranches}
+                        isChangingBranch={isChangingBranch}
+                        setIsChangingBranch={setIsChangingBranch}
+                        onSwitchBranch={async (b) => {
+                          setTempSelectedBranch(b);
+                          setShowBranchConfirmation(true);
+                        }}
+                      />
+                    )
                   )}
                 </>
               )}

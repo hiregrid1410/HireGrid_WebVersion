@@ -33,6 +33,7 @@ import DataTable from "../../components/common/DataTable";
 import { useTheme } from "../../ThemeContext";
 import { api } from "../../lib/api";
 import { showToast } from "../../components/common/Toast";
+import { DashboardSkeleton } from "../../components/loading/Skeletons";
 
 export default function ContentManagerDashboard() {
   const location = useLocation();
@@ -395,16 +396,27 @@ export default function ContentManagerDashboard() {
         <main className="flex-1 overflow-y-auto bg-slate-950 p-8 custom-scrollbar">
           <div className="max-w-7xl mx-auto">
             {activeTab === "dashboard" && (
-              <div className="space-y-8 animate-in fade-in duration-300">
-                {/* Greeting */}
-                <div>
-                  <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                    Welcome back, {userName}! <span className="text-xl">👋</span>
-                  </h1>
-                  <p className="text-sm text-slate-400 mt-1">Here is what is happening with your content catalog.</p>
+              loadingStats ? (
+                <div className="space-y-8 animate-in fade-in duration-300">
+                  <div>
+                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                      Welcome back, {userName}! <span className="text-xl">👋</span>
+                    </h1>
+                    <p className="text-sm text-slate-400 mt-1">Here is what is happening with your content catalog.</p>
+                  </div>
+                  <DashboardSkeleton />
                 </div>
+              ) : (
+                <div className="space-y-8 animate-in fade-in duration-300">
+                  {/* Greeting */}
+                  <div>
+                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                      Welcome back, {userName}! <span className="text-xl">👋</span>
+                    </h1>
+                    <p className="text-sm text-slate-400 mt-1">Here is what is happening with your content catalog.</p>
+                  </div>
 
-                {/* KPI Cards Grid */}
+                  {/* KPI Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
                   <KPICard
                     title="Total Companies"
@@ -686,7 +698,7 @@ export default function ContentManagerDashboard() {
                   </div>
                 </div>
               </div>
-            )}
+            ))}
 
             {activeTab === "company-modules" && (
               <div className="animate-in fade-in duration-300">
