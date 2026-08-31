@@ -31,18 +31,17 @@ export function StudentSidebar({
       {/* Sidebar Header */}
       <div className="std-sidebar-brand">
         {sidebarOpen ? (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)] border border-emerald-400/20">
-              <span className="text-white text-xs font-black font-mono">HG</span>
-            </div>
-            <span className="text-base font-black uppercase tracking-widest bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent drop-shadow-md">
-              COMMAND
-            </span>
-          </div>
+          <img
+            src="/dark_logo.png"
+            alt="HireGridX Logo"
+            className="std-sidebar-logo-img"
+          />
         ) : (
-          <div className="mx-auto w-8 h-8 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-            <span className="text-white text-xs font-black font-mono">HG</span>
-          </div>
+          <img
+            src="/dark_logo.png"
+            alt="HireGridX Logo"
+            className="w-8 h-8 object-contain mx-auto bg-transparent"
+          />
         )}
 
         {sidebarOpen && (
