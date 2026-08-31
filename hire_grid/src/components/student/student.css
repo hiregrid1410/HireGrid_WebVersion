@@ -962,3 +962,52 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Watermark styles */
+.watermark-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 60px;
+  justify-items: center;
+  align-items: center;
+  z-index: 50;
+  overflow: hidden;
+  user-select: none;
+  transition: transform 0.5s ease-in-out;
+}
+.watermark-item {
+  font-size: 10px;
+  font-weight: bold;
+  font-family: monospace;
+  text-align: center;
+  white-space: nowrap;
+  user-select: none;
+}
+@media print {
+  body {
+    display: none !important;
+  }
+  .select-none-all {
+    display: none !important;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-slide-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+

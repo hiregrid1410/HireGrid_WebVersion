@@ -51,6 +51,9 @@ import { OperationType, auth, collection, db, doc, getDocs, handleFirestoreError
 
 import { MathText } from "../../components/common/MathText";
 import { showToast } from "../../components/common/Toast";
+import { useFullScreenSecurity } from "../../hooks/useFullScreenSecurity";
+import { useWatermark } from "../../hooks/useWatermark";
+import { validateProfile } from "../../utils/validators";
 
 export default function StudentDashboard() {
   const { syncUserTheme } = useTheme();
@@ -92,7 +95,6 @@ export default function StudentDashboard() {
 
   // Anti-Cheating & Auto-Fullscreen System
   const [warningCount, setWarningCount] = useState(0);
-  const [showWarningModal, setShowWarningModal] = useState(false);
   const [showNavigator, setShowNavigator] = useState(false);
   const [visitedQuestions, setVisitedQuestions] = useState(new Set());
 
@@ -126,32 +128,46 @@ export default function StudentDashboard() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [showNavigator]);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
   const [attemptId, setAttemptId] = useState(null);
-  const [watermarkOffset, setWatermarkOffset] = useState({ x: 0, y: 0 });
   const [correctAnswers, setCorrectAnswers] = useState({});
-  const [watermarkOpacity, setWatermarkOpacity] = useState(0.012);
 
-  const triggerWatermarkVisibility = () => {
-    setWatermarkOpacity(0.35);
-    setTimeout(() => {
-      setWatermarkOpacity(0.012);
-    }, 15000);
+  const {
+    watermarkOffset,
+    watermarkOpacity,
+    triggerWatermarkVisibility,
+  } = useWatermark({
+    activeModule,
+    currentQuestionIndex,
+    isFinished,
+    isReviewing,
+  });
+
+  const {
+    isFullscreen,
+    showWarningModal,
+    setShowWarningModal,
+    enterFullscreen,
+    exitFullscreen,
+    isFullscreenSupported,
+    handleStartReview: baseStartReview,
+    handleExitReview: baseExitReview,
+  } = useFullScreenSecurity({
+    activeModule,
+    currentQuestionIndex,
+    isFinished,
+    isReviewing,
+    setWarningCount,
+  });
+
+  const handleStartReview = () => {
+    baseStartReview();
+    setIsReviewing(true);
   };
 
-  useEffect(() => {
-    const isTestActive = activeModule && currentQuestionIndex >= 0 && !isFinished && !isReviewing;
-    if (isTestActive) {
-      const interval = setInterval(() => {
-        setWatermarkOffset({
-          x: Math.floor(Math.random() * 40) - 20,
-          y: Math.floor(Math.random() * 40) - 20,
-        });
-      }, 20000);
-      return () => clearInterval(interval);
-    }
-  }, [activeModule, currentQuestionIndex, isFinished, isReviewing]);
+  const handleExitReview = () => {
+    baseExitReview();
+    setIsReviewing(false);
+  };
 
   // Heartbeat / Attempt state auto-sync (runs every 30s)
   useEffect(() => {
@@ -171,85 +187,6 @@ export default function StudentDashboard() {
 
     return () => clearInterval(interval);
   }, [attemptId, activeModule, currentQuestionIndex, isFinished, isReviewing, answers, warningCount]);
-
-  const isFullscreenSupported = () => {
-    const elem = document.documentElement;
-    return !!(elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen);
-  };
-
-  const enterFullscreen = () => {
-    try {
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(() => {});
-      } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
-      } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-      }
-    } catch (e) {}
-  };
-
-  const exitFullscreen = () => {
-    try {
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        if (document.exitFullscreen) {
-          document.exitFullscreen().catch(() => {});
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        }
-      }
-    } catch (e) {}
-  };
-
-  const handleStartReview = () => {
-    enterFullscreen();
-    setWarningCount(0);
-    setShowWarningModal(false);
-    setIsReviewing(true);
-  };
-
-  const handleExitReview = () => {
-    exitFullscreen();
-    setIsReviewing(false);
-    setShowWarningModal(false);
-  };
-
-  // Fullscreen Verification Hook (ensures student is locked in fullscreen during test & review)
-  useEffect(() => {
-    const isSecurityActive =
-      activeModule &&
-      ((currentQuestionIndex >= 0 && !isFinished && !isReviewing) || isReviewing);
-
-    if (!isSecurityActive || !isFullscreenSupported()) return;
-
-    // Check immediately after a small delay (to allow fullscreen transition)
-    const checkTimer = setTimeout(() => {
-      const inFS = !!(
-        document.fullscreenElement || document.webkitFullscreenElement
-      );
-      setIsFullscreen(inFS);
-      if (!inFS) {
-        setShowWarningModal(true);
-      }
-    }, 1200);
-
-    // Periodic check every 2.5 seconds to ensure they remain in fullscreen
-    const interval = setInterval(() => {
-      const inFS = !!(
-        document.fullscreenElement || document.webkitFullscreenElement
-      );
-      setIsFullscreen(inFS);
-      if (!inFS) {
-        setShowWarningModal(true);
-      }
-    }, 2500);
-
-    return () => {
-      clearTimeout(checkTimer);
-      clearInterval(interval);
-    };
-  }, [activeModule, currentQuestionIndex, isFinished, isReviewing]);
 
   const [stats, setStats] = useState({
     xp: 0,
@@ -1130,6 +1067,13 @@ export default function StudentDashboard() {
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!auth.currentUser) return;
+
+    const validation = validateProfile(profileForm);
+    if (!validation.isValid) {
+      showToast(validation.error, "error");
+      return;
+    }
+
     try {
       await setDoc(
         doc(db, "users", auth.currentUser.uid),
@@ -1569,36 +1513,7 @@ export default function StudentDashboard() {
                           msUserSelect: "none",
                         }}
                       >
-                        <style>{`
-                          .watermark-overlay {
-                            position: absolute;
-                            inset: 0;
-                            pointer-events: none;
-                            user-select: none;
-                            overflow: hidden;
-                            z-index: 50;
-                            display: grid;
-                            grid-template-columns: repeat(4, 1fr);
-                            grid-template-rows: repeat(4, 1fr);
-                            gap: 60px;
-                            transition: transform 0.5s ease-in-out;
-                          }
-                          .watermark-item {
-                            font-size: 10px;
-                            font-weight: bold;
-                            font-family: monospace;
-                            text-align: center;
-                            white-space: nowrap;
-                          }
-                          @media print {
-                            body {
-                              display: none !important;
-                            }
-                            .select-none-all {
-                              display: none !important;
-                            }
-                          }
-                        `}</style>
+
 
                         {/* Dynamic Watermark */}
                         <div className="watermark-overlay" style={{ transform: `translate(${watermarkOffset.x}px, ${watermarkOffset.y}px) rotate(-25deg) scale(1.2)` }}>
@@ -1966,50 +1881,7 @@ export default function StudentDashboard() {
                         msUserSelect: "none",
                       }}
                     >
-                      <style>{`
-                        .watermark-overlay {
-                          position: absolute;
-                          inset: 0;
-                          pointer-events: none;
-                          user-select: none;
-                          overflow: hidden;
-                          z-index: 50;
-                          display: grid;
-                          grid-template-columns: repeat(4, 1fr);
-                          grid-template-rows: repeat(4, 1fr);
-                          gap: 60px;
-                          transition: transform 0.5s ease-in-out;
-                        }
-                        .watermark-item {
-                          font-size: 10px;
-                          font-weight: bold;
-                          font-family: monospace;
-                          text-align: center;
-                          white-space: nowrap;
-                        }
-                        @keyframes fadeIn {
-                          from { opacity: 0; }
-                          to { opacity: 1; }
-                        }
-                        @keyframes slideInRight {
-                          from { transform: translateX(100%); }
-                          to { transform: translateX(0); }
-                        }
-                        .animate-fade-in {
-                          animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                        }
-                        .animate-slide-in-right {
-                          animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                        }
-                        @media print {
-                          body {
-                            display: none !important;
-                          }
-                          .select-none-all {
-                            display: none !important;
-                          }
-                        }
-                      `}</style>
+
 
                       {/* Dynamic Watermark */}
                       <div className="watermark-overlay" style={{ transform: `translate(${watermarkOffset.x}px, ${watermarkOffset.y}px) rotate(-25deg) scale(1.2)` }}>
