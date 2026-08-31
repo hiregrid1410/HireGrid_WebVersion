@@ -39,7 +39,7 @@ export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const logo = theme === "dark" ? "/dark_logo.png" : "/light_logo.png";
+  const logo = "/dark_logo.png";
   const savedUserStr = localStorage.getItem("user");
   let savedUser = null;
   try {
