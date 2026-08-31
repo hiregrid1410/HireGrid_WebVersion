@@ -33,10 +33,13 @@ import { AdminBranchesTab } from "../../components/admin/AdminBranchesTab";
 import { AdminSystemHealthTab } from "../../components/admin/AdminSystemHealthTab";
 import { AdminMaintenanceTab } from "../../components/admin/AdminMaintenanceTab";
 import { ThemeToggle } from "../../components/common/ThemeToggle";
+import { useTheme } from "../../ThemeContext";
 
 export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const logo = theme === "dark" ? "/dark_logo.png" : "/light_logo.png";
   const savedUserStr = localStorage.getItem("user");
   let savedUser = null;
   try {
@@ -180,7 +183,7 @@ export default function AdminDashboard() {
           {sidebarOpen ? (
             <>
               <div className="flex items-center gap-3">
-                <img src="/weblogo.png" alt="HireGridX Logo" className="h-11 w-auto object-contain bg-transparent" />
+                <img src={logo} alt="HireGridX Logo" className="h-11 w-auto object-contain bg-transparent" />
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
@@ -195,7 +198,7 @@ export default function AdminDashboard() {
               className="mx-auto p-1.5 hover:bg-slate-850 rounded-xl transition-all cursor-pointer flex items-center justify-center"
               title="Expand Sidebar"
             >
-              <img src="/weblogo.png" alt="HireGridX Logo" className="h-11 w-11 object-contain bg-transparent" />
+              <img src={logo} alt="HireGridX Logo" className="h-11 w-11 object-contain bg-transparent" />
             </button>
           )}
         </div>
