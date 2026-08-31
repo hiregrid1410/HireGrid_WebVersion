@@ -191,3 +191,25 @@ body {
   -ms-user-select: none !important;
   user-select: none !important;
 }
+
+@keyframes skeleton-shimmer-anim {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #0e1629 25%, #17223b 37%, #0e1629 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer-anim 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+    background: #0e1629;
+  }
+}

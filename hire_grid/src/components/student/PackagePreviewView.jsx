@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { PremiumPurchaseView } from "./PremiumPurchaseView";
+import { TableSkeleton } from "../loading/Skeletons";
 
 export function PackagePreviewView({
   packageNode,
@@ -184,9 +185,7 @@ export function PackagePreviewView({
         </div>
 
         {loading ? (
-          <div className="h-40 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full border-t-2 border-indigo-500 animate-spin"></div>
-          </div>
+          <TableSkeleton rows={3} cols={2} />
         ) : (
           <div className="space-y-8">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

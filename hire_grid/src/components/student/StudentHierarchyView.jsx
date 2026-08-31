@@ -272,33 +272,39 @@ export function StudentHierarchyView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-2 text-sm text-slate-500 bg-slate-100 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 tracking-wide overflow-x-auto whitespace-nowrap">
+      {/* Breadcrumbs path navigator */}
+      <div className="flex items-center space-x-2 text-sm text-slate-400 bg-[#0E1629] p-4 rounded-xl border border-slate-850 tracking-wide overflow-x-auto whitespace-nowrap custom-scrollbar">
         {path.map((step, idx) => (
           <React.Fragment key={idx}>
             <button
               onClick={() => jumpToPath(idx)}
-              className={`transition-colors font-semibold ${idx === path.length - 1 ? "text-slate-900 dark:text-slate-100 cursor-default" : "hover:text-amber-600 dark:hover:text-amber-400"}`}
+              className={`transition-colors font-semibold uppercase tracking-wider text-xs ${
+                idx === path.length - 1
+                  ? "text-slate-100 cursor-default"
+                  : "text-slate-400 hover:text-emerald-400"
+              }`}
               disabled={idx === path.length - 1}
             >
               {step.title}
             </button>
             {idx < path.length - 1 && (
-              <ChevronRight className="w-4 h-4 mx-1 opacity-50 shrink-0" />
+              <ChevronRight className="w-4 h-4 mx-2 text-slate-600 shrink-0" />
             )}
           </React.Fragment>
         ))}
       </div>
 
+      {/* Unlock alert box */}
       {currentNodeInfo.node && !hasAccess(currentNodeInfo.node) && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between shadow-sm">
-          <div className="flex items-center mb-4 sm:mb-0">
+        <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center">
             <Lock className="w-6 h-6 text-amber-500 shrink-0 mr-3" />
             <div>
-              <h4 className="font-bold text-amber-800 dark:text-amber-400">
+              <h4 className="font-bold text-amber-400 text-base">
                 Unlock {currentNodeInfo.title}
               </h4>
-              <p className="text-sm text-amber-600 dark:text-amber-500 font-medium">
-                Purchase this category to unlock all premium contents inside.
+              <p className="text-xs text-slate-400 mt-1">
+                Upgrade your membership plan or unlock this complete package to access all premium contents inside.
               </p>
             </div>
           </div>
@@ -307,21 +313,18 @@ export function StudentHierarchyView({
               onClick={() => {
                 let pType = "exam";
                 if (currentNodeInfo.type.includes("subject")) pType = "subject";
-                else if (currentNodeInfo.type.includes("topic"))
-                  pType = "topic";
+                else if (currentNodeInfo.type.includes("topic")) pType = "topic";
                 submitAccessRequest(currentNodeInfo.node, pType);
               }}
               disabled={accessRequestSent[currentNodeInfo.node.id]}
-              className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-sm whitespace-nowrap"
+              className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold py-2.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-lg shadow-amber-600/10 whitespace-nowrap"
             >
-              {accessRequestSent[currentNodeInfo.node.id]
-                ? "Requested"
-                : "Request Access"}
+              {accessRequestSent[currentNodeInfo.node.id] ? "Requested" : "Request Access"}
             </button>
           ) : (
             <button
               onClick={() => handleUnlockItem(currentNodeInfo.node)}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-sm whitespace-nowrap"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-lg shadow-amber-600/10 whitespace-nowrap"
             >
               Unlock Package
             </button>
@@ -329,6 +332,7 @@ export function StudentHierarchyView({
         </div>
       )}
 
+      {/* Subject / Topic child nodes grid */}
       {currentNodeInfo.type !== "module" && nodes.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
           {nodes.map((node) => {
@@ -337,39 +341,53 @@ export function StudentHierarchyView({
               <div
                 key={node.id}
                 onClick={() => handleNodeClick(node)}
-                className={`relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col ${!access ? "hover:border-amber-400 hover:ring-2 hover:ring-amber-400/20" : "hover:border-indigo-400"}`}
+                className={`relative bg-[#0E1629] border rounded-2xl p-6 shadow-md hover:shadow-lg transition-all cursor-pointer group flex flex-col justify-between min-h-[170px] ${
+                  !access
+                    ? "border-slate-800 hover:border-amber-500"
+                    : "border-slate-800 hover:border-emerald-500"
+                }`}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black uppercase text-xl shadow-inner ${access ? "bg-gradient-to-br from-indigo-500 to-indigo-600" : "bg-gradient-to-br from-amber-500 to-amber-600"}`}
-                  >
-                    {node.name.charAt(0)}
-                  </div>
-                  {node.isPremium && !access && (
-                    <div className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 p-2 rounded-xl">
-                      <Lock className="w-5 h-5" />
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-black uppercase text-sm shadow-md ${
+                        access
+                          ? "bg-gradient-to-br from-emerald-600 to-teal-600"
+                          : "bg-gradient-to-br from-amber-600 to-amber-700"
+                      }`}
+                    >
+                      {node.name.charAt(0)}
                     </div>
+                    {node.isPremium && !access && (
+                      <div className="bg-amber-500/10 text-amber-500 p-2 rounded-xl border border-amber-500/20">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-slate-100 text-lg line-clamp-2 group-hover:text-emerald-400 transition-colors">
+                    {node.name}
+                  </h3>
+                  {node.description && (
+                    <p className="text-xs text-slate-400 line-clamp-2 mt-2 leading-relaxed">
+                      {node.description}
+                    </p>
                   )}
                 </div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-xl line-clamp-2">
-                  {node.name}
-                </h3>
-                {node.description && (
-                  <p className="text-sm text-slate-500 line-clamp-2 mt-2">
-                    {node.description}
-                  </p>
-                )}
                 {node.isPremium && !access && (
-                  <p
-                    className="text-amber-600 font-bold mt-2 hover:underline z-20"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const pkg = getClosestPackage();
-                      if (pkg) setPreviewPackageItem(pkg);
-                    }}
-                  >
-                    Unlock Package
-                  </p>
+                  <div className="mt-4 pt-3 border-t border-slate-850/50 flex justify-between items-center">
+                    <span className="text-[10px] uppercase tracking-wider text-amber-500 font-bold">Premium Content</span>
+                    <button
+                      type="button"
+                      className="text-xs font-bold text-amber-500 hover:text-amber-400 hover:underline z-20 flex items-center gap-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const pkg = getClosestPackage();
+                        if (pkg) setPreviewPackageItem(pkg);
+                      }}
+                    >
+                      Unlock Now
+                    </button>
+                  </div>
                 )}
               </div>
             );
@@ -377,6 +395,7 @@ export function StudentHierarchyView({
         </div>
       )}
 
+      {/* Module assessment grid */}
       {(currentNodeInfo.type === "module" || modules.length > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {modules.map((mod) => {
@@ -384,95 +403,90 @@ export function StudentHierarchyView({
             return (
               <div
                 key={mod.id}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between h-full relative group"
+                className="bg-[#0E1629] border border-slate-850 rounded-2xl p-6 shadow-md hover:shadow-lg transition-all flex flex-col justify-between h-full relative group hover:border-slate-700"
               >
                 {mod.accessMode === "custom" ? (
                   mod.accessType &&
                   mod.accessType !== "free" && (
                     <div
-                      className={`absolute top-0 right-0 text-white text-[10px] font-bold px-2 py-1 uppercase tracking-wider rounded-bl-lg z-10 flex items-center ${mod.accessType === "demo" ? "bg-indigo-500" : "bg-amber-500"}`}
+                      className={`absolute top-0 right-0 text-white text-[9px] font-bold px-2.5 py-1 uppercase tracking-wider rounded-bl-xl z-10 flex items-center ${
+                        mod.accessType === "demo" ? "bg-indigo-600" : "bg-amber-600"
+                      }`}
                     >
-                      {["premium_only", "premium_purchasable"].includes(
-                        mod.accessType,
-                      ) && <Lock className="w-3 h-3 mr-1" />}
+                      {["premium_only", "premium_purchasable"].includes(mod.accessType) && (
+                        <Lock className="w-2.5 h-2.5 mr-1" />
+                      )}
                       {mod.accessType === "premium_only"
                         ? `Premium`
                         : mod.accessType === "purchasable_only"
-                          ? `Purchasable (₹${mod.price || 0})`
-                          : mod.accessType === "premium_purchasable"
-                            ? `Prem/Purch (₹${mod.price || 0})`
-                            : "Demo"}
+                        ? `Purchasable (₹${mod.price || 0})`
+                        : mod.accessType === "premium_purchasable"
+                        ? `Prem/Purch (₹${mod.price || 0})`
+                        : "Demo"}
                     </div>
                   )
-                ) : (
-                  <div className="absolute top-0 right-0 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold px-2 py-1 uppercase tracking-wider rounded-bl-lg z-10 flex items-center">
-                    Inherit Parent
-                  </div>
-                )}
+                ) : null}
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors mt-2">
+                  <h3 className="text-lg font-black text-slate-100 mb-2 leading-snug group-hover:text-emerald-400 transition-colors mt-2">
                     {mod.title}
                   </h3>
-                  <p className="text-sm text-slate-500 mb-6">
+                  <p className="text-xs text-slate-400 mb-6 leading-relaxed line-clamp-3">
                     {mod.description}
                   </p>
                 </div>
-                {access ? (
-                  <button
-                    onClick={() => onOpenModule(mod, path)}
-                    className="w-full flex items-center justify-center space-x-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-amber-50 dark:hover:bg-amber-900/40 hover:text-amber-600 dark:hover:text-amber-400 py-3 rounded-xl font-bold transition-colors"
-                  >
-                    <Play className="w-4 h-4" />
-                    <span>Start Module</span>
-                  </button>
-                ) : (mod.accessMode === "custom" &&
-                    mod.accessType === "access_request_only") ||
-                  ((!mod.accessMode || mod.accessMode === "inherit") &&
-                    currentNodeInfo.node?.accessType ===
-                      "access_request_only") ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      submitAccessRequest(mod, "module");
-                    }}
-                    disabled={accessRequestSent[mod.id]}
-                    className="w-full flex items-center justify-center space-x-2 disabled:opacity-50 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 py-3 rounded-xl font-bold transition-colors border border-amber-200 dark:border-amber-800/50"
-                  >
-                    <Lock className="w-4 h-4" />
-                    <span>
-                      {accessRequestSent[mod.id]
-                        ? "Requested"
-                        : "Request Access"}
-                    </span>
-                  </button>
-                ) : (
-                  <div className="flex flex-col space-y-2 mt-4">
-                    {(() => {
-                      const pkg = getClosestPackage(mod);
-                      return (
-                        <>
-                          {(() => {
-                            const nodeAny = pkg.node;
-                            return nodeAny.name || nodeAny.title ? (
-                              <p className="text-xs text-amber-600 dark:text-amber-500 font-medium leading-tight">
-                                Included in the{" "}
-                                <strong>{nodeAny.name || nodeAny.title}</strong>{" "}
-                                Complete Package.
-                              </p>
-                            ) : null;
-                          })()}
-                          <button
-                            onClick={() => handleUnlockItem(mod, true)}
-                            className="w-full flex items-center justify-center space-x-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 py-3 rounded-xl font-bold transition-colors border border-amber-200 dark:border-amber-800/50"
-                          >
-                            <Lock className="w-4 h-4" />
-                            <span>Unlock Package</span>
-                          </button>
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
+                <div>
+                  {access ? (
+                    <button
+                      onClick={() => onOpenModule(mod, path)}
+                      className="w-full flex items-center justify-center space-x-2 bg-[#17223b] text-white hover:bg-emerald-600 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-md"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Start Module</span>
+                    </button>
+                  ) : (mod.accessMode === "custom" &&
+                      mod.accessType === "access_request_only") ||
+                    ((!mod.accessMode || mod.accessMode === "inherit") &&
+                      currentNodeInfo.node?.accessType === "access_request_only") ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        submitAccessRequest(mod, "module");
+                      }}
+                      disabled={accessRequestSent[mod.id]}
+                      className="w-full flex items-center justify-center space-x-2 disabled:opacity-50 bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors border border-amber-500/20"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>
+                        {accessRequestSent[mod.id] ? "Requested" : "Request Access"}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="flex flex-col space-y-2 mt-4">
+                      {(() => {
+                        const pkg = getClosestPackage(mod);
+                        return (
+                          <>
+                            {(() => {
+                              const nodeAny = pkg.node;
+                              return nodeAny.name || nodeAny.title ? (
+                                <p className="text-[10px] text-amber-500 font-semibold leading-tight">
+                                  Included in <strong>{nodeAny.name || nodeAny.title}</strong> Package.
+                                </p>
+                              ) : null;
+                            })()}
+                            <button
+                              onClick={() => handleUnlockItem(mod, true)}
+                              className="w-full flex items-center justify-center space-x-2 bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors border border-amber-500/20"
+                            >
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Unlock Package</span>
+                            </button>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}

@@ -13,6 +13,7 @@ import {
   Check,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { ProfileSkeleton } from "../loading/Skeletons";
 
 export function PremiumPurchaseView({
   itemId,
@@ -165,11 +166,7 @@ export function PremiumPurchaseView({
   };
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-t-2 border-emerald-500 animate-spin"></div>
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (status === "success") {

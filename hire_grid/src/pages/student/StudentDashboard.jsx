@@ -36,11 +36,36 @@ import { SvgDiagram } from "../../components/common/SvgDiagram";
 import { StudentHierarchyView } from "../../components/student/StudentHierarchyView";
 import { PlacementMissionView } from "../../components/student/PlacementMissionView";
 import { hasAccess, isPlanVisibleToStudent } from "../../lib/accessControl";
+
+// Redesigned Student Views & CSS
+import "../../components/student/student.css";
+import { StudentSidebar } from "../../components/student/StudentSidebar";
+import { StudentHeader } from "../../components/student/StudentHeader";
+import { StudentDashboardView } from "../../components/student/StudentDashboardView";
+import { StudentProfileView } from "../../components/student/StudentProfileView";
+import { StudentPlansView } from "../../components/student/StudentPlansView";
+import { StudentFeedbackView } from "../../components/student/StudentFeedbackView";
+import { StudentCompaniesView } from "../../components/student/StudentCompaniesView";
 import { api } from "../../lib/api";
 import { OperationType, auth, collection, db, doc, getDocs, handleFirestoreError, limit, logOut, onSnapshot, orderBy, query, setDoc, where, writeBatch } from "../../firebase";
 
 import { MathText } from "../../components/common/MathText";
 import { showToast } from "../../components/common/Toast";
+import { useFullScreenSecurity } from "../../hooks/useFullScreenSecurity";
+import { useWatermark } from "../../hooks/useWatermark";
+import { validateProfile } from "../../utils/validators";
+// Memory cache for Firestore master collections
+let cachedMasterData = null;
+let cachedMasterDataTime = 0;
+const FIRESTORE_CACHE_TTL = 30000; // 30 seconds TTL
+
+import {
+  DashboardSkeleton,
+  CompanyCardSkeleton,
+  PlanCardSkeleton,
+  ProfileSkeleton
+} from "../../components/loading/Skeletons";
+import { ProgressCircuitLoader } from "../../components/loading/ProgressCircuitLoader";
 
 export default function StudentDashboard() {
   const { syncUserTheme } = useTheme();
@@ -82,7 +107,6 @@ export default function StudentDashboard() {
 
   // Anti-Cheating & Auto-Fullscreen System
   const [warningCount, setWarningCount] = useState(0);
-  const [showWarningModal, setShowWarningModal] = useState(false);
   const [showNavigator, setShowNavigator] = useState(false);
   const [visitedQuestions, setVisitedQuestions] = useState(new Set());
 
@@ -116,32 +140,46 @@ export default function StudentDashboard() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [showNavigator]);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
   const [attemptId, setAttemptId] = useState(null);
-  const [watermarkOffset, setWatermarkOffset] = useState({ x: 0, y: 0 });
   const [correctAnswers, setCorrectAnswers] = useState({});
-  const [watermarkOpacity, setWatermarkOpacity] = useState(0.012);
 
-  const triggerWatermarkVisibility = () => {
-    setWatermarkOpacity(0.35);
-    setTimeout(() => {
-      setWatermarkOpacity(0.012);
-    }, 15000);
+  const {
+    watermarkOffset,
+    watermarkOpacity,
+    triggerWatermarkVisibility,
+  } = useWatermark({
+    activeModule,
+    currentQuestionIndex,
+    isFinished,
+    isReviewing,
+  });
+
+  const {
+    isFullscreen,
+    showWarningModal,
+    setShowWarningModal,
+    enterFullscreen,
+    exitFullscreen,
+    isFullscreenSupported,
+    handleStartReview: baseStartReview,
+    handleExitReview: baseExitReview,
+  } = useFullScreenSecurity({
+    activeModule,
+    currentQuestionIndex,
+    isFinished,
+    isReviewing,
+    setWarningCount,
+  });
+
+  const handleStartReview = () => {
+    baseStartReview();
+    setIsReviewing(true);
   };
 
-  useEffect(() => {
-    const isTestActive = activeModule && currentQuestionIndex >= 0 && !isFinished && !isReviewing;
-    if (isTestActive) {
-      const interval = setInterval(() => {
-        setWatermarkOffset({
-          x: Math.floor(Math.random() * 40) - 20,
-          y: Math.floor(Math.random() * 40) - 20,
-        });
-      }, 20000);
-      return () => clearInterval(interval);
-    }
-  }, [activeModule, currentQuestionIndex, isFinished, isReviewing]);
+  const handleExitReview = () => {
+    baseExitReview();
+    setIsReviewing(false);
+  };
 
   // Heartbeat / Attempt state auto-sync (runs every 30s)
   useEffect(() => {
@@ -162,88 +200,9 @@ export default function StudentDashboard() {
     return () => clearInterval(interval);
   }, [attemptId, activeModule, currentQuestionIndex, isFinished, isReviewing, answers, warningCount]);
 
-  const isFullscreenSupported = () => {
-    const elem = document.documentElement;
-    return !!(elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen);
-  };
-
-  const enterFullscreen = () => {
-    try {
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(() => {});
-      } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
-      } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-      }
-    } catch (e) {}
-  };
-
-  const exitFullscreen = () => {
-    try {
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        if (document.exitFullscreen) {
-          document.exitFullscreen().catch(() => {});
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        }
-      }
-    } catch (e) {}
-  };
-
-  const handleStartReview = () => {
-    enterFullscreen();
-    setWarningCount(0);
-    setShowWarningModal(false);
-    setIsReviewing(true);
-  };
-
-  const handleExitReview = () => {
-    exitFullscreen();
-    setIsReviewing(false);
-    setShowWarningModal(false);
-  };
-
-  // Fullscreen Verification Hook (ensures student is locked in fullscreen during test & review)
-  useEffect(() => {
-    const isSecurityActive =
-      activeModule &&
-      ((currentQuestionIndex >= 0 && !isFinished && !isReviewing) || isReviewing);
-
-    if (!isSecurityActive || !isFullscreenSupported()) return;
-
-    // Check immediately after a small delay (to allow fullscreen transition)
-    const checkTimer = setTimeout(() => {
-      const inFS = !!(
-        document.fullscreenElement || document.webkitFullscreenElement
-      );
-      setIsFullscreen(inFS);
-      if (!inFS) {
-        setShowWarningModal(true);
-      }
-    }, 1200);
-
-    // Periodic check every 2.5 seconds to ensure they remain in fullscreen
-    const interval = setInterval(() => {
-      const inFS = !!(
-        document.fullscreenElement || document.webkitFullscreenElement
-      );
-      setIsFullscreen(inFS);
-      if (!inFS) {
-        setShowWarningModal(true);
-      }
-    }, 2500);
-
-    return () => {
-      clearTimeout(checkTimer);
-      clearInterval(interval);
-    };
-  }, [activeModule, currentQuestionIndex, isFinished, isReviewing]);
-
   const [stats, setStats] = useState({
     xp: 0,
-    streak: 3,
+    streak: 0,
     categoryXP: {},
   });
 
@@ -255,11 +214,18 @@ export default function StudentDashboard() {
   const [showPreparingResult, setShowPreparingResult] = useState(false);
 
   const [activeTab, setActiveTab] = useState(() => {
-    return location.pathname === "/placement-mission" ? "placement-mission" : "general";
+    if (location.state?.activeTab) {
+      return location.state.activeTab;
+    }
+    return location.pathname === "/placement-mission" ? "placement-mission" : "dashboard";
   });
   const [activeCompany, setActiveCompany] = useState(null);
   const [activeExam, setActiveExam] = useState(null);
   const [purchaseItem, setPurchaseItem] = useState(null);
+
+  // Dashboard dynamic stats state
+  const [placementMissions, setPlacementMissions] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const saved = localStorage.getItem("studentSidebarOpen");
@@ -312,10 +278,30 @@ export default function StudentDashboard() {
       setPurchaseItem(null);
     } else if (location.pathname === "/student-dashboard") {
       if (activeTab === "placement-mission") {
-        setActiveTab("general");
+        setActiveTab("dashboard");
       }
     }
   }, [location.pathname]);
+
+  // Fetch placement missions and leaderboard data for dashboard dynamic stats
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const fetchMissionsAndLeaderboard = async () => {
+      try {
+        const missionsRes = await api.get("/placement-mission/missions").catch(() => null);
+        if (missionsRes && missionsRes.success) {
+          setPlacementMissions(missionsRes.missions || []);
+        }
+        const lbRes = await api.get("/placement-mission/leaderboard").catch(() => null);
+        if (lbRes && lbRes.success) {
+          setLeaderboard(lbRes.leaderboard || []);
+        }
+      } catch (e) {
+        console.error("Dashboard metadata fetch error:", e);
+      }
+    };
+    fetchMissionsAndLeaderboard();
+  }, [auth.currentUser?.uid]);
 
   useEffect(() => {
     localStorage.setItem("studentSidebarOpen", JSON.stringify(sidebarOpen));
@@ -332,9 +318,9 @@ export default function StudentDashboard() {
       setSidebarOpen(false);
     }
     if (tab === "placement-mission") {
-      navigate("/placement-mission");
+      navigate("/placement-mission", { state: { activeTab: tab } });
     } else {
-      navigate("/student-dashboard");
+      navigate("/student-dashboard", { state: { activeTab: tab } });
     }
   };
 
@@ -569,6 +555,20 @@ export default function StudentDashboard() {
     const fetchMasterData = async () => {
       setLoadingMetadata(true);
       setMetadataError(null);
+
+      const now = Date.now();
+      if (cachedMasterData && (now - cachedMasterDataTime < FIRESTORE_CACHE_TTL)) {
+        setModules(cachedMasterData.modules);
+        setCompanies(cachedMasterData.companies);
+        setExams(cachedMasterData.exams);
+        setPlans(cachedMasterData.plans);
+        if (cachedMasterData.activeBranches && cachedMasterData.activeBranches.length > 0) {
+          setActiveBranches(cachedMasterData.activeBranches);
+        }
+        setLoadingMetadata(false);
+        return;
+      }
+
       try {
         const [modsSnap, compSnap, examsSnap, plansSnap, branchesRes] = await Promise.all([
           getDocs(query(collection(db, "modules"), orderBy("createdAt", "asc"))),
@@ -577,13 +577,31 @@ export default function StudentDashboard() {
           getDocs(collection(db, "plans")),
           api.get("/branches/active").catch(() => ({ success: false, branches: [] }))
         ]);
-        setModules(modsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setCompanies(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setExams(examsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setPlans(plansSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        if (branchesRes.success && branchesRes.branches) {
-          setActiveBranches(branchesRes.branches);
+        
+        const freshModules = modsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const freshCompanies = compSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const freshExams = examsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const freshPlans = plansSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const freshBranches = branchesRes.success && branchesRes.branches ? branchesRes.branches : [];
+
+        setModules(freshModules);
+        setCompanies(freshCompanies);
+        setExams(freshExams);
+        setPlans(freshPlans);
+        if (freshBranches.length > 0) {
+          setActiveBranches(freshBranches);
         }
+
+        // Cache the master data
+        cachedMasterData = {
+          modules: freshModules,
+          companies: freshCompanies,
+          exams: freshExams,
+          plans: freshPlans,
+          activeBranches: freshBranches
+        };
+        cachedMasterDataTime = Date.now();
+
         setLoadingMetadata(false);
       } catch (err) {
         console.error("Error loading dashboard metadata:", err);
@@ -602,9 +620,23 @@ export default function StudentDashboard() {
           if (d.theme) syncUserTheme(d);
           setCurrentUserDoc({ id: docSnap.id, ...d });
           setModuleScores(d.moduleScores || {});
+          const todayStr = new Date().toLocaleDateString('en-CA');
+          const yesterdayStr = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+          const lastAttemptDate = d.lastExamAttemptDate || "";
+          let currentStreak = d.streak || 0;
+
+          if (lastAttemptDate !== todayStr && lastAttemptDate !== yesterdayStr && currentStreak > 0) {
+            currentStreak = 0;
+            setDoc(
+              doc(db, "users", auth.currentUser.uid),
+              { streak: 0 },
+              { merge: true }
+            ).catch(err => console.error("Error resetting broken streak:", err));
+          }
+
           setStats({
             xp: d.xp || 0,
-            streak: d.streak || 3,
+            streak: currentStreak,
             categoryXP: d.categoryXP || {},
           });
           setProfileForm((prev) => ({
@@ -904,13 +936,10 @@ export default function StudentDashboard() {
     }, 3000);
 
     try {
-      // Small artificial delays to let students notice submitting/grading phases
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      setSubmitState("grading");
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      // Submit and grade attempt securely on the backend
+      setSubmitState("submitting");
       const url = isPlacementAttempt ? `/placement-mission/attempts/${attemptId}/submit` : `/attempts/${attemptId}/submit`;
+      
+      // Submit and grade attempt securely on the backend immediately without artificial delays
       const result = await api.post(url, {
         answers
       });
@@ -944,6 +973,35 @@ export default function StudentDashboard() {
 
         setEarnedXP(gainedXP);
         setModuleScores(newScores);
+
+        // Update daily study streak
+        try {
+          const todayStr = new Date().toLocaleDateString('en-CA');
+          const yesterdayStr = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+          const lastAttemptDate = currentUserDoc?.lastExamAttemptDate || "";
+          const currentStreak = currentUserDoc?.streak || 0;
+          let newStreak = currentStreak;
+
+          if (lastAttemptDate === todayStr) {
+            newStreak = currentStreak;
+          } else if (lastAttemptDate === yesterdayStr) {
+            newStreak = currentStreak + 1;
+          } else {
+            newStreak = 1;
+          }
+
+          await setDoc(
+            doc(db, "users", auth.currentUser.uid),
+            {
+              streak: newStreak,
+              lastExamAttemptDate: todayStr,
+            },
+            { merge: true }
+          );
+        } catch (streakErr) {
+          console.error("Failed to update daily streak:", streakErr);
+        }
+
         setIsFinished(true);
         setSubmitState(null);
         showToast(`Test finished successfully! Score: ${percentage}%, XP Earned: ${gainedXP}`, "success");
@@ -1050,6 +1108,13 @@ export default function StudentDashboard() {
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!auth.currentUser) return;
+
+    const validation = validateProfile(profileForm);
+    if (!validation.isValid) {
+      showToast(validation.error, "error");
+      return;
+    }
+
     try {
       await setDoc(
         doc(db, "users", auth.currentUser.uid),
@@ -1087,6 +1152,7 @@ export default function StudentDashboard() {
   ];
 
   const userFlair = null;
+  const medalInfo = getMedalTier(stats?.xp || 0);
 
   if (deviceBlocked) {
     return (
@@ -1174,20 +1240,20 @@ export default function StudentDashboard() {
     };
 
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] flex items-center justify-center font-sans p-4 relative overflow-hidden">
+      <div className="min-h-screen bg-[#070D19] flex items-center justify-center font-sans p-4 relative overflow-hidden">
         {/* Background Grid */}
         <div className="absolute inset-0 z-0 pointer-events-none bg-circuit-pattern opacity-10 animate-circuit" />
         
-        <div className="glass-panel rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-emerald-500/20 text-center relative z-10 transform transition-all animate-in fade-in zoom-in-95 duration-300">
+        <div className="bg-[#0E1629] border border-slate-850 rounded-3xl p-8 max-w-lg w-full shadow-2xl text-center relative z-10 transform transition-all animate-in fade-in zoom-in-95 duration-300">
           <BookOpen className="w-16 h-16 text-emerald-500 mx-auto mb-6 animate-bounce" />
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-wide mb-3">
+          <h2 className="text-3xl font-black text-slate-100 uppercase tracking-wide mb-3">
             Choose Your Branch
           </h2>
-          <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">
+          <p className="text-xs text-slate-450 font-medium mb-8">
             Select your academic branch to personalize companies, learning content and placement opportunities available to you.
           </p>
           
-          <div className="grid gap-4 max-h-[300px] overflow-y-auto pr-2 mb-8 select-branch-container animate-fade-in">
+          <div className="grid gap-4 max-h-[300px] overflow-y-auto pr-2 mb-8 select-branch-container animate-fade-in custom-scrollbar">
             {availableStudentBranches.map((b) => {
               const isSelected = onboardingSelectedBranchId === b.id;
               return (
@@ -1198,14 +1264,14 @@ export default function StudentDashboard() {
                   onClick={() => setOnboardingSelectedBranchId(b.id)}
                   className={`w-full text-left px-6 py-4 rounded-2xl border font-bold transition-all flex justify-between items-center group hover:scale-[1.01] ${
                     isSelected 
-                      ? "bg-emerald-500/10 border-emerald-500 text-slate-900 dark:text-white" 
-                      : "border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-emerald-500/5 hover:border-emerald-500/50 text-slate-800 dark:text-slate-200"
+                      ? "bg-emerald-500/10 border-emerald-500 text-white" 
+                      : "border-slate-850 bg-[#050B14] hover:bg-emerald-500/5 hover:border-emerald-500/50 text-slate-200"
                   }`}
                 >
                   <div className="flex items-center space-x-4">
                     {/* Custom Radio Button */}
                     <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
-                      isSelected ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950"
+                      isSelected ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-750 bg-slate-950"
                     }`}>
                       {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
                     </div>
@@ -1214,7 +1280,7 @@ export default function StudentDashboard() {
                         {b.name}
                       </div>
                       {b.description && (
-                        <div className="text-xs text-slate-400 font-medium mt-1">{b.description}</div>
+                        <div className="text-xs text-slate-500 font-medium mt-1">{b.description}</div>
                       )}
                     </div>
                   </div>
@@ -1234,14 +1300,14 @@ export default function StudentDashboard() {
                 logOut();
                 navigate("/");
               }}
-              className="px-6 py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors uppercase tracking-widest text-xs"
+              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-350 font-bold rounded-xl transition-colors uppercase tracking-widest text-xs"
             >
               Sign Out
             </button>
             <button
               disabled={!onboardingSelectedBranchId || settingBranchId !== null}
               onClick={handleSaveOnboardingBranch}
-              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center space-x-2 text-xs uppercase tracking-widest"
+              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-750 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center space-x-2 text-xs uppercase tracking-widest"
             >
               {settingBranchId ? (
                 <>
@@ -1259,14 +1325,7 @@ export default function StudentDashboard() {
   }
 
   if (loadingMetadata) {
-    return (
-      <div className="min-h-screen bg-[#070D19] flex items-center justify-center">
-        <div className="relative">
-          <div className="h-12 w-12 rounded-full border-t-2 border-b-2 border-emerald-500 animate-spin"></div>
-          <div className="absolute inset-0 m-auto h-6 w-6 rounded-full bg-emerald-500/10 animate-ping"></div>
-        </div>
-      </div>
-    );
+    return <ProgressCircuitLoader fullScreen indeterminate label="Loading your workspace..." />;
   }
 
   if (metadataError) {
@@ -1310,176 +1369,49 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] font-sans transition-colors text-slate-700 dark:text-slate-300 relative overflow-hidden flex">
+    <div className="std-layout">
       {submitState && (
-        <div className="fixed inset-0 z-[9999] bg-[#070D19]/90 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-300">
-          <div className="max-w-md w-full glass-panel border border-emerald-500/20 rounded-3xl p-8 shadow-2xl relative overflow-hidden flex flex-col items-center animate-in zoom-in-95 duration-200">
-            {/* Spinning/progress indicator */}
-            <div className="relative mb-6">
-              <div className="h-16 w-16 rounded-full border-4 border-emerald-500/10 border-t-emerald-500 animate-spin"></div>
-              <div className="absolute inset-0 m-auto h-8 w-8 rounded-full bg-emerald-500/10 animate-ping"></div>
-            </div>
-
-            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2 font-mono">
-              {submitState === "submitting" ? "Submitting your exam..." : "Calculating your score..."}
-            </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-              {showPreparingResult
-                ? "Your answers were submitted successfully. We're preparing your result..."
-                : "Please wait, your assessment is being finalized."}
-            </p>
-          </div>
+        <div className="fixed inset-0 z-[9999] bg-[#070D19]/95 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-300">
+          <ProgressCircuitLoader
+            indeterminate
+            label={submitState === "submitting" ? "Submitting your assessment..." : "Calculating your result..."}
+          />
+          <p className="text-sm text-slate-400 font-medium mt-4 max-w-md">
+            Please don't close or refresh this page. Your responses are being processed and graded securely.
+          </p>
         </div>
       )}
-      {/* Background Grid */}
-      <div className="absolute inset-0 z-0 pointer-events-none bg-circuit-pattern opacity-10 animate-circuit" />
 
-      {/* Mobile Overlay */}
-      {sidebarOpen && (
-        <div
-          className="md:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] z-40 transition-opacity"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      {/* Sidebar Navigation */}
+      <StudentSidebar
+        activeTab={activeTab}
+        onTabSelect={handleNavClick}
+        user={currentUserDoc || user}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        onLogout={handleLogout}
+      />
 
-      {/* Sidebar */}
-      <div
-        className={`bg-white/95 dark:bg-[#0B1528] border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 z-50 shrink-0
-        fixed md:sticky md:top-0 left-0 inset-y-0 md:h-screen shadow-xl
-        ${sidebarOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0 w-72 md:w-20"}`}
-      >
-        {/* Sidebar Header */}
-        <div className="h-20 flex items-center px-6 border-b border-slate-200 dark:border-slate-800 shrink-0">
-          <div
-            className={`flex items-center flex-1 ${!sidebarOpen ? "hidden md:flex md:w-0 md:opacity-0 md:overflow-hidden" : ""}`}
-          >
-            <div className="shrink-0 w-9 h-9 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(16,185,129,0.45)] border border-emerald-400/30">
-              <Zap className="w-5 h-5 text-lime-300 animate-pulse" />
-            </div>
-            <span className="ml-3 text-[16px] font-black uppercase tracking-widest bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent transition-colors drop-shadow-md whitespace-nowrap">
-              Command
-            </span>
-          </div>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`shrink-0 p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent dark:hover:border-slate-700/50 ${!sidebarOpen ? "mx-auto" : ""}`}
-          >
-            <Menu className="w-5 h-5 pointer-events-auto" />
-          </button>
-        </div>
-
-        {/* Sidebar Nav */}
-        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-3 custom-scrollbar">
-          <SidebarItem
-            icon={<BookOpen />}
-            label="Learning"
-            active={
-              activeTab === "general" && !activeModule && !activeMasterModule
-            }
-            onClick={() => handleNavClick("general")}
-            isOpen={sidebarOpen}
+      {/* Main Wrapper */}
+      <div className="std-main-wrapper">
+        {/* Top Header */}
+        {!activeModule && (
+          <StudentHeader
+            user={currentUserDoc || user}
+            stats={stats}
+            medalInfo={medalInfo}
+            activeTab={activeTab}
+            onMenuClick={() => setSidebarOpen(true)}
+            onEditProfile={() => setActiveTab("profile")}
           />
+        )}
 
-          <SidebarItem
-            icon={<Building2 />}
-            label="Company-Specific Exams"
-            active={
-              activeTab === "companies" && !activeModule && !activeMasterModule
-            }
-            onClick={() => handleNavClick("companies")}
-            isOpen={sidebarOpen}
-          />
-
-          <SidebarItem
-            icon={<Award />}
-            label="Placement Mission"
-            active={
-              activeTab === "placement-mission" && !activeModule && !activeMasterModule
-            }
-            onClick={() => handleNavClick("placement-mission")}
-            isOpen={sidebarOpen}
-          />
-
-          <SidebarItem
-            icon={<MessageSquare />}
-            label="Send Feedback"
-            active={
-              activeTab === "feedback" && !activeModule && !activeMasterModule
-            }
-            onClick={() => handleNavClick("feedback")}
-            isOpen={sidebarOpen}
-          />
-
-
-
-          <SidebarItem
-            icon={<CreditCard />}
-            label="Premium Plans"
-            active={
-              activeTab === "plans" && !activeModule && !activeMasterModule
-            }
-            onClick={() => handleNavClick("plans")}
-            isOpen={sidebarOpen}
-          />
-        </div>
-
-        {/* User Profile */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
-          <button
-            onClick={() => handleNavClick("profile")}
-            className={`w-full flex items-center py-3 rounded-2xl text-sm font-semibold transition-all duration-200 group border
-              ${activeTab === "profile" 
-                ? "bg-gradient-to-r from-emerald-500/15 to-teal-500/5 dark:from-emerald-500/20 dark:to-teal-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 shadow-md shadow-emerald-500/5" 
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 border-transparent"} 
-              ${!sidebarOpen ? "justify-center px-0" : "px-4"}`}
-            title={!sidebarOpen ? "Operator Profile" : undefined}
-          >
-            <span
-              className={`${activeTab === "profile" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-300"}`}
-            >
-              <User className="w-5 h-5" />
-            </span>
-            <span
-              className={`ml-3 transition-opacity duration-200 ${!sidebarOpen ? "w-0 opacity-0 overflow-hidden" : "opacity-100"}`}
-            >
-              Operator Profile
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col relative z-20 overflow-hidden max-h-screen">
-        {/* Top Navbar */}
-        <header className="h-16 bg-white/80 dark:bg-[#0B1120]/80 backdrop-blur-md border-b border-emerald-500/20 flex items-center justify-between px-4 sm:px-8 shrink-0 relative z-20">
-          <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 -ml-2 mr-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <span className="font-semibold text-emerald-700 dark:text-emerald-400 capitalize hidden sm:inline">
-              {activeTab === "general" ? "Current Mission" : activeTab}
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            <ThemeToggle />
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center px-3 py-1.5 border border-emerald-500/20 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 glass-panel hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
-              title="Logout"
-            >
-              <LogOut className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-[#0B1120]/50 p-4 sm:p-8">
+        {/* Scrollable Content Container */}
+        <div className="std-content-scroll custom-scrollbar">
           <div className="max-w-7xl mx-auto">
-            {assessmentPlanFilter && (
+            
+            {/* Global Plan Assessment Mode warning banner */}
+            {assessmentPlanFilter && !activeModule && (
               <div className="bg-emerald-600/10 border border-emerald-500/20 px-6 py-3 rounded-2xl flex items-center justify-between shadow-xl mb-6">
                 <div className="flex items-center space-x-3">
                   <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -1490,29 +1422,30 @@ export default function StudentDashboard() {
                 </div>
                 <button
                   onClick={() => setAssessmentPlanFilter(null)}
-                  className="text-xs font-bold text-rose-400 hover:text-rose-300 transition-colors uppercase tracking-wider"
+                  className="text-xs font-bold text-rose-400 hover:text-rose-300 transition-colors uppercase tracking-wider font-mono"
                 >
                   Exit Assessment
                 </button>
               </div>
             )}
-            {activeMasterModule && !activeModule ? (
+
+            {/* Sub Tests (Master Modules) Detail view */}
+            {activeMasterModule && !activeModule && (
               <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300">
                 <button
                   onClick={() => setActiveMasterModule(null)}
-                  className="flex items-center text-sm font-bold text-slate-500 hover:text-emerald-800 dark:text-lime-400 transition-colors mb-6"
+                  className="flex items-center text-xs font-bold text-slate-450 hover:text-emerald-400 transition-colors mb-6 uppercase tracking-wider gap-1"
                 >
-                  <ChevronLeft className="w-5 h-5 mr-1" />
+                  <ArrowLeft className="w-4 h-4" />
                   Back to Modules
                 </button>
-                <div className="glass-panel rounded-2xl p-8 border border-emerald-500/20 shadow-sm relative overflow-hidden">
+                <div className="std-panel relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-bl-full -z-10"></div>
-                  <h2 className="text-3xl font-black text-slate-900 dark:text-slate-100 mb-2 tracking-tight">
+                  <h2 className="text-2xl font-black text-slate-100 mb-2 tracking-tight">
                     {activeMasterModule.title}
                   </h2>
-                  <p className="text-emerald-400/80 font-medium text-lg leading-relaxed mb-8 whitespace-pre-wrap">
-                    {activeMasterModule.description ||
-                      "Complete all the sub-modules below."}
+                  <p className="text-slate-400 font-medium text-sm leading-relaxed mb-8 whitespace-pre-wrap">
+                    {activeMasterModule.description || "Complete all the sub-modules below."}
                   </p>
 
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -1523,23 +1456,25 @@ export default function StudentDashboard() {
                       return (
                         <div
                           key={subTest.id}
-                          className="p-5 border-2 border-emerald-500/20 rounded-xl hover:border-emerald-400 transition-all bg-slate-100 dark:bg-slate-900/40 flex flex-col items-start group"
+                          className="p-5 border border-slate-850 rounded-xl hover:border-slate-700 transition-all bg-[#050B14] flex flex-col items-start justify-between min-h-[150px] group"
                         >
-                          <h4 className="font-bold text-lg text-slate-900 dark:text-slate-100 mb-2 group-hover:text-emerald-800 dark:text-lime-400 transition-colors">
-                            {subTest.title}
-                          </h4>
-                          <div className="text-sm font-medium text-slate-500 mb-6 flex items-center">
-                            <BookOpen className="w-4 h-4 mr-1.5 opacity-70" />{" "}
-                            {subTest.questions?.length || 0} Questions
+                          <div>
+                            <h4 className="font-bold text-base text-slate-200 mb-2 group-hover:text-emerald-400 transition-colors">
+                              {subTest.title}
+                            </h4>
+                            <div className="text-xs font-medium text-slate-500 mb-6 flex items-center">
+                              <BookOpen className="w-3.5 h-3.5 mr-1.5 opacity-70" />
+                              {subTest.questions?.length || 0} Questions
+                            </div>
                           </div>
 
-                          <div className="w-full flex items-center justify-between mt-auto">
+                          <div className="w-full flex items-center justify-between mt-auto pt-2 border-t border-slate-850/50">
                             {hasCompleted ? (
-                              <span className="text-xs font-bold px-3 py-1 bg-emerald-100 text-emerald-700 rounded-md">
+                              <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded">
                                 Score: {prevScore}%
                               </span>
                             ) : (
-                              <span className="text-xs font-bold text-slate-400 px-3 py-1 bg-slate-200 dark:bg-slate-700/50 rounded-md">
+                              <span className="text-[10px] font-bold text-slate-500 px-2 py-0.5 bg-slate-900 rounded">
                                 Not Started
                               </span>
                             )}
@@ -1547,12 +1482,10 @@ export default function StudentDashboard() {
                               onClick={() => {
                                 setActiveModule({
                                   ...subTest,
-                                  timeLimit: 30, // Default or fetch from original module if we stored it
-                                  passPercentage:
-                                    activeMasterModule.passPercentage || 60,
+                                  timeLimit: 30,
+                                  passPercentage: activeMasterModule.passPercentage || 60,
                                   questions: subTest.questions || [],
-                                  moduleType:
-                                    activeMasterModule.moduleType || "general",
+                                  moduleType: activeMasterModule.moduleType || "general",
                                   parentId: activeMasterModule.parentId,
                                 });
                                 setCurrentQuestionIndex(0);
@@ -1562,7 +1495,7 @@ export default function StudentDashboard() {
                                 setIsReviewing(false);
                                 setTimeLeft(30 * 60);
                               }}
-                              className="text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                              className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg transition-colors shadow-sm"
                             >
                               {hasCompleted ? "Retake" : "Start"}
                             </button>
@@ -1573,657 +1506,23 @@ export default function StudentDashboard() {
                   </div>
                 </div>
               </div>
-            ) : !activeModule ? (
-              <div className="w-full">
-                {activeTab === "profile" && (
-                  <div className="max-w-2xl mx-auto">
-                    <div className="glass-panel rounded-2xl shadow-sm border border-emerald-500/20 overflow-hidden transition-colors relative">
-                      {/* Visual Flair */}
-                      <div className="absolute top-[-40px] right-[-40px] w-32 h-32 bg-emerald-500 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl opacity-20"></div>
-                      <div className="absolute bottom-[-40px] left-[-40px] w-32 h-32 bg-rose-500 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl opacity-20"></div>
+            )}
 
-                      <div className="p-8 relative z-10">
-                        <div className="flex flex-col items-center">
-                          <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-emerald-500 via-purple-500 to-rose-500 p-1 shadow-lg">
-                            <div className="w-full h-full rounded-full glass-panel flex items-center justify-center text-slate-800 dark:text-white">
-                              <User className="h-10 w-10 text-emerald-500" />
-                            </div>
-                          </div>
-                          <h3 className="mt-4 text-center text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center justify-center space-x-2">
-                            <span>{profileForm.name || "Unnamed Student"}</span>
-                            {userFlair && (
-                              <span
-                                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${userFlair.style} relative bottom-1`}
-                              >
-                                {userFlair.text}
-                              </span>
-                            )}
-                          </h3>
-                          {(profileForm.branch || profileForm.semester) && (
-                            <p className="text-sm font-bold text-slate-500 mt-1 uppercase tracking-wider text-center">
-                              {profileForm.branch}{" "}
-                              {profileForm.branch &&
-                                profileForm.semester &&
-                                "•"}{" "}
-                              {profileForm.semester &&
-                                `Sem ${profileForm.semester}`}
-                            </p>
-                          )}
-                          <p
-                            className={`inline-block mt-4 px-4 py-1.5 bg-gradient-to-r ${getMedalTier(stats.xp).barFrom} ${getMedalTier(stats.xp).barTo} text-white font-black rounded-full uppercase tracking-widest shadow-sm drop-shadow-md text-sm`}
-                          >
-                            {getMedalTier(stats.xp).fullName}
-                          </p>
-                        </div>
-
-                        <div className="mt-10 space-y-6">
-                          <div>
-                            <div className="flex justify-between text-sm font-bold mb-2">
-                              <span className="text-emerald-400/80">
-                                Medal Progress
-                              </span>
-                              <span className="text-emerald-800 dark:text-lime-400">
-                                {stats.xp} / {getMedalTier(stats.xp).maxVal} XP
-                              </span>
-                            </div>
-                            <div className="h-4 w-full bg-emerald-100 dark:bg-emerald-900/40 rounded-full overflow-hidden border border-emerald-500/20">
-                              <div
-                                className={`h-full bg-gradient-to-r ${getMedalTier(stats.xp).barFrom} ${getMedalTier(stats.xp).barTo} rounded-full transition-all duration-1000`}
-                                style={{
-                                  width: `${getMedalTier(stats.xp).percentage}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex justify-center pt-6 border-t border-emerald-500/20">
-                            <div className="bg-slate-100 dark:bg-slate-900/40 p-4 rounded-xl border border-emerald-500/20 flex flex-col items-center shadow-inner w-full max-w-[200px]">
-                              <Flame className="w-8 h-8 text-orange-500 mb-2" />
-                              <span className="text-2xl font-black text-slate-800 dark:text-white">
-                                {stats.streak}
-                              </span>
-                              <span className="text-xs uppercase font-bold tracking-wider text-slate-500 text-center mt-1">
-                                Day Streak
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Achievements Mockup */}
-                          <div className="pt-6 border-t border-emerald-500/20">
-                            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 text-center">
-                              Achievements Unlocked
-                            </h4>
-                            <div className="flex gap-4 flex-wrap justify-center">
-                              <div className="group relative">
-                                <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center border-2 border-amber-300 dark:border-amber-700 cursor-pointer transition-transform hover:scale-110 shadow-sm">
-                                  <Zap className="w-7 h-7 text-amber-600 dark:text-amber-400" />
-                                </div>
-                                <div className="absolute top-16 left-1/2 -translate-x-1/2 w-max px-2 py-1 bg-slate-800 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                  Fast Solver
-                                </div>
-                              </div>
-                              {stats.streak > 5 && (
-                                <div className="group relative">
-                                  <div className="w-14 h-14 rounded-full bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center border-2 border-rose-300 dark:border-rose-700 cursor-pointer transition-transform hover:scale-110 shadow-sm">
-                                    <Flame className="w-7 h-7 text-rose-600 dark:text-rose-400" />
-                                  </div>
-                                  <div className="absolute top-16 left-1/2 -translate-x-1/2 w-max px-2 py-1 bg-slate-800 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                    Streak Master
-                                  </div>
-                                </div>
-                              )}
-                              <div className="group relative">
-                                <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center border-2 border-emerald-300 dark:border-emerald-700 cursor-pointer transition-transform hover:scale-110 shadow-sm">
-                                  <CheckCircle2 className="w-7 h-7 text-emerald-800 dark:text-lime-400" />
-                                </div>
-                                <div className="absolute top-16 left-1/2 -translate-x-1/2 w-max px-2 py-1 bg-slate-800 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                  Accuracy King
-                                </div>
-                              </div>
-                              {profileForm.branch && (
-                                <div className="group relative">
-                                  <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center border-2 border-emerald-300 dark:border-emerald-700 cursor-pointer transition-transform hover:scale-110 shadow-sm">
-                                    <Award className="w-7 h-7 text-emerald-800 dark:text-lime-400" />
-                                  </div>
-                                  <div className="absolute top-16 left-1/2 -translate-x-1/2 w-max px-2 py-1 bg-slate-800 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                    {profileForm.branch} Expert
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Purchased Companies */}
-                          {((currentUserDoc?.purchasedCompanies &&
-                            currentUserDoc.purchasedCompanies.length > 0) ||
-                            currentUserDoc?.hasFullPremium) && (
-                            <div className="pt-6 border-t border-emerald-500/20">
-                              <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 text-center">
-                                My Purchased Companies
-                              </h4>
-                              {currentUserDoc?.hasFullPremium ? (
-                                <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 p-4 rounded-xl text-center border border-emerald-100 dark:border-emerald-800 flex flex-col items-center">
-                                  <ShieldCheck className="w-8 h-8 mb-2" />
-                                  <h5 className="font-bold">
-                                    Full Premium Subscription Active
-                                  </h5>
-                                  <p className="text-sm opacity-80 max-w-sm">
-                                    You have complete access to all premium
-                                    company packages and features.
-                                  </p>
-                                </div>
-                              ) : (
-                                <div className="flex gap-4 flex-wrap justify-center">
-                                  {companies
-                                    .filter((c) =>
-                                      currentUserDoc?.purchasedCompanies?.includes(
-                                        c.id,
-                                      ),
-                                    )
-                                    .map((c) => (
-                                      <div
-                                        key={c.id}
-                                        className="flex flex-col items-center w-24"
-                                      >
-                                        <div className="w-14 h-14 rounded-xl glass-panel shadow-sm border border-emerald-500/20 flex items-center justify-center p-2 mb-2 relative">
-                                          {c.logoUrl ? (
-                                            <img
-                                              src={c.logoUrl}
-                                              alt={c.name}
-                                              className="w-full h-full object-contain"
-                                            />
-                                          ) : (
-                                            <Building2 className="w-6 h-6 text-emerald-800 dark:text-lime-400" />
-                                          )}
-                                          <div className="absolute -top-2 -right-2 bg-emerald-500 rounded-full w-5 h-5 flex items-center justify-center shadow-sm border border-white dark:border-slate-800">
-                                            <CheckCircle2 className="w-3 h-3 text-white" />
-                                          </div>
-                                        </div>
-                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-700 dark:text-slate-300 text-center truncate w-full">
-                                          {c.name}
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="pt-6 text-center">
-                            <button
-                              onClick={() => setIsProfileOpen(true)}
-                              className="px-6 py-2 bg-emerald-100 dark:bg-emerald-900/40 text-slate-800 dark:text-white text-sm font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-sm"
-                            >
-                              Edit Profile Details
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "plans" && (
-                  <div className="max-w-6xl mx-auto space-y-6">
-                    {purchaseItem?.type === "plan" ? (
-                      <PremiumPurchaseView
-                        itemId={purchaseItem.item.id}
-                        itemName={purchaseItem.item.name}
-                        itemType="plan"
-                        price={purchaseItem.item.price}
-                        durationMonths={
-                          purchaseItem.item.duration === "1_month" ? 1 :
-                          purchaseItem.item.duration === "3_months" ? 3 :
-                          purchaseItem.item.duration === "6_months" ? 6 :
-                          purchaseItem.item.duration === "9_months" ? 9 :
-                          purchaseItem.item.duration === "12_months" ? 12 :
-                          purchaseItem.item.duration === "lifetime" ? 999 : 1
-                        }
-                        plan={purchaseItem.item}
-                        onBack={() => setPurchaseItem(null)}
-                        currentUser={currentUserDoc}
-                      />
-                    ) : (
-                      <div className="glass-panel rounded-2xl shadow-sm border border-emerald-500/20 p-6 sm:p-8 transition-colors">
-                        <h4 className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-6 flex items-center transition-colors">
-                          <CreditCard className="h-7 w-7 mr-3 text-emerald-800 dark:text-lime-400" />
-                          Premium Membership Plans
-                        </h4>
-                        
-                        {plans.filter(p => isPlanVisibleToStudent(p, currentUserDoc)).length === 0 ? (
-                          <div className="text-center py-16 text-slate-500">
-                            No active plans available at the moment.
-                          </div>
-                        ) : (
-                          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                            {plans.filter(p => isPlanVisibleToStudent(p, currentUserDoc)).map((plan) => (
-                              <div
-                                key={plan.id}
-                                className="bg-[#0B1528] rounded-2xl p-6 shadow-sm border border-slate-800 flex flex-col justify-between hover:-translate-y-1 hover:shadow-lg transition-all"
-                              >
-                                <div className="space-y-4">
-                                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                                    {plan.name}
-                                  </h3>
-                                  <p className="text-xs text-slate-500 uppercase tracking-wider font-mono">
-                                    {(plan.duration || "free").replace("_", " ")}
-                                  </p>
-                                  <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
-                                    ₹{plan.price || 0}
-                                  </div>
-                                  
-                                  <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-2 pt-2 border-t border-slate-800">
-                                    <li>✓ {(plan.learningContent || plan.learning_content || []).length} Learning Entitlements</li>
-                                    <li>✓ {(plan.companyModules || plan.company_modules || []).length} Company Prep Modules</li>
-                                    <li>✓ {(plan.freeDemoModules || plan.free_demo_modules || []).length} Free Demo tests</li>
-                                  </ul>
-                                  {(() => {
-                                   const isPurchased = currentUserDoc?.activePlanId === plan.id || currentUserDoc?.active_plan_id === plan.id;
-                                   const userExpiry = currentUserDoc?.planExpiry || currentUserDoc?.plan_expiry;
-                                   const isNotExpired = !userExpiry || Date.now() <= Number(userExpiry);
-                                   const isSubscriptionActive = isPurchased && isNotExpired;
-
-                                   return (
-                                     <div className="w-full mt-4 space-y-4">
-                                       {isPurchased && (
-                                         <div className={`p-3 border rounded-xl text-xs ${isNotExpired ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
-                                           <div className="flex justify-between items-center">
-                                             <span className={`font-bold uppercase tracking-wider ${isNotExpired ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                               {isNotExpired ? "Purchased ✓ (Active)" : "Subscription Expired ✗"}
-                                             </span>
-                                             <span className="text-slate-400 font-mono text-[10px]">
-                                               {userExpiry 
-                                                 ? `${isNotExpired ? 'Expires' : 'Ended'}: ${new Date(Number(userExpiry)).toLocaleDateString()}`
-                                                 : "Lifetime Access"}
-                                             </span>
-                                           </div>
-                                         </div>
-                                       )}
-                                       {isSubscriptionActive ? (
-                                         <button
-                                           onClick={() => handleStartAssessmentFlow(plan)}
-                                           className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg shadow-emerald-500/10"
-                                         >
-                                           Start Assessment
-                                         </button>
-                                       ) : (
-                                         <button
-                                           onClick={() => setPurchaseItem({ item: plan, type: "plan" })}
-                                           disabled={plan.isActive === false || plan.is_active === false}
-                                           className={`w-full font-bold py-2.5 px-4 rounded-xl transition-all shadow-md ${
-                                             (plan.isActive === false || plan.is_active === false)
-                                               ? "bg-slate-800 text-slate-500 cursor-not-allowed shadow-none"
-                                               : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/10"
-                                           }`}
-                                         >
-                                           {(plan.isActive === false || plan.is_active === false) ? "Unavailable for Purchase" : "Subscribe Now"}
-                                         </button>
-                                       )}
-                                     </div>
-                                   );
-                                 })()}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeTab === "placement-mission" && (
-                  <div className="max-w-6xl mx-auto space-y-6">
-                    <PlacementMissionView
-                      currentUser={currentUserDoc}
-                      onStartModule={handleStartModule}
-                    />
-                  </div>
-                )}
-
-                {activeTab === "feedback" && (
-                  <div className="max-w-6xl mx-auto space-y-6">
-                    <StudentFeedbackForm currentUser={currentUserDoc} />
-                  </div>
-                )}
-
-                {activeTab === "general" && (
-                  <div className="max-w-6xl mx-auto space-y-6">
-                    <StudentHierarchyView
-                      currentUser={currentUserDoc}
-                      onOpenModule={handleStartModule}
-                      assessmentPlanFilter={assessmentPlanFilter}
-                      onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type })}
-                      onRedirectToTab={(tab) => setActiveTab(tab)}
-                    />
-                  </div>
-                )}
-
-                {activeTab === "companies" && (
-                  <div className="max-w-6xl mx-auto space-y-6">
-                    {purchaseItem?.type === "company" ? (
-                      <PremiumPurchaseView
-                        itemId={purchaseItem.item.id}
-                        itemName={purchaseItem.item.name}
-                        itemType="company"
-                        price={purchaseItem.item.price || 99}
-                        onBack={() => setPurchaseItem(null)}
-                        currentUser={currentUserDoc}
-                      />
-                    ) : !activeCompany ? (
-                      <div className="glass-panel rounded-2xl shadow-sm border border-emerald-500/20 p-6 sm:p-8 transition-colors">
-                        <h4 className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-6 flex items-center transition-colors">
-                          <Building2 className="h-7 w-7 mr-3 text-emerald-800 dark:text-lime-400" />
-                          Company-Wise Directory
-                        </h4>
-                        {companies.length === 0 ? (
-                          <div className="text-center py-16 text-slate-500">
-                            No companies available.
-                          </div>
-                        ) : (
-                          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                            {(assessmentPlanFilter
-                              ? companies.filter((c) =>
-                                  (assessmentPlanFilter.companyBranches || []).some(
-                                    (cb) => cb.companyId === c.id
-                                  )
-                                )
-                              : companies
-                            ).map((c) => (
-                              <div
-                                key={c.id}
-                                onClick={() => handleCompanyClick(c)}
-                                className="bg-slate-100 dark:bg-slate-900/40 rounded-2xl p-6 shadow-sm border border-emerald-500/20 flex flex-col items-center justify-center text-center cursor-pointer hover:-translate-y-1 hover:shadow-lg hover:border-emerald-500 transition-all group relative"
-                              >
-                                {!hasAccessToCompany(c) && (
-                                  <div className="absolute top-4 right-4 bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase flex items-center shadow-sm">
-                                    <Lock className="w-3 h-3 mr-1" />
-                                    Premium
-                                  </div>
-                                )}
-                                {c.logoUrl ? (
-                                  <img
-                                    src={c.logoUrl}
-                                    alt={c.name}
-                                    className="w-20 h-20 object-contain mb-4"
-                                  />
-                                ) : (
-                                  <div className="w-20 h-20 rounded-2xl glass-panel flex items-center justify-center shadow-sm text-emerald-800 dark:text-lime-400 mb-4 border border-emerald-500/20">
-                                    <Building2 className="w-10 h-10" />
-                                  </div>
-                                )}
-                                <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 group-hover:text-emerald-800 dark:text-lime-400 transition-colors">
-                                  {c.name}
-                                </h3>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="glass-panel rounded-2xl shadow-sm border border-emerald-500/20 p-6 sm:p-8 transition-colors">
-                        <button
-                          onClick={() => setActiveCompany(null)}
-                          className="flex items-center text-sm font-bold text-slate-500 hover:text-emerald-800 dark:text-lime-400 transition-colors mb-6"
-                        >
-                          <ArrowLeft className="w-5 h-5 mr-1" />
-                          Back to Directory
-                        </button>
-                        <div className="flex flex-col md:flex-row items-center md:items-start gap-6 border-b border-slate-100 dark:border-slate-800 pb-8 mb-8">
-                          {activeCompany.logoUrl ? (
-                            <img
-                              src={activeCompany.logoUrl}
-                              alt={activeCompany.name}
-                              className="w-32 h-32 object-contain rounded-2xl bg-slate-50 dark:bg-slate-900 border border-emerald-500/20 p-4 shrink-0 transition-transform hover:scale-105"
-                            />
-                          ) : (
-                            <div className="w-32 h-32 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-800 dark:text-lime-400 shrink-0">
-                              <Building2 className="w-16 h-16" />
-                            </div>
-                          )}
-                          <div className="text-center md:text-left flex-1 w-full">
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-slate-100 mb-4">
-                              {activeCompany.name} Preparation
-                            </h2>
-                            {activeCompany.description && (
-                              <div className="bg-slate-100 dark:bg-slate-900/40 p-6 rounded-2xl border border-emerald-500/20 text-left">
-                                <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center text-lg">
-                                  <Info className="w-5 h-5 mr-2 text-emerald-500" />
-                                  About {activeCompany.name}
-                                </h3>
-                                <div className="text-emerald-400/80 whitespace-pre-wrap leading-relaxed text-sm font-medium">
-                                  {activeCompany.description}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mb-6 flex items-center justify-between">
-                          <h3 className="font-bold text-slate-800 dark:text-slate-200 text-xl flex items-center">
-                            <BookOpen className="w-6 h-6 mr-2 text-emerald-500" />
-                            Assessment Modules
-                          </h3>
-                        </div>
-
-                        {!hasAccessToCompany(activeCompany) && (
-                          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between shadow-sm mb-6">
-                            <div className="flex items-center mb-4 sm:mb-0">
-                              <Lock className="w-6 h-6 text-amber-500 shrink-0 mr-3" />
-                              <div>
-                                <h4 className="font-bold text-amber-800 dark:text-amber-400">
-                                  Unlock {activeCompany.name}
-                                </h4>
-                                <p className="text-sm text-amber-600 dark:text-amber-500 font-medium">
-                                  Purchase this company to unlock all premium
-                                  preparation modules inside.
-                                </p>
-                              </div>
-                            </div>
-                            {activeCompany.accessType ===
-                            "access_request_only" ? (
-                              <button
-                                onClick={() =>
-                                  submitAccessRequest(activeCompany, "company")
-                                }
-                                disabled={accessRequestSent[activeCompany.id]}
-                                className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-sm whitespace-nowrap"
-                              >
-                                {accessRequestSent[activeCompany.id]
-                                  ? "Requested"
-                                  : "Request Access"}
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() =>
-                                  setPurchaseItem({
-                                    item: activeCompany,
-                                    type: "company",
-                                  })
-                                }
-                                className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-sm whitespace-nowrap"
-                              >
-                                Unlock for ₹{activeCompany.price || 0}
-                              </button>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="grid gap-6 sm:grid-cols-2">
-                          {modules
-                            .filter(
-                              (m) =>
-                                m.parentId &&
-                                String(m.parentId) === String(activeCompany.id) &&
-                                (!assessmentPlanFilter ||
-                                  (assessmentPlanFilter.companyBranches || []).some(
-                                    (cb) => cb.companyId === activeCompany.id && cb.branchId === m.branchId
-                                  )),
-                            )
-                            .map((mod) => {
-                              const prevScore = moduleScores[mod.id];
-                              const hasCompleted = prevScore !== undefined;
-                              const isPassed =
-                                hasCompleted &&
-                                prevScore >= (mod.passPercentage || 0);
-                              const access = hasItemAccess(mod, "module");
-
-                              return (
-                                <div
-                                  key={mod.id}
-                                  className="group p-6 border border-emerald-500/20 rounded-xl hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-md transition-all glass-panel flex flex-col relative overflow-hidden"
-                                >
-                                  {mod.accessMode === "custom" ? (
-                                    mod.accessType &&
-                                    mod.accessType !== "free" && (
-                                      <div
-                                        className={`absolute top-0 right-0 text-white text-[10px] font-bold px-2 py-1 uppercase tracking-wider rounded-bl-lg z-10 flex items-center ${mod.accessType === "demo" ? "bg-indigo-500" : "bg-amber-500"}`}
-                                      >
-                                        {[
-                                          "premium_only",
-                                          "premium_purchasable",
-                                        ].includes(mod.accessType) && (
-                                          <Lock className="w-3 h-3 mr-1" />
-                                        )}
-                                        {mod.accessType === "premium_only"
-                                          ? `Premium`
-                                          : mod.accessType ===
-                                              "purchasable_only"
-                                            ? `Purchasable (₹${mod.price || 0})`
-                                            : mod.accessType ===
-                                                "premium_purchasable"
-                                              ? `Prem/Purch (₹${mod.price || 0})`
-                                              : "Demo"}
-                                      </div>
-                                    )
-                                  ) : (
-                                    <div className="absolute top-0 right-0 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold px-2 py-1 uppercase tracking-wider rounded-bl-lg z-10 flex items-center">
-                                      Inherit Parent
-                                    </div>
-                                  )}
-                                  <div className="flex justify-between items-start mb-2 gap-2 mt-2">
-                                    <div className="flex flex-col">
-                                      <h5 className="font-bold text-lg text-slate-900 dark:text-slate-100 transition-colors">
-                                        {mod.title}
-                                      </h5>
-                                      <span className="text-xs font-bold text-emerald-500 dark:text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mt-1">
-                                        {mod.category}
-                                      </span>
-                                    </div>
-                                    {hasCompleted && (
-                                      <span
-                                        className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${isPassed ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-700 dark:text-emerald-400" : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400"}`}
-                                      >
-                                        {isPassed ? "Passed" : "Failed"} (
-                                        {prevScore}%)
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-sm text-emerald-400/80 mb-6 flex-1 mt-2 leading-relaxed whitespace-pre-wrap">
-                                    {mod.description}
-                                  </p>
-                                  <div className="flex flex-wrap gap-2 mb-6">
-                                    <span className="text-xs font-medium px-2.5 py-1.5 bg-emerald-100 dark:bg-emerald-900/40 text-slate-700 dark:text-slate-300 rounded-lg flex items-center transition-colors">
-                                      <FileText className="w-3.5 h-3.5 mr-1.5" />{" "}
-                                      {mod.questions.length} Qs
-                                    </span>
-                                    <span className="text-xs font-medium px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-lg flex items-center transition-colors">
-                                      <Timer className="w-3.5 h-3.5 mr-1.5" />{" "}
-                                      {mod.timeLimit || 30}m
-                                    </span>
-                                    <span className="text-xs font-medium px-2.5 py-1.5 bg-slate-50 dark:bg-slate-100 dark:bg-slate-900/40 text-slate-700 dark:text-slate-700 dark:text-slate-300 rounded-lg flex items-center transition-colors">
-                                      Pass: {mod.passPercentage || 60}%
-                                    </span>
-                                  </div>
-                                  <div className="mt-auto border-t border-emerald-500/20 pt-4 flex items-center justify-between">
-                                    <span className="text-xs font-medium text-slate-400">
-                                      {hasCompleted
-                                        ? "Retake assessment"
-                                        : "Begin assessment"}
-                                    </span>
-                                    {access ? (
-                                      <button
-                                        onClick={() => handleStartModule(mod)}
-                                        className="text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg flex items-center transition-colors shadow-sm"
-                                      >
-                                        {hasCompleted ? "Retake" : "Start Now"}{" "}
-                                        <ChevronRight className="w-4 h-4 ml-1.5" />
-                                      </button>
-                                    ) : (mod.accessMode === "custom" &&
-                                        mod.accessType ===
-                                          "access_request_only") ||
-                                      ((!mod.accessMode ||
-                                        mod.accessMode === "inherit") &&
-                                        activeCompany?.accessType ===
-                                          "access_request_only") ? (
-                                      <button
-                                        onClick={() =>
-                                          submitAccessRequest(mod, "module")
-                                        }
-                                        disabled={accessRequestSent[mod.id]}
-                                        className="text-sm font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 px-4 py-2 rounded-lg flex items-center transition-colors shadow-sm"
-                                      >
-                                        <Lock className="w-4 h-4 mr-1.5" />{" "}
-                                        {accessRequestSent[mod.id]
-                                          ? "Requested"
-                                          : "Request Access"}
-                                      </button>
-                                    ) : (
-                                      <button
-                                        onClick={() => {
-                                          if (
-                                            !mod.accessMode ||
-                                            mod.accessMode === "inherit"
-                                          ) {
-                                            setPurchaseItem({
-                                              item: activeCompany,
-                                              type: "company",
-                                            });
-                                          } else {
-                                            setPurchaseItem({
-                                              item: mod,
-                                              type: "module",
-                                            });
-                                          }
-                                        }}
-                                        className="text-sm font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 px-4 py-2 rounded-lg flex items-center transition-colors shadow-sm"
-                                      >
-                                        <Lock className="w-4 h-4 mr-1.5" />{" "}
-                                        Unlock
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          {modules.filter(
-                            (m) =>
-                              m.parentId &&
-                              String(m.parentId) === String(activeCompany.id),
-                          ).length === 0 && (
-                            <div className="col-span-full text-center py-12 text-slate-500 bg-slate-100 dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
-                              Check back later. New preparation modules for{" "}
-                              {activeCompany.name} are coming soon.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
+            {/* Secure Exam assessment screen */}
+            {activeModule && (
               <div className="max-w-3xl mx-auto">
-                <button
-                  onClick={() => {
-                    exitFullscreen();
-                    setActiveModule(null);
-                  }}
-                  className="flex items-center text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white mb-6 transition-colors font-medium"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-1.5" />
-                  Back to Modules
-                </button>
+                {!isFinished && currentQuestionIndex === -1 && (
+                  <button
+                    onClick={() => {
+                      exitFullscreen();
+                      setActiveModule(null);
+                    }}
+                    className="flex items-center text-xs font-bold text-slate-455 hover:text-emerald-400 transition-colors mb-6 uppercase tracking-wider gap-1"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Dashboard
+                  </button>
+                )}
                 <div className="glass-panel rounded-2xl shadow-lg border border-emerald-500/20 p-6 md:p-10 transition-colors">
                   {isFinished ? (
                     isReviewing ? (
@@ -2239,36 +1538,7 @@ export default function StudentDashboard() {
                           msUserSelect: "none",
                         }}
                       >
-                        <style>{`
-                          .watermark-overlay {
-                            position: absolute;
-                            inset: 0;
-                            pointer-events: none;
-                            user-select: none;
-                            overflow: hidden;
-                            z-index: 50;
-                            display: grid;
-                            grid-template-columns: repeat(4, 1fr);
-                            grid-template-rows: repeat(4, 1fr);
-                            gap: 60px;
-                            transition: transform 0.5s ease-in-out;
-                          }
-                          .watermark-item {
-                            font-size: 10px;
-                            font-weight: bold;
-                            font-family: monospace;
-                            text-align: center;
-                            white-space: nowrap;
-                          }
-                          @media print {
-                            body {
-                              display: none !important;
-                            }
-                            .select-none-all {
-                              display: none !important;
-                            }
-                          }
-                        `}</style>
+
 
                         {/* Dynamic Watermark */}
                         <div className="watermark-overlay" style={{ transform: `translate(${watermarkOffset.x}px, ${watermarkOffset.y}px) rotate(-25deg) scale(1.2)` }}>
@@ -2636,50 +1906,7 @@ export default function StudentDashboard() {
                         msUserSelect: "none",
                       }}
                     >
-                      <style>{`
-                        .watermark-overlay {
-                          position: absolute;
-                          inset: 0;
-                          pointer-events: none;
-                          user-select: none;
-                          overflow: hidden;
-                          z-index: 50;
-                          display: grid;
-                          grid-template-columns: repeat(4, 1fr);
-                          grid-template-rows: repeat(4, 1fr);
-                          gap: 60px;
-                          transition: transform 0.5s ease-in-out;
-                        }
-                        .watermark-item {
-                          font-size: 10px;
-                          font-weight: bold;
-                          font-family: monospace;
-                          text-align: center;
-                          white-space: nowrap;
-                        }
-                        @keyframes fadeIn {
-                          from { opacity: 0; }
-                          to { opacity: 1; }
-                        }
-                        @keyframes slideInRight {
-                          from { transform: translateX(100%); }
-                          to { transform: translateX(0); }
-                        }
-                        .animate-fade-in {
-                          animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                        }
-                        .animate-slide-in-right {
-                          animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                        }
-                        @media print {
-                          body {
-                            display: none !important;
-                          }
-                          .select-none-all {
-                            display: none !important;
-                          }
-                        }
-                      `}</style>
+
 
                       {/* Dynamic Watermark */}
                       <div className="watermark-overlay" style={{ transform: `translate(${watermarkOffset.x}px, ${watermarkOffset.y}px) rotate(-25deg) scale(1.2)` }}>
@@ -3094,394 +2321,191 @@ export default function StudentDashboard() {
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </main>
-
-        {/* Profile Settings Modal */}
-        {isProfileOpen && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="glass-panel rounded-2xl w-full max-w-md shadow-2xl border border-emerald-500/20 overflow-hidden transform transition-all animate-in fade-in zoom-in duration-200">
-              <div className="flex justify-between items-center p-6 border-b border-emerald-500/20">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
-                  <User className="w-5 h-5 mr-2 text-emerald-500" />
-                  Profile Settings
-                </h2>
-                <button
-                  onClick={() => setIsProfileOpen(false)}
-                  className="text-slate-400 hover:text-slate-500 dark:hover:text-slate-700 dark:text-slate-300"
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveProfile} className="p-6 space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-700 dark:text-slate-300">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={profileForm.name}
-                    onChange={(e) =>
-                      setProfileForm({ ...profileForm, name: e.target.value })
-                    }
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                    placeholder="Your Name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    Academic Branch
-                  </label>
-                  <div className="flex justify-between items-center p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-                    <div className="truncate pr-2">
-                      <span className="text-xs text-slate-400 block uppercase font-mono tracking-wider font-semibold">Current Branch</span>
-                      <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
-                        {currentUserDoc?.branch || "No branch selected"}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsChangingBranch(prev => !prev)}
-                      className="px-3 py-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white font-bold text-xs rounded-xl transition-all shrink-0"
-                    >
-                      {isChangingBranch ? "Hide Branches" : "Change Branch"}
-                    </button>
+                  )
+                }
                   </div>
+                </div>
+              )}
 
-                  {isChangingBranch && (
-                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2 animate-in slide-in-from-top duration-200">
-                      <label className="text-xs font-bold text-slate-500 block uppercase font-mono tracking-wider">Select New Branch</label>
-                      <div className="grid gap-2 max-h-[150px] overflow-y-auto pr-1">
-                        {activeBranches.filter(b => !b.isGeneral && b.status === "ACTIVE" && b.id !== (currentUserDoc?.branchId || currentUserDoc?.branch_id)).map(b => (
-                          <button
-                            key={b.id}
-                            type="button"
-                            onClick={() => {
-                              setTempSelectedBranch(b);
-                              setShowBranchConfirmation(true);
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-xs font-bold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-emerald-500/5 hover:border-emerald-500 rounded-xl transition-all text-slate-800 dark:text-slate-200"
-                          >
-                            {b.name}
-                          </button>
-                        ))}
-                        {activeBranches.filter(b => !b.isGeneral && b.status === "ACTIVE" && b.id !== (currentUserDoc?.branchId || currentUserDoc?.branch_id)).length === 0 && (
-                          <div className="text-center py-4 text-xs text-slate-500 font-semibold">
-                            No other active branches available.
-                          </div>
-                        )}
-                      </div>
-                    </div>
+              {/* Standard Dashboard Tab views */}
+              {!activeModule && !activeMasterModule && (
+                <>
+                  {activeTab === "dashboard" && (
+                    loadingMetadata ? (
+                      <DashboardSkeleton />
+                    ) : (
+                      <StudentDashboardView
+                        user={currentUserDoc || user}
+                        stats={stats}
+                        medalInfo={medalInfo}
+                        modules={modules}
+                        moduleScores={moduleScores}
+                        companies={companies}
+                        activeBranches={activeBranches}
+                        placementMissions={placementMissions}
+                        leaderboard={leaderboard}
+                        onTabChange={handleNavClick}
+                        onStartModule={handleStartModule}
+                      />
+                    )
                   )}
-                </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    Semester
-                  </label>
-                  <select
-                    value={profileForm.semester}
-                    onChange={(e) =>
-                      setProfileForm({
-                        ...profileForm,
-                        semester: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                  >
-                    <option value="" disabled>
-                      Select semester
-                    </option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                      <option key={s} value={s.toString()}>
-                        Semester {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  {activeTab === "general" && (
+                    <StudentHierarchyView
+                      currentUser={currentUserDoc}
+                      onOpenModule={handleStartModule}
+                      assessmentPlanFilter={assessmentPlanFilter}
+                      onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type })}
+                      onRedirectToTab={(tab) => setActiveTab(tab)}
+                    />
+                  )}
 
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    College Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Type your college name..."
-                    value={profileForm.collegeName}
-                    onChange={(e) =>
-                      setProfileForm({
-                        ...profileForm,
-                        collegeName: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                  />
-                </div>
+                  {activeTab === "companies" && (
+                    loadingMetadata ? (
+                      <CompanyCardSkeleton />
+                    ) : (
+                      <StudentCompaniesView
+                        companies={companies}
+                        activeCompany={activeCompany}
+                        setActiveCompany={setActiveCompany}
+                        assessmentPlanFilter={assessmentPlanFilter}
+                        hasAccessToCompany={hasAccessToCompany}
+                        hasItemAccess={hasItemAccess}
+                        modules={modules}
+                        moduleScores={moduleScores}
+                        purchaseItem={purchaseItem}
+                        onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type })}
+                        onBackFromPurchase={() => setPurchaseItem(null)}
+                        submitAccessRequest={submitAccessRequest}
+                        accessRequestSent={accessRequestSent}
+                        onStartModule={handleStartModule}
+                      />
+                    )
+                  )}
 
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    University Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Type your university name..."
-                    value={profileForm.universityName}
-                    onChange={(e) =>
-                      setProfileForm({
-                        ...profileForm,
-                        universityName: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                  />
-                </div>
+                  {activeTab === "placement-mission" && (
+                    <PlacementMissionView
+                      currentUser={currentUserDoc}
+                      onStartModule={handleStartModule}
+                    />
+                  )}
 
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    Graduation Year
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 2026"
-                    value={profileForm.graduationYear}
-                    onChange={(e) =>
-                      setProfileForm({
-                        ...profileForm,
-                        graduationYear: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                  />
-                </div>
+                  {activeTab === "plans" && (
+                    loadingMetadata ? (
+                      <PlanCardSkeleton />
+                    ) : (
+                      <StudentPlansView
+                        plans={plans}
+                        currentUser={currentUserDoc}
+                        purchaseItem={purchaseItem}
+                        onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type })}
+                        onBackFromPurchase={() => setPurchaseItem(null)}
+                        onStartAssessmentFlow={handleStartAssessmentFlow}
+                      />
+                    )
+                  )}
 
-                <div className="pt-4 border-t border-emerald-500/20 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsChangingBranch(false);
-                      setIsProfileOpen(false);
-                    }}
-                    className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 px-4 py-3 btn-eng-primary font-bold rounded-xl shadow-md transition-all hover:scale-[1.02]"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </form>
+                  {activeTab === "feedback" && (
+                    <StudentFeedbackView currentUser={currentUserDoc} />
+                  )}
+
+                  {activeTab === "profile" && (
+                    loadingMetadata ? (
+                      <ProfileSkeleton />
+                    ) : (
+                      <StudentProfileView
+                        currentUser={currentUserDoc}
+                        profileForm={profileForm}
+                        setProfileForm={setProfileForm}
+                        onSaveProfile={handleSaveProfile}
+                        stats={stats}
+                        medalInfo={medalInfo}
+                        moduleScores={moduleScores}
+                        activeBranches={activeBranches}
+                        isChangingBranch={isChangingBranch}
+                        setIsChangingBranch={setIsChangingBranch}
+                        onSwitchBranch={async (b) => {
+                          setTempSelectedBranch(b);
+                          setShowBranchConfirmation(true);
+                        }}
+                      />
+                    )
+                  )}
+                </>
+              )}
+            </div> {/* Closes Div #4 (max-w-7xl) */}
+          </div> {/* Closes Div #3 (std-content-scroll) */}
+        </div> {/* Closes Div #2 (std-main-wrapper) */}
+
+      {/* Switch Specialty confirmation Modal */}
+      {showBranchConfirmation && tempSelectedBranch && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-[#0E1629] border border-slate-850 rounded-3xl w-full max-w-sm shadow-2xl p-6 space-y-6 text-center transform transition-all animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 text-emerald-500 mx-auto bg-emerald-500/10 rounded-full p-2 mb-2 flex items-center justify-center animate-pulse">
+              <Award className="w-6 h-6" />
             </div>
-          </div>
-        )}
+            <h3 className="text-base font-black text-slate-100 uppercase tracking-wider font-mono">
+              Confirm Specialty Switch
+            </h3>
+            <p className="text-xs text-slate-450 font-medium">
+              Change academic focus from <span className="font-bold text-emerald-455">'{currentUserDoc?.branch || "None"}'</span> to <span className="font-bold text-emerald-455">'{tempSelectedBranch.name}'</span>?
+            </p>
+            <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-xl text-left text-[11px] text-amber-500 space-y-1">
+              <p className="font-bold uppercase">Attention:</p>
+              <p>Your eligible companies, learning path modules, and missions may change according to this specialization.</p>
+            </div>
 
-        {/* Switch Branch Confirmation Modal */}
-        {showBranchConfirmation && tempSelectedBranch && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-            <div className="glass-panel rounded-3xl w-full max-w-sm shadow-2xl border border-emerald-500/20 p-6 space-y-6 text-center transform transition-all animate-in fade-in zoom-in-95 duration-200">
-              <div className="w-12 h-12 text-emerald-500 mx-auto bg-emerald-500/10 rounded-full p-2 mb-2 flex items-center justify-center animate-pulse">
-                <GitMerge className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider font-mono">
-                Confirm Branch Switch
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">
-                Switch branch from <span className="font-bold text-emerald-500">'{currentUserDoc?.branch || "None"}'</span> to <span className="font-bold text-emerald-500">'{tempSelectedBranch.name}'</span>?
-              </p>
-              <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-left text-xs text-amber-600 dark:text-amber-400 space-y-1">
-                <p className="font-bold">Important Note:</p>
-                <p className="font-medium">Your available companies, learning content and placement content may change according to the selected branch.</p>
-              </div>
-
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowBranchConfirmation(false);
-                    setTempSelectedBranch(null);
-                  }}
-                  className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setShowBranchConfirmation(false);
-                    setIsChangingBranch(false);
-                    setIsProfileOpen(false);
-                    try {
-                      await setDoc(
-                        doc(db, "users", auth.currentUser.uid),
-                        {
-                          branchId: tempSelectedBranch.id,
-                          branch: tempSelectedBranch.name,
-                          updatedAt: Date.now(),
-                        },
-                        { merge: true }
-                      );
-                      showToast(`Successfully switched to ${tempSelectedBranch.name}!`, "success");
-                      // Instantly update states to refresh dashboard content without logout
-                      setCurrentUserDoc(prev => ({
-                        ...prev,
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBranchConfirmation(false);
+                  setTempSelectedBranch(null);
+                }}
+                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowBranchConfirmation(false);
+                  setIsChangingBranch(false);
+                  setIsProfileOpen(false);
+                  try {
+                    await setDoc(
+                      doc(db, "users", auth.currentUser.uid),
+                      {
                         branchId: tempSelectedBranch.id,
-                        branch_id: tempSelectedBranch.id,
-                        branch: tempSelectedBranch.name
-                      }));
-                      setProfileForm(prev => ({
-                        ...prev,
                         branch: tempSelectedBranch.name,
-                        branchId: tempSelectedBranch.id
-                      }));
-                      // Refresh dashboard content
-                      window.location.reload();
-                    } catch (err) {
-                      showToast("Failed to switch branch: " + err.message, "error");
-                    }
-                  }}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition-colors"
-                >
-                  Switch Branch
-                </button>
-              </div>
+                        updatedAt: Date.now(),
+                      },
+                      { merge: true }
+                    );
+                    showToast(`Successfully switched to ${tempSelectedBranch.name}!`, "success");
+                    setCurrentUserDoc(prev => ({
+                      ...prev,
+                      branchId: tempSelectedBranch.id,
+                      branch_id: tempSelectedBranch.id,
+                      branch: tempSelectedBranch.name
+                    }));
+                    setProfileForm(prev => ({
+                      ...prev,
+                      branch: tempSelectedBranch.name,
+                      branchId: tempSelectedBranch.id
+                    }));
+                    window.location.reload();
+                  } catch (err) {
+                    showToast("Failed to switch specialty: " + err.message, "error");
+                  }
+                }}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-md shadow-emerald-600/10"
+              >
+                Switch Specialty
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export function SidebarItem({ icon, label, active, onClick, isOpen }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center py-3 rounded-xl text-sm font-semibold transition-all duration-200 relative group
-        ${active 
-          ? "bg-gradient-to-r from-emerald-500/15 to-teal-500/5 dark:from-emerald-500/20 dark:to-teal-500/5 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shadow-lg shadow-emerald-500/5" 
-          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 border border-transparent"} 
-        ${!isOpen ? "justify-center px-0" : "px-4"}`}
-      title={!isOpen ? label : undefined}
-    >
-      {/* Active Left Indicator Bar */}
-      {active && (
-        <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-emerald-500 rounded-r-md" />
-      )}
-      
-      <span
-        className={`transition-colors duration-200 ${
-          active 
-            ? "text-emerald-600 dark:text-emerald-400" 
-            : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
-        }`}
-      >
-        {React.cloneElement(icon, { className: "w-5 h-5" })}
-      </span>
-      
-      <span className={`ml-3 transition-opacity duration-200 ${!isOpen ? "w-0 opacity-0 overflow-hidden" : "opacity-100"}`}>
-        {label}
-      </span>
-    </button>
-  );
-}
-
-function StudentFeedbackForm({ currentUser }) {
-  const [feedbackType, setFeedbackType] = useState("general");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!message.trim()) return;
-    setLoading(true);
-    try {
-      const fbId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
-      await setDoc(doc(db, "feedbacks", fbId), {
-        id: fbId,
-        userId: currentUser?.id || "anonymous",
-        userName: currentUser?.name || "Anonymous",
-        userEmail: currentUser?.email || "",
-        feedbackType,
-        message,
-        createdAt: Date.now(),
-      });
-      setSuccess(true);
-      setMessage("");
-    } catch (err) {
-      showToast("Failed to send feedback: " + err.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-emerald-500/20 max-w-lg mx-auto">
-      <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Send Feedback</h3>
-      <p className="text-sm text-slate-500 mb-6">
-        Let us know what you think, report a problem, or suggest improvements. We read all feedback!
-      </p>
-
-      {success ? (
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-4 rounded-xl text-center">
-          <p className="text-emerald-700 dark:text-emerald-400 font-bold mb-2">Thank you!</p>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Your feedback has been submitted successfully.</p>
-          <button
-            onClick={() => setSuccess(false)}
-            className="px-4 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors"
-          >
-            Send Another Message
-          </button>
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-              Feedback Type
-            </label>
-            <select
-              value={feedbackType}
-              onChange={(e) => setFeedbackType(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-            >
-              <option value="general">General Feedback</option>
-              <option value="bug">Report a Bug / Problem</option>
-              <option value="improvement">Need Improvement</option>
-              <option value="feature">Feature Request</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-              Your Message
-            </label>
-            <textarea
-              rows={5}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Tell us details..."
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !message.trim()}
-            className="w-full py-3 px-4 rounded-xl shadow-sm text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "Sending..." : "Submit Feedback"}
-          </button>
-        </form>
       )}
     </div>
   );

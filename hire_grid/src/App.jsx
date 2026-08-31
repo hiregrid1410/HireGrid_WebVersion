@@ -5,17 +5,14 @@ import AdminAuth from "./pages/admin/AdminAuth";
 import { ToastContainer } from "./components/common/Toast";
 import { isAuthenticated, getStoredRole } from "./lib/authGuard";
 
+import { ProgressCircuitLoader } from "./components/loading/ProgressCircuitLoader";
+
 const StudentDashboard = lazy(() => import("./pages/student/StudentDashboard"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const ContentManagerDashboard = lazy(() => import("./pages/admin/ContentManagerDashboard"));
 
 const PageLoader = () => (
-  <div className="min-h-screen bg-[#070D19] flex items-center justify-center">
-    <div className="relative">
-      <div className="h-12 w-12 rounded-full border-t-2 border-b-2 border-emerald-500 animate-spin"></div>
-      <div className="absolute inset-0 m-auto h-6 w-6 rounded-full bg-emerald-500/10 animate-ping"></div>
-    </div>
-  </div>
+  <ProgressCircuitLoader fullScreen indeterminate label="Initializing HireGridX..." />
 );
 
 // Wrapper components ensure guards re-evaluate on every navigation/render

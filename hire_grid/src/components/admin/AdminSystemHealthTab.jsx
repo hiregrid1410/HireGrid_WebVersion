@@ -14,6 +14,13 @@ import {
   CheckCircle,
 } from "lucide-react";
 
+import { DashboardSkeleton } from "../loading/Skeletons";
+
+// Memory cache for admin dashboard health stats
+let cachedHealthData = null;
+let cachedHealthDataTime = 0;
+const HEALTH_CACHE_TTL = 30000; // 30 seconds TTL
+
 export function AdminSystemHealthTab() {
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -32,6 +39,16 @@ export function AdminSystemHealthTab() {
 
   const fetchDashboardData = async () => {
     setLoading(true);
+    
+    const now = Date.now();
+    if (cachedHealthData && (now - cachedHealthDataTime < HEALTH_CACHE_TTL)) {
+      setStats(cachedHealthData.stats);
+      setRecentActivities(cachedHealthData.recentActivities);
+      setLeaderboard(cachedHealthData.leaderboard);
+      setLoading(false);
+      return;
+    }
+
     let students = 0;
     let premium = 0;
     let purchases = 0;
@@ -87,18 +104,29 @@ export function AdminSystemHealthTab() {
       { rank: 4, name: "Jayvir Sharma", score: 780, branch: "Electrical" },
     ];
 
-    setStats({
+    const freshStats = {
       totalStudents: students,
       premiumStudents: premium,
       pendingPurchases: purchases,
       pendingDevices: devices,
       criticalAlerts: alerts,
       unreadFeedbacks: feedbacks,
-      averageExamScore: 78, // Placeholder
-      placementParticipants: 24, // Placeholder
-    });
+      averageExamScore: 78,
+      placementParticipants: 24,
+    };
+
+    setStats(freshStats);
     setRecentActivities(activities);
     setLeaderboard(topStudents);
+
+    // Save to cache
+    cachedHealthData = {
+      stats: freshStats,
+      recentActivities: activities,
+      leaderboard: topStudents,
+    };
+    cachedHealthDataTime = Date.now();
+
     setLoading(false);
   };
 
@@ -107,16 +135,7 @@ export function AdminSystemHealthTab() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="h-28 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl animate-pulse" />
-          ))}
-        </div>
-        <div className="h-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl animate-pulse" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
