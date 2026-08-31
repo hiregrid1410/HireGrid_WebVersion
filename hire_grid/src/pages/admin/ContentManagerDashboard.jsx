@@ -75,19 +75,6 @@ export default function ContentManagerDashboard() {
   const [cycles, setCycles] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
 
-  // Question Bank State
-  const [questions, setQuestions] = useState([]);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [questionSearch, setQuestionSearch] = useState("");
-  const [difficultyFilter, setDifficultyFilter] = useState("all");
-  const [questionsCount, setQuestionsCount] = useState(0);
-
-  // Import Center State
-  const [importType, setImportType] = useState("questions");
-  const [importMode, setImportMode] = useState("add_new");
-  const [rawJsonText, setRawJsonText] = useState("");
-  const [isImporting, setIsImporting] = useState(false);
-
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
@@ -127,35 +114,6 @@ export default function ContentManagerDashboard() {
       fetchStats();
     }
   }, [activeTab]);
-
-  // Fetch Question Bank
-  const fetchQuestionBank = async () => {
-    setLoadingQuestions(true);
-    try {
-      let url = `/admin/questions?limit=50&offset=0`;
-      if (questionSearch) url += `&search=${questionSearch}`;
-      if (difficultyFilter !== "all") url += `&where_difficulty==:${difficultyFilter}`;
-      const res = await api.get(url);
-      if (res.success && res.questions) {
-        setQuestions(res.questions);
-        if (res.questions.length > 0) {
-          setQuestionsCount(parseInt(res.questions[0].totalCount, 10) || res.questions.length);
-        } else {
-          setQuestionsCount(0);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingQuestions(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === "question-bank") {
-      fetchQuestionBank();
-    }
-  }, [activeTab, questionSearch, difficultyFilter]);
 
   if (role !== "content_manager") {
     return <Navigate to="/admin" replace />;
