@@ -140,7 +140,27 @@ export default function StudentAuth() {
   };
 
   return (
-    <AuthLayout variant="student">
+    <AuthLayout
+      variant="student"
+      navRight={
+        <a
+          href="/admin"
+          style={{
+            fontSize: "13px",
+            color: "rgba(148,163,184,0.40)",
+            textDecoration: "none",
+            cursor: "pointer",
+            transition: "color 0.2s",
+            userSelect: "none",
+          }}
+          onMouseEnter={(e) => (e.target.style.color = "rgba(148,163,184,0.80)")}
+          onMouseLeave={(e) => (e.target.style.color = "rgba(148,163,184,0.40)")}
+          title="Operator Portal"
+        >
+          श्री हरिवंश 💚
+        </a>
+      }
+    >
       {/* ── Left: Brand ── */}
       <AuthBrand variant={isSignUp ? "student-signup" : "student-login"} />
 
