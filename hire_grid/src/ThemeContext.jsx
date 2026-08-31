@@ -41,7 +41,11 @@ export const ThemeProvider = ({ children }) => {
         if (user && user.id) {
           user.theme = nextTheme;
           localStorage.setItem("user", JSON.stringify(user));
-          await api.put(`/users/${user.id}`, { theme: nextTheme }).catch(() => {});
+          if (user.role === "admin" || user.role === "content_manager") {
+            await api.put(`/admin_users/${user.id}`, { theme: nextTheme }).catch(() => {});
+          } else {
+            await api.put(`/users/${user.id}`, { theme: nextTheme }).catch(() => {});
+          }
         }
       }
     } catch (e) {

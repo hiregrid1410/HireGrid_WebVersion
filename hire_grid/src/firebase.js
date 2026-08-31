@@ -158,7 +158,9 @@ function invalidateCache(collectionName) {
 // Get a single doc
 export async function getDoc(docRef) {
   try {
-    const url = `/${docRef.collectionName}/${docRef.id}`;
+    let colName = docRef.collectionName;
+    if (colName === "security_logs") colName = "security-logs";
+    const url = `/${colName}/${docRef.id}`;
     const cachedItem = getCache(url);
     if (cachedItem) {
       return createDocSnap(docRef.id, cachedItem);
@@ -179,7 +181,9 @@ export async function getDoc(docRef) {
 // Get collection docs
 export async function getDocs(queryRef) {
   try {
-    let url = `/${queryRef.collectionName}`;
+    let colName = queryRef.collectionName;
+    if (colName === "security_logs") colName = "security-logs";
+    let url = `/${colName}`;
     const params = new URLSearchParams();
     
     if (queryRef.clauses) {

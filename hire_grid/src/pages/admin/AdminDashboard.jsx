@@ -160,7 +160,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-page font-sans text-slate-800 dark:text-slate-100 flex overflow-hidden">
+    <div className="h-screen max-h-screen bg-bg-page font-sans text-slate-800 dark:text-slate-100 flex overflow-hidden w-screen">
       {/* Mobile Overlay */}
       {sidebarOpen && isMobile && (
         <div
@@ -172,25 +172,32 @@ export default function AdminDashboard() {
       {/* Sidebar */}
       <aside
         className={`bg-[#0B1F3A] dark:bg-slate-950 border-r border-slate-800 flex flex-col transition-all duration-300 z-50 shrink-0
-        fixed md:relative inset-y-0 left-0 h-full
+        fixed md:relative inset-y-0 left-0 h-full overflow-hidden
         ${sidebarOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0 w-72 md:w-20"}`}
       >
         {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800/80 shrink-0">
-          <div className={`flex items-center gap-3 ${!sidebarOpen && "hidden"}`}>
-            <img src="/logo.png" alt="HireGridX Logo" className="h-7 w-auto object-contain" />
-          </div>
-          {!sidebarOpen && (
-            <div className="mx-auto">
-              <ShieldCheck className="h-7 w-7 text-emerald-500" />
-            </div>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800/80 shrink-0">
+          {sidebarOpen ? (
+            <>
+              <div className="flex items-center gap-3">
+                <img src="/logo.png" alt="HireGridX Logo" className="h-7 w-auto object-contain bg-transparent" />
+              </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="mx-auto p-1.5 hover:bg-slate-850 rounded-xl transition-all cursor-pointer flex items-center justify-center"
+              title="Expand Sidebar"
+            >
+              <img src="/logo.png" alt="HireGridX Logo" className="h-7 w-7 object-contain bg-transparent" />
+            </button>
           )}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Sidebar Nav */}
@@ -450,12 +457,6 @@ export default function AdminDashboard() {
               <Calendar className="w-3.5 h-3.5" />
               <span>{getFormattedDate()}</span>
             </div>
-
-            {/* Notification Bell */}
-            <button className="relative p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full" />
-            </button>
 
             <ThemeToggle />
           </div>
