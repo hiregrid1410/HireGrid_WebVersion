@@ -945,22 +945,10 @@ export function AdminModulesTab({
   };
 
   const initiateDeleteModule = (id, moduleTitle) => {
-    const mod = modules.find((m) => m.id === id);
-    if (isContentManager && mod && mod.createdBy !== userName) {
-      showToast(
-        "You are not authorized to delete this module. Only the creator or a Super Admin can delete it.",
-        "warning"
-      );
-      return;
-    }
     setDeleteModuleInfo({ id, title: moduleTitle });
   };
 
   const handleEditModule = async (m) => {
-    if (isContentManager && m.createdBy && m.createdBy !== userName) {
-      showToast("You are not authorized to edit this module. Only the creator or a Super Admin can edit it.", "warning");
-      return;
-    }
 
     let fetchedQuestions = m.questions || [];
     // If the questions are empty/placeholder, lazy load them

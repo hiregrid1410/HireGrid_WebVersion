@@ -170,12 +170,6 @@ export function HierarchyBuilder({
 
   const confirmDelete = async () => {
     if (!deleteNodeInfo) return;
-    const node = nodes.find((n) => n.id === deleteNodeInfo.id);
-    if (isContentManager && node && node.createdBy && node.createdBy !== userName) {
-      showToast("You are not authorized to delete this node. Only the creator or a Super Admin can delete it.", "warning");
-      setDeleteNodeInfo(null);
-      return;
-    }
     try {
       await api.delete(`/hierarchy-nodes/${deleteNodeInfo.id}`).catch((err) => console.error(err));
       await deleteDoc(doc(db, "hierarchy_nodes", deleteNodeInfo.id)).catch(() => {});
@@ -526,10 +520,6 @@ export function HierarchyBuilder({
               <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between relative z-20">
                 <button
                   onClick={() => {
-                    if (isContentManager && node.createdBy && node.createdBy !== userName) {
-                      showToast("You are not authorized to edit this node. Only the creator or a Super Admin can edit it.", "warning");
-                      return;
-                    }
                     setIsCreating(true);
                     setEditingId(node.id);
                     setName(node.name);
@@ -557,11 +547,7 @@ export function HierarchyBuilder({
                 </button>
                 <button
                   onClick={() => {
-                    if (isContentManager && node.createdBy && node.createdBy !== userName) {
-                      showToast("You are not authorized to delete this node. Only the creator or a Super Admin can delete it.", "warning");
-                      return;
-                    }
-                    setDeleteNodeInfo({ id: node.id, name: node.name })
+                    setDeleteNodeInfo({ id: node.id, name: node.name });
                   }}
                   className="flex items-center text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                 >
