@@ -570,16 +570,27 @@ export default function StudentDashboard() {
       }
 
       try {
-        const [modsSnap, compSnap, examsSnap, plansSnap, branchesRes] = await Promise.all([
+        const [modsSnap, compSnap, examsSnap, plansSnap, branchesRes, compRes] = await Promise.all([
           getDocs(query(collection(db, "modules"), orderBy("createdAt", "asc"))),
           getDocs(collection(db, "companies")),
           getDocs(collection(db, "exams")),
           getDocs(collection(db, "plans")),
-          api.get("/branches/active").catch(() => ({ success: false, branches: [] }))
+          api.get("/branches/active").catch(() => ({ success: false, branches: [] })),
+          api.get("/companies").catch(() => ({ success: false, companies: [] }))
         ]);
         
         const freshModules = modsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        const freshCompanies = compSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const fsCompanies = compSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const apiCompanies = compRes.success && compRes.companies ? compRes.companies : [];
+
+        const compMap = new Map();
+        fsCompanies.forEach(c => compMap.set(c.id, c));
+        apiCompanies.forEach(c => {
+          const existing = compMap.get(c.id);
+          compMap.set(c.id, existing ? { ...existing, ...c } : c);
+        });
+        const freshCompanies = Array.from(compMap.values());
+
         const freshExams = examsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const freshPlans = plansSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const freshBranches = branchesRes.success && branchesRes.branches ? branchesRes.branches : [];

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { api } from "../../lib/api";
+import { api, invalidateCache } from "../../lib/api";
 import { showToast } from "../common/Toast";
 import {
   Plus,
@@ -207,6 +207,7 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
 
     setLoading(true);
     try {
+      invalidateCache();
       if (mappingTab === "company") {
         const companyIds = selectedEntityIds.filter(id => companies.some(c => c.id === id));
         const moduleIds = selectedEntityIds.filter(id => !companies.some(c => c.id === id));
@@ -228,7 +229,6 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
         }
 
         await Promise.all(promises);
-        showToast("Successfully updated access permissions!", "success");
       } else if (mappingTab === "learning") {
         const nodeIds = [];
         const moduleIds = [];
@@ -270,7 +270,6 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
         }
 
         await Promise.all(promises);
-        showToast("Successfully updated access permissions!", "success");
       } else if (mappingTab === "mission") {
         const cycleIds = selectedEntityIds.filter(id => cycles.some(c => c.id === id));
         const moduleIds = selectedEntityIds.filter(id => !cycles.some(c => c.id === id));
@@ -292,7 +291,19 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
         }
 
         await Promise.all(promises);
+      }
+
+      setAssignmentScope(scopeToSave);
+      setSelectedBranchIds(branchesToSave);
+
+      if (scopeToSave === "SPECIFIC" && branchesToSave.length === 0) {
+        showToast("Successfully revoked access permissions!", "success");
+      } else {
         showToast("Successfully updated access permissions!", "success");
+      }
+
+      if (selectedEntityIds.length === 1) {
+        await loadSingleEntityMapping(selectedEntityIds[0]);
       }
     } catch (err) {
       showToast("Failed to save mappings: " + err.message, "error");
@@ -302,9 +313,11 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
   };
 
   const handleRevokeAllAccess = async () => {
+    if (selectedEntityIds.length === 0) {
+      showToast("Please select at least one item to revoke access", "warning");
+      return;
+    }
     if (window.confirm("Are you sure you want to completely revoke and remove all branch access mappings for the selected items?")) {
-      setAssignmentScope("SPECIFIC");
-      setSelectedBranchIds([]);
       await handleSaveBatchMappings("SPECIFIC", []);
     }
   };

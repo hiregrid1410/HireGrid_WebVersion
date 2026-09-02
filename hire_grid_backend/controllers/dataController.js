@@ -37,20 +37,34 @@ const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DES
           WHERE cbm.company_id = companies.id
             AND (cbm.assignment_scope = 'ALL' OR cbm.branch_id = $${paramIndex++})
         )
+        OR NOT EXISTS (
+          SELECT 1 FROM company_branch_mappings cbm2
+          WHERE cbm2.company_id = companies.id
+        )
       )`);
       values.push(userBranchId);
     } else if (sql.includes('FROM modules')) {
       whereClauses.push(`(
-        (m.module_type = 'company' AND EXISTS (
-          SELECT 1 FROM company_branch_mappings cbm
-          WHERE cbm.company_id = m.parent_id
-            AND (cbm.assignment_scope = 'ALL' OR cbm.branch_id = $${paramIndex++})
+        (m.module_type = 'company' AND (
+          EXISTS (
+            SELECT 1 FROM company_branch_mappings cbm
+            WHERE cbm.company_id = m.parent_id
+              AND (cbm.assignment_scope = 'ALL' OR cbm.branch_id = $${paramIndex++})
+          ) OR NOT EXISTS (
+            SELECT 1 FROM company_branch_mappings cbm2
+            WHERE cbm2.company_id = m.parent_id
+          )
         ))
         OR
-        (m.module_type != 'company' AND EXISTS (
-          SELECT 1 FROM content_branch_mappings cobm
-          WHERE cobm.content_id = m.id AND cobm.content_type = 'module'
-            AND (cobm.assignment_scope = 'ALL' OR cobm.branch_id = $${paramIndex++})
+        (m.module_type != 'company' AND (
+          EXISTS (
+            SELECT 1 FROM content_branch_mappings cobm
+            WHERE cobm.content_id = m.id AND cobm.content_type = 'module'
+              AND (cobm.assignment_scope = 'ALL' OR cobm.branch_id = $${paramIndex++})
+          ) OR NOT EXISTS (
+            SELECT 1 FROM content_branch_mappings cobm2
+            WHERE cobm2.content_id = m.id AND cobm2.content_type = 'module'
+          )
         ))
       )`);
       values.push(userBranchId, userBranchId);
@@ -60,6 +74,10 @@ const applyQueryModifiers = (baseQuery, reqQuery, defaultOrder = 'created_at DES
           SELECT 1 FROM content_branch_mappings cobm
           WHERE cobm.content_id = hierarchy_nodes.id AND cobm.content_type = 'hierarchy_node'
             AND (cobm.assignment_scope = 'ALL' OR cobm.branch_id = $${paramIndex++})
+        )
+        OR NOT EXISTS (
+          SELECT 1 FROM content_branch_mappings cobm2
+          WHERE cobm2.content_id = hierarchy_nodes.id AND cobm2.content_type = 'hierarchy_node'
         )
       )`);
       values.push(userBranchId);
