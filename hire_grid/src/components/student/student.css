@@ -4,6 +4,34 @@
    ============================================================ */
 
 :root {
+  --std-bg:           #F5F7F2;
+  --std-bg-darker:    #EFEFE9;
+  --std-card:         #FFFFFF;
+  --std-card-hover:   #FAFBF8;
+  --std-card-border:  rgba(0, 0, 0, 0.08);
+  --std-border:       rgba(0, 0, 0, 0.1);
+  --std-border-green: rgba(16, 185, 129, 0.25);
+  --std-border-blue:  rgba(37, 99, 235, 0.25);
+
+  --std-green:        #10B981;
+  --std-green-hover:  #059669;
+  --std-blue:         #2563EB;
+  --std-cyan:         #0891B2;
+  --std-purple:       #8B5CF6;
+  --std-orange:       #F97316;
+  --std-yellow:       #D97706;
+  --std-rose:         #EF4444;
+
+  --std-text:         #0F172A;
+  --std-text-muted:   #475569;
+  --std-text-dim:     #64748B;
+
+  --std-sidebar-w:    260px;
+  --std-sidebar-w-c:  80px;
+  --std-header-h:     72px;
+}
+
+.dark {
   --std-bg:           #070D19;
   --std-bg-darker:    #040810;
   --std-card:         #0E1629;
@@ -25,10 +53,6 @@
   --std-text:         #F8FAFC;
   --std-text-muted:   #94A3B8;
   --std-text-dim:     #64748B;
-
-  --std-sidebar-w:    260px;
-  --std-sidebar-w-c:  80px;
-  --std-header-h:     72px;
 }
 
 /* ---------- Global Layout ---------- */
