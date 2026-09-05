@@ -27,7 +27,7 @@ export function StudentSidebar({
   };
 
   return (
-    <aside className={`std-sidebar ${!sidebarOpen ? "std-sidebar--collapsed" : ""}`}>
+    <aside className={`std-sidebar ${sidebarOpen ? "std-sidebar--mobile-open" : "std-sidebar--collapsed"}`}>
       {/* Sidebar Header */}
       <div className="std-sidebar-brand">
         {sidebarOpen ? (
