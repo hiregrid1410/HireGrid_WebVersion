@@ -35,7 +35,7 @@ export function StudentPlansView({
         <div className="std-panel">
           <div className="flex items-center mb-6">
             <CreditCard className="h-6 w-6 mr-3 text-emerald-500" />
-            <h2 className="text-xl font-black text-slate-100 uppercase tracking-wider">Premium Membership Plans</h2>
+            <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Premium Membership Plans</h2>
           </div>
           
           {plans.filter(p => isPlanVisibleToStudent(p, currentUser)).length === 0 ? (
@@ -53,30 +53,30 @@ export function StudentPlansView({
                 return (
                   <div
                     key={plan.id}
-                    className="bg-[#050B14] rounded-2xl p-6 shadow-md border border-slate-850 flex flex-col justify-between hover:border-slate-750 hover:shadow-lg transition-all"
+                    className="bg-white dark:bg-[#050B14] rounded-2xl p-6 shadow-md border border-slate-200 dark:border-slate-850 flex flex-col justify-between hover:border-slate-400 dark:hover:border-slate-750 hover:shadow-lg transition-all"
                   >
                     <div className="space-y-4">
-                      <h3 className="text-lg font-black text-slate-100 uppercase tracking-wide">
+                      <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">
                         {plan.name}
                       </h3>
                       <p className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">
                         {(plan.duration || "free").replace("_", " ")}
                       </p>
-                      <div className="text-3xl font-black text-emerald-400">
+                      <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
                         ₹{plan.price || 0}
                       </div>
                       
-                      <ul className="text-xs text-slate-400 space-y-3 pt-4 border-t border-slate-850">
+                      <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-3 pt-4 border-t border-slate-200 dark:border-slate-850">
                         <li className="flex items-center gap-2">
-                          <span className="text-emerald-500">✓</span>
+                          <span className="text-emerald-500 font-bold">✓</span>
                           {(plan.learningContent || plan.learning_content || []).length} Learning Entitlements
                         </li>
                         <li className="flex items-center gap-2">
-                          <span className="text-emerald-500">✓</span>
+                          <span className="text-emerald-500 font-bold">✓</span>
                           {(plan.companyModules || plan.company_modules || []).length} Company Prep Modules
                         </li>
                         <li className="flex items-center gap-2">
-                          <span className="text-emerald-500">✓</span>
+                          <span className="text-emerald-500 font-bold">✓</span>
                           {(plan.freeDemoModules || plan.free_demo_modules || []).length} Free Demo tests
                         </li>
                       </ul>
@@ -85,7 +85,7 @@ export function StudentPlansView({
                         {isPurchased && (
                           <div className={`p-3 border rounded-xl text-xs ${isNotExpired ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-rose-500/5 border-rose-500/20'}`}>
                             <div className="flex justify-between items-center gap-2">
-                              <span className={`font-bold uppercase tracking-wider text-[10px] ${isNotExpired ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              <span className={`font-bold uppercase tracking-wider text-[10px] ${isNotExpired ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                 {isNotExpired ? "Purchased (Active)" : "Expired"}
                               </span>
                               <span className="text-slate-500 font-mono text-[9px] text-right">
@@ -109,7 +109,7 @@ export function StudentPlansView({
                             disabled={plan.isActive === false || plan.is_active === false}
                             className={`w-full h-11 font-bold rounded-xl text-xs uppercase tracking-wider transition-all shadow-sm ${
                               (plan.isActive === false || plan.is_active === false)
-                                ? "bg-slate-900 text-slate-600 cursor-not-allowed"
+                                ? "bg-slate-200 dark:bg-slate-900 text-slate-400 dark:text-slate-600 cursor-not-allowed"
                                 : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/10"
                             }`}
                           >

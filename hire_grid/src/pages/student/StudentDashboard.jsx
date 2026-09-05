@@ -1276,8 +1276,8 @@ export default function StudentDashboard() {
                   onClick={() => setOnboardingSelectedBranchId(b.id)}
                   className={`w-full text-left px-6 py-4 rounded-2xl border font-bold transition-all flex justify-between items-center group hover:scale-[1.01] ${
                     isSelected 
-                      ? "bg-emerald-500/10 border-emerald-500 text-white" 
-                      : "border-slate-850 bg-[#050B14] hover:bg-emerald-500/5 hover:border-emerald-500/50 text-slate-200"
+                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-white" 
+                      : "border-slate-200 dark:border-slate-850 bg-white dark:bg-[#050B14] hover:bg-emerald-500/5 hover:border-emerald-500/50 text-slate-800 dark:text-slate-200"
                   }`}
                 >
                   <div className="flex items-center space-x-4">
@@ -1476,10 +1476,10 @@ export default function StudentDashboard() {
                       return (
                         <div
                           key={subTest.id}
-                          className="p-5 border border-slate-850 rounded-xl hover:border-slate-700 transition-all bg-[#050B14] flex flex-col items-start justify-between min-h-[150px] group"
+                          className="p-5 border border-slate-200 dark:border-slate-850 rounded-xl hover:border-slate-400 dark:hover:border-slate-700 transition-all bg-white dark:bg-[#050B14] flex flex-col items-start justify-between min-h-[150px] group shadow-sm"
                         >
                           <div>
-                            <h4 className="font-bold text-base text-slate-200 mb-2 group-hover:text-emerald-400 transition-colors">
+                            <h4 className="font-bold text-base text-slate-800 dark:text-slate-200 mb-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                               {subTest.title}
                             </h4>
                             <div className="text-xs font-medium text-slate-500 mb-6 flex items-center">
