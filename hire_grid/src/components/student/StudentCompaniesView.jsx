@@ -34,24 +34,8 @@ export const getCompanyPrice = (company, plans = []) => {
 
 export const isPaidCompany = (company, plans = []) => {
   if (!company) return false;
-  if (company.isPremium || company.is_premium) return true;
-  if (company.accessType === "premium_only" || company.accessType === "paid" || company.access_type === "premium_only" || company.access_type === "paid") return true;
-  
-  if (plans && plans.length > 0) {
-    const compIdStr = String(company.id);
-    return plans.some((p) => {
-      const cMods = (p.companyModules || p.company_modules || []).map(String);
-      const lCont = (p.learningContent || p.learning_content || []).map(String);
-      const cBranches = p.companyBranches || p.company_branches || [];
-      const hasBranchMatch = cBranches.some((cb) => 
-        (cb && (String(cb.companyId) === compIdStr || String(cb.company_id) === compIdStr)) ||
-        String(cb) === compIdStr
-      );
-      return cMods.includes(compIdStr) || lCont.includes(compIdStr) || hasBranchMatch;
-    });
-  }
-
-  return true; // Default companies to paid if plan mappings exist
+  if (company.accessType === "free" || company.access_type === "free" || company.is_demo || company.isDemo) return false;
+  return true;
 };
 
 export function StudentCompaniesView({

@@ -44,7 +44,6 @@ export const hasAccess = (
   }
 
   const rawAccessType = item.accessType || item.access_type;
-  const rawIsPremium = item.isPremium !== undefined ? item.isPremium : item.is_premium;
 
   // 2. Unconditional Explicit Free or Demo Content
   if (rawAccessType === "free" || rawAccessType === "demo" || item.is_demo || item.isDemo) {
@@ -214,33 +213,7 @@ export const hasAccess = (
     }
   }
 
-  // 6. Check if content is truly free (not included in ANY plan and not marked premium)
-  if (!rawIsPremium && rawAccessType !== "paid" && rawAccessType !== "premium" && rawAccessType !== "premium_only") {
-    let includedInAnyPlan = false;
-    if (allPlans && allPlans.length > 0) {
-      for (const p of allPlans) {
-        const cMods = parseArray(p.companyModules || p.company_modules).map(String);
-        const lCont = parseArray(p.learningContent || p.learning_content).map(String);
-        
-        if (cMods.includes(String(item.id)) || lCont.includes(String(item.id))) {
-          includedInAnyPlan = true;
-          break;
-        }
-        if (item.parentId || item.parent_id) {
-          const pId = String(item.parentId || item.parent_id);
-          if (cMods.includes(pId) || lCont.includes(pId)) {
-            includedInAnyPlan = true;
-            break;
-          }
-        }
-      }
-    }
-    if (!includedInAnyPlan) {
-      return true;
-    }
-  }
-
-  // 7. Otherwise Lock Content
+  // 6. Default Deny - Content is locked unless explicitly granted above
   return false;
 };
 
