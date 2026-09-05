@@ -44,16 +44,15 @@ export const hasAccess = (
   }
 
   const rawAccessType = item.accessType || item.access_type;
+  const normType = normalizeItemType(itemType);
 
-  // 2. Unconditional Explicit Free or Demo Content
-  if (rawAccessType === "free" || rawAccessType === "demo" || item.is_demo || item.isDemo) {
+  // 2. Unconditional Explicit Free or Demo Content (Excluding Company prep paths which require plan entitlement)
+  if ((rawAccessType === "free" || rawAccessType === "demo" || item.is_demo || item.isDemo) && normType !== "company") {
     return true;
   }
 
   // Without a user, any remaining content is locked
   if (!currentUser) return false;
-
-  const normType = normalizeItemType(itemType);
 
   // 3. Individual Purchase / Admin Granted Explicit Access
   let accessMapRaw;
