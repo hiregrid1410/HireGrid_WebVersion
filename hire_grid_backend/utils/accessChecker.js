@@ -341,7 +341,7 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
     const rawAccessType = item.access_type;
     const rawIsPremium = item.is_premium;
 
-    if (rawAccessType === "free" || rawAccessType === "demo" || item.is_demo) {
+    if ((rawAccessType === "free" || rawAccessType === "demo" || item.is_demo) && normType !== "company") {
       return { allowed: true };
     }
 
