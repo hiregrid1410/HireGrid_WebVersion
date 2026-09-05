@@ -332,19 +332,19 @@ export function StudentHierarchyView({
         </div>
       )}
 
-      {/* Subject / Topic child nodes grid */}
-      {currentNodeInfo.type !== "module" && nodes.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
+      {/* Nodes grid */}
+      {nodes.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {nodes.map((node) => {
             const access = hasAccess(node);
             return (
               <div
                 key={node.id}
                 onClick={() => handleNodeClick(node)}
-                className={`relative bg-[#0E1629] border rounded-2xl p-6 shadow-md hover:shadow-lg transition-all cursor-pointer group flex flex-col justify-between min-h-[170px] ${
+                className={`relative bg-white dark:bg-[#0E1629] border rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between min-h-[170px] ${
                   !access
-                    ? "border-slate-800 hover:border-amber-500"
-                    : "border-slate-800 hover:border-emerald-500"
+                    ? "border-slate-200 dark:border-slate-800 hover:border-amber-500"
+                    : "border-slate-200 dark:border-slate-800 hover:border-emerald-500"
                 }`}
               >
                 <div>
@@ -364,21 +364,21 @@ export function StudentHierarchyView({
                       </div>
                     )}
                   </div>
-                  <h3 className="font-bold text-slate-100 text-lg line-clamp-2 group-hover:text-emerald-400 transition-colors">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                     {node.name}
                   </h3>
                   {node.description && (
-                    <p className="text-xs text-slate-400 line-clamp-2 mt-2 leading-relaxed">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-2 leading-relaxed">
                       {node.description}
                     </p>
                   )}
                 </div>
                 {node.isPremium && !access && (
-                  <div className="mt-4 pt-3 border-t border-slate-850/50 flex justify-between items-center">
-                    <span className="text-[10px] uppercase tracking-wider text-amber-500 font-bold">Premium Content</span>
+                  <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-850/50 flex justify-between items-center">
+                    <span className="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-500 font-bold">Premium Content</span>
                     <button
                       type="button"
-                      className="text-xs font-bold text-amber-500 hover:text-amber-400 hover:underline z-20 flex items-center gap-1"
+                      className="text-xs font-bold text-amber-600 dark:text-amber-500 hover:text-amber-500 dark:hover:text-amber-400 hover:underline z-20 flex items-center gap-1"
                       onClick={(e) => {
                         e.stopPropagation();
                         const pkg = getClosestPackage();
@@ -403,7 +403,7 @@ export function StudentHierarchyView({
             return (
               <div
                 key={mod.id}
-                className="bg-[#0E1629] border border-slate-850 rounded-2xl p-6 shadow-md hover:shadow-lg transition-all flex flex-col justify-between h-full relative group hover:border-slate-700"
+                className="bg-white dark:bg-[#0E1629] border border-slate-200 dark:border-slate-850 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-full relative group hover:border-slate-400 dark:hover:border-slate-700"
               >
                 {mod.accessMode === "custom" ? (
                   mod.accessType &&
@@ -427,10 +427,10 @@ export function StudentHierarchyView({
                   )
                 ) : null}
                 <div>
-                  <h3 className="text-lg font-black text-slate-100 mb-2 leading-snug group-hover:text-emerald-400 transition-colors mt-2">
+                  <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-2 leading-snug group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors mt-2">
                     {mod.title}
                   </h3>
-                  <p className="text-xs text-slate-400 mb-6 leading-relaxed line-clamp-3">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-6 leading-relaxed line-clamp-3">
                     {mod.description}
                   </p>
                 </div>
@@ -438,7 +438,7 @@ export function StudentHierarchyView({
                   {access ? (
                     <button
                       onClick={() => onOpenModule(mod, path)}
-                      className="w-full flex items-center justify-center space-x-2 bg-[#17223b] text-white hover:bg-emerald-600 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-md"
+                      className="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-[#17223b] dark:hover:bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-md"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       <span>Start Module</span>
