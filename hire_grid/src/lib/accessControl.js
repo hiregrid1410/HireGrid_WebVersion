@@ -38,45 +38,20 @@ export const hasAccess = (
 ) => {
   if (!item) return false;
 
-  const currentAccessMode = item.accessMode || item.access_mode || "inherit";
-  const rawAccessType = item.accessType || item.access_type;
-  const rawIsPremium = item.isPremium !== undefined ? item.isPremium : item.is_premium;
-
-  let effectiveAccessType = "free";
-
-  if (rawAccessType && rawAccessType !== "free") {
-    effectiveAccessType = rawAccessType;
-  } else if (rawIsPremium) {
-    effectiveAccessType = "premium_only";
-  }
-
-  // 1. Inherit Mode (Modules)
-  if (itemType === "module" && currentAccessMode === "inherit") {
-    effectiveAccessType = "free"; // default
-    if (path && path.length > 0) {
-      for (let i = path.length - 1; i >= 0; i--) {
-        const p = path[i];
-        const pNode = p.node || (p.id ? p : null);
-        if (pNode) {
-          const pAcc = pNode.accessType || pNode.access_type;
-          const pPrem = pNode.isPremium !== undefined ? pNode.isPremium : pNode.is_premium;
-          const pAccessType = (pAcc && pAcc !== "free") ? pAcc : (pPrem ? "premium_only" : "free");
-          if (pAccessType !== "free" && pAccessType !== "demo") {
-            effectiveAccessType = pAccessType;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // 2. Explicitly FREE or DEMO content is ALWAYS UNLOCKED for everyone.
-  // Free content must never be locked even if it is included inside a paid plan.
-  if (effectiveAccessType === "free" || effectiveAccessType === "demo") {
+  // 1. Admin and Content Manager Always Have Access
+  if (currentUser && (currentUser.role === "admin" || currentUser.role === "content_manager")) {
     return true;
   }
 
-  // Without a user, any remaining non-free content is locked
+  const rawAccessType = item.accessType || item.access_type;
+  const rawIsPremium = item.isPremium !== undefined ? item.isPremium : item.is_premium;
+
+  // 2. Unconditional Explicit Free or Demo Content
+  if (rawAccessType === "free" || rawAccessType === "demo" || item.is_demo || item.isDemo) {
+    return true;
+  }
+
+  // Without a user, any remaining content is locked
   if (!currentUser) return false;
 
   const normType = normalizeItemType(itemType);
@@ -100,8 +75,9 @@ export const hasAccess = (
 
   // Check if any ancestor is explicitly granted
   for (const p of path) {
-    if (!p.node) continue;
-    const pNormType = normalizeItemType(p.node.type || p.type);
+    const pNode = p.node || (p.id ? p : null);
+    if (!pNode) continue;
+    const pNormType = normalizeItemType(pNode.type || p.type);
     let pAccessMapRaw;
     if (pNormType === "company") pAccessMapRaw = currentUser.grantedCompanyAccess || currentUser.granted_company_access;
     else if (pNormType === "general_subject") pAccessMapRaw = currentUser.grantedSubjectAccess || currentUser.granted_subject_access;
@@ -109,28 +85,24 @@ export const hasAccess = (
     else if (pNormType === "general_branch") pAccessMapRaw = currentUser.grantedExamAccess || currentUser.granted_exam_access;
     
     const pAccessMap = parseObject(pAccessMapRaw);
-    if (pAccessMap && pAccessMap[p.node.id] !== undefined) {
-      const expiry = pAccessMap[p.node.id];
+    if (pAccessMap && pAccessMap[pNode.id] !== undefined) {
+      const expiry = pAccessMap[pNode.id];
       if (expiry === null || expiry === undefined || Date.now() <= Number(expiry)) {
         return true;
       }
     }
   }
 
-  // Legacy purchasedCompanies fallback
+  // Purchased Companies Array check
   const purchasedCompanies = parseArray(currentUser.purchasedCompanies || currentUser.purchased_companies);
-  if (normType === "company" && purchasedCompanies.includes(item.id)) {
+  if (normType === "company" && purchasedCompanies.map(String).includes(String(item.id))) {
     return true;
   }
 
   // 4. Admin Granted Global Access (Full Premium)
   const hasFullPremium = currentUser.hasFullPremium || currentUser.has_full_premium;
   const fullPremiumExpiry = currentUser.fullPremiumExpiry || currentUser.full_premium_expiry || currentUser.planExpiry || currentUser.plan_expiry;
-  if (
-    effectiveAccessType !== "purchasable_only" &&
-    effectiveAccessType !== "access_request_only" &&
-    hasFullPremium
-  ) {
+  if (hasFullPremium) {
     if (
       fullPremiumExpiry === null ||
       fullPremiumExpiry === undefined ||
@@ -151,14 +123,13 @@ export const hasAccess = (
     const isNotExpired = !userPlanExpiry || Date.now() <= Number(userPlanExpiry);
 
     if (isNotExpired) {
-      const companyModules = parseArray(resolvedActivePlan.companyModules || resolvedActivePlan.company_modules);
-      const learningContent = parseArray(resolvedActivePlan.learningContent || resolvedActivePlan.learning_content);
-      const freeDemoModules = parseArray(resolvedActivePlan.freeDemoModules || resolvedActivePlan.free_demo_modules);
+      const companyModules = parseArray(resolvedActivePlan.companyModules || resolvedActivePlan.company_modules).map(String);
+      const learningContent = parseArray(resolvedActivePlan.learningContent || resolvedActivePlan.learning_content).map(String);
+      const freeDemoModules = parseArray(resolvedActivePlan.freeDemoModules || resolvedActivePlan.free_demo_modules).map(String);
       const companyBranches = resolvedActivePlan.companyBranches || resolvedActivePlan.company_branches || [];
 
       const parentId = item.parentId || item.parent_id;
 
-      // Helper to check company branches array
       const isInCompanyBranches = (targetId, type = "any") => {
         return companyBranches.some((cb) => {
           if (typeof cb === "string" || typeof cb === "number") {
@@ -167,35 +138,37 @@ export const hasAccess = (
           if (cb && typeof cb === "object") {
             if (type === "company" || type === "any") {
               if (cb.companyId && String(cb.companyId) === String(targetId)) return true;
+              if (cb.company_id && String(cb.company_id) === String(targetId)) return true;
             }
             if (type === "branch" || type === "any") {
               if (cb.branchId && String(cb.branchId) === String(targetId)) return true;
+              if (cb.branch_id && String(cb.branch_id) === String(targetId)) return true;
             }
           }
           return false;
         });
       };
 
-      // A. Company Check
+      // Company Check
       if (normType === "company") {
         if (
-          companyModules.some((id) => String(id) === String(item.id)) ||
-          learningContent.some((id) => String(id) === String(item.id)) ||
+          companyModules.includes(String(item.id)) ||
+          learningContent.includes(String(item.id)) ||
           isInCompanyBranches(item.id, "company")
         ) {
           return true;
         }
       }
 
-      // B. Module Check
+      // Module Check
       if (normType === "module") {
-        if (freeDemoModules.some((id) => String(id) === String(item.id))) return true;
-        if (learningContent.some((id) => String(id) === String(item.id))) return true;
+        if (freeDemoModules.includes(String(item.id))) return true;
+        if (learningContent.includes(String(item.id))) return true;
 
         if (parentId) {
           if (
-            companyModules.some((id) => String(id) === String(parentId)) ||
-            learningContent.some((id) => String(id) === String(parentId)) ||
+            companyModules.includes(String(parentId)) ||
+            learningContent.includes(String(parentId)) ||
             isInCompanyBranches(parentId, "company")
           ) {
             return true;
@@ -206,8 +179,8 @@ export const hasAccess = (
           const pId = p.id || (p.node ? p.node.id : null);
           if (
             pId &&
-            (companyModules.some((id) => String(id) === String(pId)) ||
-              learningContent.some((id) => String(id) === String(pId)) ||
+            (companyModules.includes(String(pId)) ||
+              learningContent.includes(String(pId)) ||
               isInCompanyBranches(pId, "any"))
           ) {
             return true;
@@ -215,14 +188,14 @@ export const hasAccess = (
         }
       }
 
-      // C. Node Check (Branch, Subject, Topic)
+      // Node Check (Branch, Subject, Topic)
       if (
         normType === "general_branch" ||
         normType === "general_subject" ||
         normType === "general_topic"
       ) {
         if (
-          learningContent.some((id) => String(id) === String(item.id)) ||
+          learningContent.includes(String(item.id)) ||
           isInCompanyBranches(item.id, "branch")
         ) {
           return true;
@@ -231,7 +204,7 @@ export const hasAccess = (
           const pId = p.id || (p.node ? p.node.id : null);
           if (
             pId &&
-            (learningContent.some((id) => String(id) === String(pId)) ||
+            (learningContent.includes(String(pId)) ||
               isInCompanyBranches(pId, "branch"))
           ) {
             return true;
@@ -241,7 +214,33 @@ export const hasAccess = (
     }
   }
 
-  // 6. Otherwise Lock Content
+  // 6. Check if content is truly free (not included in ANY plan and not marked premium)
+  if (!rawIsPremium && rawAccessType !== "paid" && rawAccessType !== "premium" && rawAccessType !== "premium_only") {
+    let includedInAnyPlan = false;
+    if (allPlans && allPlans.length > 0) {
+      for (const p of allPlans) {
+        const cMods = parseArray(p.companyModules || p.company_modules).map(String);
+        const lCont = parseArray(p.learningContent || p.learning_content).map(String);
+        
+        if (cMods.includes(String(item.id)) || lCont.includes(String(item.id))) {
+          includedInAnyPlan = true;
+          break;
+        }
+        if (item.parentId || item.parent_id) {
+          const pId = String(item.parentId || item.parent_id);
+          if (cMods.includes(pId) || lCont.includes(pId)) {
+            includedInAnyPlan = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!includedInAnyPlan) {
+      return true;
+    }
+  }
+
+  // 7. Otherwise Lock Content
   return false;
 };
 

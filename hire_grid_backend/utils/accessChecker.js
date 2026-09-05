@@ -241,100 +241,9 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
 
   // Resolve Ancestors Path
   const ancestors = await getAncestors(itemId, normType);
+  const resourcesToCheck = [{ id: itemId, type: normType }, ...ancestors];
 
-  // 4. Check if Item is Free or Demo (and verify plan inclusions)
-  if (item) {
-    const accessMode = item.access_mode || "inherit";
-    let accessType = "free";
-    if (item.access_type && item.access_type !== "free") {
-      accessType = item.access_type;
-    } else if (item.is_premium) {
-      accessType = "premium_only";
-    }
-
-    // Check if included in any plan
-    let isIncludedInAnyPlan = dbCache.get(`includedInPlan:${normType}:${item.id}`);
-    if (isIncludedInAnyPlan === null || isIncludedInAnyPlan === undefined) {
-      isIncludedInAnyPlan = false;
-      const allResourceIds = [item.id, ...ancestors.map(a => a.id)];
-
-      if (normType === "company") {
-        const planCheck = await pool.query(
-          `SELECT 1 FROM plan_mappings WHERE company_id = $1 
-           UNION 
-           SELECT 1 FROM plans WHERE company_modules @> $2::jsonb`,
-          [item.id, JSON.stringify([item.id])]
-        );
-        if (planCheck.rows.length > 0) {
-          isIncludedInAnyPlan = true;
-        }
-      } else if (normType === "module") {
-        if (item.module_type === "company" && item.parent_id) {
-          const planCheckCompany = await pool.query(
-            `SELECT 1 FROM plan_mappings WHERE company_id = $1 
-             UNION 
-             SELECT 1 FROM plans WHERE company_modules @> $2::jsonb`,
-            [item.parent_id, JSON.stringify([item.parent_id])]
-          );
-          if (planCheckCompany.rows.length > 0) {
-            isIncludedInAnyPlan = true;
-          }
-        } else {
-          const planCheckAncestors = await pool.query(
-            `SELECT 1 FROM plans p, jsonb_array_elements_text(p.learning_content) lc
-             WHERE lc = ANY($1)`,
-            [allResourceIds]
-          );
-          if (planCheckAncestors.rows.length > 0) {
-            isIncludedInAnyPlan = true;
-          }
-        }
-      } else if (["general_branch", "general_subject", "general_topic"].includes(normType)) {
-        const planCheckAncestors = await pool.query(
-          `SELECT 1 FROM plans p, jsonb_array_elements_text(p.learning_content) lc
-           WHERE lc = ANY($1)`,
-          [allResourceIds]
-        );
-        if (planCheckAncestors.rows.length > 0) {
-          isIncludedInAnyPlan = true;
-        }
-      }
-      dbCache.set(`includedInPlan:${normType}:${item.id}`, isIncludedInAnyPlan, 300000);
-    }
-
-    if (isIncludedInAnyPlan) {
-      accessType = "premium_only";
-    }
-
-    if (normType === "module" && accessMode === "inherit" && item.parent_id) {
-      let parentAccessType = dbCache.get(`parentAccessType:${item.parent_id}`);
-      if (!parentAccessType) {
-        const parentRes = await pool.query(
-          "SELECT access_type, is_premium FROM companies WHERE id = $1 UNION SELECT access_type, is_premium FROM hierarchy_nodes WHERE id = $1",
-          [item.parent_id]
-        );
-        if (parentRes.rows.length > 0) {
-          const pRow = parentRes.rows[0];
-          parentAccessType = (pRow.access_type && pRow.access_type !== "free")
-            ? pRow.access_type
-            : (pRow.is_premium ? "premium_only" : "free");
-        } else {
-          parentAccessType = "free";
-        }
-        dbCache.set(`parentAccessType:${item.parent_id}`, parentAccessType, 300000);
-      }
-
-      if (parentAccessType !== "free" && parentAccessType !== "demo") {
-        accessType = parentAccessType;
-      }
-    }
-
-    if (accessType === "free" || accessType === "demo") {
-      return { allowed: true };
-    }
-  }
-
-  // 5. Check Explicit Admin Grants / Individual Purchases
+  // 4. Check Explicit Admin Grants / Individual Purchases
   const grantedCompanyAccess = parseObj(user.granted_company_access);
   const grantedSubjectAccess = parseObj(user.granted_subject_access);
   const grantedTopicAccess = parseObj(user.granted_topic_access);
@@ -343,11 +252,8 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
 
   const purchasedCompanies = parseArray(user.purchased_companies);
 
-  // Form a flat list of resources to verify grants against
-  const resourcesToCheck = [{ id: itemId, type: normType }, ...ancestors];
-
   for (const resource of resourcesToCheck) {
-    const resId = resource.id;
+    const resId = String(resource.id);
     const resType = resource.type;
 
     let accessMap = {};
@@ -357,26 +263,26 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
     else if (resType === "general_branch") accessMap = grantedExamAccess;
     else if (resType === "module") accessMap = grantedModuleAccess;
 
-    if (accessMap[resId] !== undefined) {
+    if (accessMap && accessMap[resId] !== undefined) {
       const expiry = accessMap[resId];
       if (expiry === undefined || expiry === null || Date.now() <= Number(expiry)) {
         return { allowed: true };
       }
     }
 
-    if (resType === "company" && purchasedCompanies.includes(resId)) {
+    if (resType === "company" && purchasedCompanies.map(String).includes(resId)) {
       return { allowed: true };
     }
   }
 
-  // 6. Check Global Full Premium
+  // 5. Check Global Full Premium
   if (user.has_full_premium) {
     if (!user.plan_expiry || Date.now() <= Number(user.plan_expiry)) {
       return { allowed: true };
     }
   }
 
-  // 7. Check Active Plan
+  // 6. Check Active Plan Entitlements
   if (user.active_plan_id) {
     const isNotExpired = !user.plan_expiry || Date.now() <= Number(user.plan_expiry);
     if (isNotExpired) {
@@ -390,24 +296,93 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
       }
 
       if (plan) {
-        const companyModules = parseArray(plan.company_modules);
-        const learningContent = parseArray(plan.learning_content);
-        const freeDemoModules = parseArray(plan.free_demo_modules);
+        const companyModules = parseArray(plan.company_modules).map(String);
+        const learningContent = parseArray(plan.learning_content).map(String);
+        const freeDemoModules = parseArray(plan.free_demo_modules).map(String);
+
+        let planMappings = dbCache.get(`planMappings:${user.active_plan_id}`);
+        if (!planMappings) {
+          const pmRes = await pool.query("SELECT company_id, branch_id FROM plan_mappings WHERE plan_id = $1", [user.active_plan_id]);
+          planMappings = pmRes.rows;
+          dbCache.set(`planMappings:${user.active_plan_id}`, planMappings, 300000);
+        }
+        const planMappedCompanyIds = planMappings.map(pm => String(pm.company_id));
 
         for (const resource of resourcesToCheck) {
-          const resId = resource.id;
+          const resId = String(resource.id);
           const resType = resource.type;
 
           if (resType === "company") {
-            if (companyModules.includes(resId) || learningContent.includes(resId)) return { allowed: true };
+            if (companyModules.includes(resId) || learningContent.includes(resId) || planMappedCompanyIds.includes(resId)) {
+              return { allowed: true };
+            }
           } else if (resType === "module") {
-            if (freeDemoModules.includes(resId)) return { allowed: true };
-            if (learningContent.includes(resId)) return { allowed: true };
+            if (freeDemoModules.includes(resId) || learningContent.includes(resId)) {
+              return { allowed: true };
+            }
+            if (item && item.module_type === "company" && item.parent_id) {
+              const parentCompId = String(item.parent_id);
+              if (companyModules.includes(parentCompId) || planMappedCompanyIds.includes(parentCompId)) {
+                return { allowed: true };
+              }
+            }
           } else if (["general_branch", "general_subject", "general_topic"].includes(resType)) {
-            if (learningContent.includes(resId)) return { allowed: true };
+            if (learningContent.includes(resId)) {
+              return { allowed: true };
+            }
           }
         }
       }
+    }
+  }
+
+  // 7. Check if item is explicitly FREE or DEMO (unconditional access)
+  if (item) {
+    const rawAccessType = item.access_type;
+    const rawIsPremium = item.is_premium;
+
+    if (rawAccessType === "free" || rawAccessType === "demo" || item.is_demo) {
+      return { allowed: true };
+    }
+
+    // Check if included in ANY plan or marked premium
+    let isIncludedInAnyPlan = dbCache.get(`includedInPlan:${normType}:${item.id}`);
+    if (isIncludedInAnyPlan === null || isIncludedInAnyPlan === undefined) {
+      isIncludedInAnyPlan = false;
+      const allResourceIds = [item.id, ...ancestors.map(a => a.id)];
+
+      const planCheck = await pool.query(
+        `SELECT 1 FROM plan_mappings WHERE company_id = ANY($1)
+         UNION
+         SELECT 1 FROM plans WHERE company_modules @> $2::jsonb OR learning_content @> $2::jsonb`,
+        [allResourceIds, JSON.stringify([item.id])]
+      );
+
+      if (planCheck.rows.length > 0 || rawIsPremium) {
+        isIncludedInAnyPlan = true;
+      }
+      dbCache.set(`includedInPlan:${normType}:${item.id}`, isIncludedInAnyPlan, 300000);
+    }
+
+    let ancestorIsPremium = false;
+    for (const a of ancestors) {
+      if (a.type === "company") {
+        const compRes = await pool.query("SELECT is_premium, access_type FROM companies WHERE id = $1", [a.id]);
+        if (compRes.rows.length > 0 && (compRes.rows[0].is_premium || compRes.rows[0].access_type === "premium_only")) {
+          ancestorIsPremium = true;
+          break;
+        }
+      } else {
+        const nodeRes = await pool.query("SELECT is_premium, access_type FROM hierarchy_nodes WHERE id = $1", [a.id]);
+        if (nodeRes.rows.length > 0 && (nodeRes.rows[0].is_premium || nodeRes.rows[0].access_type === "premium_only")) {
+          ancestorIsPremium = true;
+          break;
+        }
+      }
+    }
+
+    if (!isIncludedInAnyPlan && !rawIsPremium && !ancestorIsPremium && rawAccessType !== "paid" && rawAccessType !== "premium" && rawAccessType !== "premium_only") {
+      return { allowed: true };
     }
   }
 
