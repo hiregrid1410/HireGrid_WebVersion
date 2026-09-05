@@ -364,35 +364,6 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
-
-          {/* Category: SYSTEM */}
-          <div className="space-y-1">
-            <button
-              onClick={() => toggleCategory("system")}
-              className={`w-full flex items-center justify-between text-slate-400 dark:text-slate-500 font-mono text-[10px] uppercase tracking-wider mb-2 font-bold ${!sidebarOpen && "hidden"}`}
-            >
-              <span>System</span>
-              {openCategories.system ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            </button>
-            {openCategories.system && (
-              <div className="space-y-0.5">
-                <SidebarItem
-                  icon={<Settings />}
-                  label="Settings"
-                  active={activeWorkspace === "system" && activeSubTab === "settings"}
-                  onClick={() => setView("system", "settings")}
-                  isOpen={sidebarOpen}
-                />
-                <SidebarItem
-                  icon={<Database />}
-                  label="Maintenance"
-                  active={activeWorkspace === "system" && activeSubTab === "maintenance"}
-                  onClick={() => setView("system", "maintenance")}
-                  isOpen={sidebarOpen}
-                />
-              </div>
-            )}
-          </div>
         </div>
 
         {/* User Profile */}
