@@ -4,14 +4,14 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --bg-page: #F8FAFC;
-  --bg-sidebar: #0B1F3A;
+  --bg-page: #F5F7F2;
+  --bg-sidebar: #FFFFFF;
   --bg-surface: #FFFFFF;
-  --bg-elevated: #F1F5F9;
-  --bg-hover: #E2E8F0;
-  --bg-active: #CBD5E1;
+  --bg-elevated: #EFEFE9;
+  --bg-hover: #E5E7EB;
+  --bg-active: #D1D5DB;
 
-  --text-primary: #17202A;
+  --text-primary: #0F172A;
   --text-secondary: #475569;
   --text-muted: #64748B;
   --text-inverse: #F8FAFC;
@@ -19,40 +19,42 @@
   --border-default: #E2E8F0;
   --border-subtle: #F1F5F9;
 
-  --primary: #16A34A;
-  --primary-hover: #15803D;
-  --primary-soft: #DCFCE7;
+  --primary: #10B981;
+  --primary-hover: #059669;
+  --primary-soft: #D1FAE5;
 
-  --success: #16A34A;
-  --warning: #F5B82E;
+  --success: #10B981;
+  --warning: #F59E0B;
   --danger: #EF4444;
   --info: #2563EB;
+  --purple: #8B5CF6;
 }
 
 .dark {
-  --bg-page: #17202A;
-  --bg-sidebar: #0B1F3A;
-  --bg-surface: #1E293B;
-  --bg-elevated: #0F172A;
-  --bg-hover: #334155;
-  --bg-active: #475569;
+  --bg-page: #040810;
+  --bg-sidebar: #070D19;
+  --bg-surface: #0E1629;
+  --bg-elevated: #131D35;
+  --bg-hover: #1E293B;
+  --bg-active: #334155;
 
   --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
-  --text-inverse: #17202A;
+  --text-inverse: #0F172A;
 
-  --border-default: #334155;
-  --border-subtle: #1E293B;
+  --border-default: #1E293B;
+  --border-subtle: #0E1629;
 
-  --primary: #16A34A;
-  --primary-hover: #15803D;
-  --primary-soft: rgba(22, 163, 74, 0.1);
+  --primary: #10B981;
+  --primary-hover: #059669;
+  --primary-soft: rgba(16, 185, 129, 0.1);
 
-  --success: #16A34A;
-  --warning: #F5B82E;
+  --success: #10B981;
+  --warning: #F59E0B;
   --danger: #EF4444;
-  --info: #2563EB;
+  --info: #3B82F6;
+  --purple: #8B5CF6;
 }
 
 @theme {

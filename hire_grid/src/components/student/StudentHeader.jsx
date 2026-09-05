@@ -1,5 +1,6 @@
 import React from "react";
 import { Menu, Flame, ShieldAlert, Award, User } from "lucide-react";
+import { ThemeToggle } from "../common/ThemeToggle";
 
 export function StudentHeader({
   user,
@@ -63,6 +64,9 @@ export function StudentHeader({
           <Award size={16} />
           <span>{medalInfo?.fullName || "Bronze V"}</span>
         </div>
+
+        {/* Theme Toggle */}
+        <ThemeToggle className="ml-1" />
 
 
 
