@@ -99,9 +99,12 @@ exports.getMissions = async (req, res) => {
     }
 
     if (allowedModules.length === 0) {
-      return res.status(403).json({
-        success: false,
+      return res.json({
+        success: true,
         premiumLocked: true,
+        cycle,
+        missions: [],
+        history: [],
         error: "This section is exclusively for Premium Members. Upgrade to Premium to attempt weekly missions and compete on the leaderboard."
       });
     }

@@ -22,7 +22,11 @@ export function PlacementMissionView({ currentUser, onStartModule }) {
         setMissions(res.missions || []);
         setHistory(res.history || []);
         setCycleInfo(res.cycle || null);
-        setIsPremiumLocked(false);
+        if (res.premiumLocked) {
+          setIsPremiumLocked(true);
+        } else {
+          setIsPremiumLocked(false);
+        }
       }
     } catch (err) {
       if (err.message && err.message.includes("exclusively for Premium Members")) {
