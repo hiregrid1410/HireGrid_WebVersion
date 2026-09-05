@@ -1,6 +1,58 @@
 import React from "react";
-import { Building2, ArrowLeft, Info, BookOpen, Lock, FileText, Timer, ChevronRight } from "lucide-react";
+import { Building2, ArrowLeft, Info, BookOpen, Lock, FileText, Timer, ChevronRight, CheckCircle2 } from "lucide-react";
 import { PremiumPurchaseView } from "./PremiumPurchaseView";
+
+export const getCompanyPrice = (company, plans = []) => {
+  if (!company) return 499;
+  
+  const explicitPrice = Number(company.price || company.cost);
+  if (explicitPrice > 0) return explicitPrice;
+
+  if (plans && plans.length > 0) {
+    const compIdStr = String(company.id);
+    const matchingPlan = plans.find((p) => {
+      const cMods = (p.companyModules || p.company_modules || []).map(String);
+      const lCont = (p.learningContent || p.learning_content || []).map(String);
+      const cBranches = p.companyBranches || p.company_branches || [];
+      const hasBranchMatch = cBranches.some((cb) => 
+        (cb && (String(cb.companyId) === compIdStr || String(cb.company_id) === compIdStr)) ||
+        String(cb) === compIdStr
+      );
+      return cMods.includes(compIdStr) || lCont.includes(compIdStr) || hasBranchMatch;
+    });
+
+    if (matchingPlan && Number(matchingPlan.price) > 0) {
+      return Number(matchingPlan.price);
+    }
+
+    const anyPlan = plans.find((p) => Number(p.price) > 0);
+    if (anyPlan) return Number(anyPlan.price);
+  }
+
+  return 499;
+};
+
+export const isPaidCompany = (company, plans = []) => {
+  if (!company) return false;
+  if (company.isPremium || company.is_premium) return true;
+  if (company.accessType === "premium_only" || company.accessType === "paid" || company.access_type === "premium_only" || company.access_type === "paid") return true;
+  
+  if (plans && plans.length > 0) {
+    const compIdStr = String(company.id);
+    return plans.some((p) => {
+      const cMods = (p.companyModules || p.company_modules || []).map(String);
+      const lCont = (p.learningContent || p.learning_content || []).map(String);
+      const cBranches = p.companyBranches || p.company_branches || [];
+      const hasBranchMatch = cBranches.some((cb) => 
+        (cb && (String(cb.companyId) === compIdStr || String(cb.company_id) === compIdStr)) ||
+        String(cb) === compIdStr
+      );
+      return cMods.includes(compIdStr) || lCont.includes(compIdStr) || hasBranchMatch;
+    });
+  }
+
+  return true; // Default companies to paid if plan mappings exist
+};
 
 export function StudentCompaniesView({
   companies = [],
@@ -17,6 +69,8 @@ export function StudentCompaniesView({
   submitAccessRequest,
   accessRequestSent = {},
   onStartModule,
+  plans = [],
+  currentUser = null,
 }) {
   return (
     <div className="animate-in fade-in duration-300">
@@ -25,9 +79,9 @@ export function StudentCompaniesView({
           itemId={purchaseItem.item.id}
           itemName={purchaseItem.item.name}
           itemType="company"
-          price={purchaseItem.item.price || 99}
+          price={getCompanyPrice(purchaseItem.item, plans)}
           onBack={onBackFromPurchase}
-          currentUser={purchaseItem.currentUser}
+          currentUser={purchaseItem.currentUser || currentUser}
         />
       ) : !activeCompany ? (
         /* Company Directory View */
@@ -50,34 +104,48 @@ export function StudentCompaniesView({
                     )
                   )
                 : companies
-              ).map((c) => (
-                <div
-                  key={c.id}
-                  onClick={() => setActiveCompany(c)}
-                  className="bg-[#050B14] rounded-2xl p-6 border border-slate-850 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500 transition-all group relative min-h-[180px]"
-                >
-                  {!hasAccessToCompany(c) && (
-                    <div className="absolute top-4 right-4 bg-amber-500/10 text-amber-500 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase flex items-center border border-amber-500/20 tracking-wider">
-                      <Lock className="w-2.5 h-2.5 mr-1" />
-                      Premium
-                    </div>
-                  )}
-                  {c.logoUrl ? (
-                    <img
-                      src={c.logoUrl}
-                      alt={c.name}
-                      className="w-16 h-16 object-contain mb-4 filter drop-shadow-md"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mb-4">
-                      <Building2 className="w-8 h-8" />
-                    </div>
-                  )}
-                  <h3 className="font-bold text-slate-200 text-base group-hover:text-emerald-400 transition-colors">
-                    {c.name}
-                  </h3>
-                </div>
-              ))}
+              ).map((c) => {
+                const unlocked = hasAccessToCompany(c);
+                const paid = isPaidCompany(c, plans);
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => setActiveCompany(c)}
+                    className="bg-[#050B14] rounded-2xl p-6 border border-slate-850 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500 transition-all group relative min-h-[180px]"
+                  >
+                    {unlocked ? (
+                      <div className="absolute top-4 right-4 bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase flex items-center border border-emerald-500/20 tracking-wider">
+                        <CheckCircle2 className="w-2.5 h-2.5 mr-1" />
+                        Unlocked
+                      </div>
+                    ) : paid ? (
+                      <div className="absolute top-4 right-4 bg-amber-500/10 text-amber-400 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase flex items-center border border-amber-500/20 tracking-wider">
+                        <Lock className="w-2.5 h-2.5 mr-1" />
+                        Paid
+                      </div>
+                    ) : (
+                      <div className="absolute top-4 right-4 bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase flex items-center border border-blue-500/20 tracking-wider">
+                        Free
+                      </div>
+                    )}
+
+                    {c.logoUrl ? (
+                      <img
+                        src={c.logoUrl}
+                        alt={c.name}
+                        className="w-16 h-16 object-contain mb-4 filter drop-shadow-md"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mb-4">
+                        <Building2 className="w-8 h-8" />
+                      </div>
+                    )}
+                    <h3 className="font-bold text-slate-200 text-base group-hover:text-emerald-400 transition-colors">
+                      {c.name}
+                    </h3>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -155,7 +223,7 @@ export function StudentCompaniesView({
                   onClick={() => onSelectPurchaseItem(activeCompany, "company")}
                   className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-lg shadow-amber-600/10 whitespace-nowrap"
                 >
-                  Unlock for ₹{activeCompany.price || 0}
+                  Unlock for ₹{getCompanyPrice(activeCompany, plans)}
                 </button>
               )}
             </div>

@@ -238,7 +238,7 @@ export function PremiumPurchaseView({
 
             <div className="mb-8">
               <div className="text-4xl font-black text-slate-900 dark:text-white mb-2">
-                ₹{price}
+                ₹{price && Number(price) > 0 ? price : 499}
               </div>
               <p className="text-sm text-slate-500 uppercase tracking-widest font-mono">
                 One-time payment
