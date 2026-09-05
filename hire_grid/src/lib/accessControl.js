@@ -39,10 +39,10 @@ export const hasAccess = (
   if (!item) return false;
 
   const currentAccessMode = item.accessMode || item.access_mode || "inherit";
-  let effectiveAccessType = "free";
-  
   const rawAccessType = item.accessType || item.access_type;
   const rawIsPremium = item.isPremium !== undefined ? item.isPremium : item.is_premium;
+
+  let effectiveAccessType = "free";
 
   if (rawAccessType && rawAccessType !== "free") {
     effectiveAccessType = rawAccessType;
@@ -70,59 +70,16 @@ export const hasAccess = (
     }
   }
 
-  // Check if this item (or its parent company/branch) is included in any plan in allPlans
-  const normType = normalizeItemType(itemType);
-  let isIncludedInAnyPlan = false;
-  if (allPlans && allPlans.length > 0) {
-    if (normType === "company") {
-      isIncludedInAnyPlan = allPlans.some((p) => {
-        const compMods = parseArray(p.companyModules || p.company_modules);
-        const compBr = p.companyBranches || p.company_branches || [];
-        return compMods.includes(item.id) || compBr.some((cb) => cb.companyId === item.id);
-      });
-    } else if (normType === "module") {
-      const parentId = item.parentId || item.parent_id;
-      if (item.moduleType === "company" || item.module_type === "company") {
-        if (parentId) {
-          isIncludedInAnyPlan = allPlans.some((p) => {
-            const compMods = parseArray(p.companyModules || p.company_modules);
-            const compBr = p.companyBranches || p.company_branches || [];
-            return compMods.includes(parentId) || compBr.some((cb) => cb.companyId === parentId);
-          });
-        }
-      } else {
-        const pathIds = path.map((p) => p.id || (p.node ? p.node.id : null)).filter(Boolean);
-        const allResourceIds = [item.id, ...pathIds];
-        isIncludedInAnyPlan = allPlans.some((p) => {
-          const learnCont = parseArray(p.learningContent || p.learning_content);
-          return allResourceIds.some((id) => learnCont.includes(id));
-        });
-      }
-    } else if (
-      normType === "general_branch" ||
-      normType === "general_subject" ||
-      normType === "general_topic"
-    ) {
-      const pathIds = path.map((p) => p.id || (p.node ? p.node.id : null)).filter(Boolean);
-      const allResourceIds = [item.id, ...pathIds];
-      isIncludedInAnyPlan = allPlans.some((p) => {
-        const learnCont = parseArray(p.learningContent || p.learning_content);
-        return allResourceIds.some((id) => learnCont.includes(id));
-      });
-    }
-  }
-
-  if (isIncludedInAnyPlan) {
-    effectiveAccessType = "premium_only";
-  }
-
-  // 2. Free or Demo content is always unlocked
+  // 2. Explicitly FREE or DEMO content is ALWAYS UNLOCKED for everyone.
+  // Free content must never be locked even if it is included inside a paid plan.
   if (effectiveAccessType === "free" || effectiveAccessType === "demo") {
     return true;
   }
 
-  // Without a user, all premium/purchasable content is locked
+  // Without a user, any remaining non-free content is locked
   if (!currentUser) return false;
+
+  const normType = normalizeItemType(itemType);
 
   // 3. Individual Purchase / Admin Granted Explicit Access
   let accessMapRaw;
@@ -183,32 +140,76 @@ export const hasAccess = (
     }
   }
 
-  // 5. Active Plan Access Validation
+  // 5. Active Purchased Plan Access Validation
   const userActivePlanId = currentUser.activePlanId || currentUser.active_plan_id;
-  if (activePlan && userActivePlanId) {
+  const resolvedActivePlan = activePlan || (userActivePlanId && allPlans && allPlans.length > 0
+    ? allPlans.find((p) => String(p.id) === String(userActivePlanId))
+    : null);
+
+  if (resolvedActivePlan && userActivePlanId) {
     const userPlanExpiry = currentUser.planExpiry || currentUser.plan_expiry;
     const isNotExpired = !userPlanExpiry || Date.now() <= Number(userPlanExpiry);
 
     if (isNotExpired) {
-      const companyModules = parseArray(activePlan.companyModules || activePlan.company_modules);
-      const learningContent = parseArray(activePlan.learningContent || activePlan.learning_content);
-      const freeDemoModules = parseArray(activePlan.freeDemoModules || activePlan.free_demo_modules);
+      const companyModules = parseArray(resolvedActivePlan.companyModules || resolvedActivePlan.company_modules);
+      const learningContent = parseArray(resolvedActivePlan.learningContent || resolvedActivePlan.learning_content);
+      const freeDemoModules = parseArray(resolvedActivePlan.freeDemoModules || resolvedActivePlan.free_demo_modules);
+      const companyBranches = resolvedActivePlan.companyBranches || resolvedActivePlan.company_branches || [];
 
       const parentId = item.parentId || item.parent_id;
 
+      // Helper to check company branches array
+      const isInCompanyBranches = (targetId, type = "any") => {
+        return companyBranches.some((cb) => {
+          if (typeof cb === "string" || typeof cb === "number") {
+            return String(cb) === String(targetId);
+          }
+          if (cb && typeof cb === "object") {
+            if (type === "company" || type === "any") {
+              if (cb.companyId && String(cb.companyId) === String(targetId)) return true;
+            }
+            if (type === "branch" || type === "any") {
+              if (cb.branchId && String(cb.branchId) === String(targetId)) return true;
+            }
+          }
+          return false;
+        });
+      };
+
       // A. Company Check
       if (normType === "company") {
-        if (companyModules.includes(item.id) || learningContent.includes(item.id)) return true;
+        if (
+          companyModules.some((id) => String(id) === String(item.id)) ||
+          learningContent.some((id) => String(id) === String(item.id)) ||
+          isInCompanyBranches(item.id, "company")
+        ) {
+          return true;
+        }
       }
 
       // B. Module Check
       if (normType === "module") {
-        if (freeDemoModules.includes(item.id)) return true;
-        if (learningContent.includes(item.id)) return true;
-        if (parentId && (companyModules.includes(parentId) || learningContent.includes(parentId))) return true;
+        if (freeDemoModules.some((id) => String(id) === String(item.id))) return true;
+        if (learningContent.some((id) => String(id) === String(item.id))) return true;
+
+        if (parentId) {
+          if (
+            companyModules.some((id) => String(id) === String(parentId)) ||
+            learningContent.some((id) => String(id) === String(parentId)) ||
+            isInCompanyBranches(parentId, "company")
+          ) {
+            return true;
+          }
+        }
 
         for (const p of path) {
-          if (p.node && (companyModules.includes(p.node.id) || learningContent.includes(p.node.id))) {
+          const pId = p.id || (p.node ? p.node.id : null);
+          if (
+            pId &&
+            (companyModules.some((id) => String(id) === String(pId)) ||
+              learningContent.some((id) => String(id) === String(pId)) ||
+              isInCompanyBranches(pId, "any"))
+          ) {
             return true;
           }
         }
@@ -220,9 +221,19 @@ export const hasAccess = (
         normType === "general_subject" ||
         normType === "general_topic"
       ) {
-        if (learningContent.includes(item.id)) return true;
+        if (
+          learningContent.some((id) => String(id) === String(item.id)) ||
+          isInCompanyBranches(item.id, "branch")
+        ) {
+          return true;
+        }
         for (const p of path) {
-          if (p.node && learningContent.includes(p.node.id)) {
+          const pId = p.id || (p.node ? p.node.id : null);
+          if (
+            pId &&
+            (learningContent.some((id) => String(id) === String(pId)) ||
+              isInCompanyBranches(pId, "branch"))
+          ) {
             return true;
           }
         }
