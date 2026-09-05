@@ -156,6 +156,7 @@ export default function StudentDashboard() {
 
   const {
     isFullscreen,
+    setIsFullscreen,
     showWarningModal,
     setShowWarningModal,
     enterFullscreen,

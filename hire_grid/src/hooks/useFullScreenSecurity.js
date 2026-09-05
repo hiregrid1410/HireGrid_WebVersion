@@ -88,6 +88,7 @@ export function useFullScreenSecurity({
 
   return {
     isFullscreen,
+    setIsFullscreen,
     showWarningModal,
     setShowWarningModal,
     enterFullscreen,
