@@ -1380,7 +1380,15 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="std-layout">
+    <div className="std-layout relative">
+      {/* Mobile Overlay Backdrop */}
+      {sidebarOpen && isMobile && (
+        <div
+          className="fixed inset-0 bg-[#070D19]/80 backdrop-blur-sm z-40 transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {submitState && (
         <div className="fixed inset-0 z-[9999] bg-[#070D19]/95 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-300">
           <ProgressCircuitLoader
