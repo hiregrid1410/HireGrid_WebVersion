@@ -273,22 +273,22 @@ export function StudentHierarchyView({
   return (
     <div className="space-y-6">
       {/* Breadcrumbs path navigator */}
-      <div className="flex items-center space-x-2 text-sm text-slate-400 bg-[#0E1629] p-4 rounded-xl border border-slate-850 tracking-wide overflow-x-auto whitespace-nowrap custom-scrollbar">
+      <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-[#0E1629] p-4 rounded-xl border border-slate-200 dark:border-slate-850 tracking-wide overflow-x-auto whitespace-nowrap custom-scrollbar shadow-sm">
         {path.map((step, idx) => (
           <React.Fragment key={idx}>
             <button
               onClick={() => jumpToPath(idx)}
               className={`transition-colors font-semibold uppercase tracking-wider text-xs ${
                 idx === path.length - 1
-                  ? "text-slate-100 cursor-default"
-                  : "text-slate-400 hover:text-emerald-400"
+                  ? "text-slate-800 dark:text-slate-100 cursor-default"
+                  : "text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400"
               }`}
               disabled={idx === path.length - 1}
             >
               {step.title}
             </button>
             {idx < path.length - 1 && (
-              <ChevronRight className="w-4 h-4 mx-2 text-slate-600 shrink-0" />
+              <ChevronRight className="w-4 h-4 mx-2 text-slate-400 dark:text-slate-600 shrink-0" />
             )}
           </React.Fragment>
         ))}
