@@ -2394,11 +2394,13 @@ export default function StudentDashboard() {
                         modules={modules}
                         moduleScores={moduleScores}
                         purchaseItem={purchaseItem}
-                        onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type })}
+                        onSelectPurchaseItem={(item, type) => setPurchaseItem({ item, type, currentUser: currentUserDoc })}
                         onBackFromPurchase={() => setPurchaseItem(null)}
                         submitAccessRequest={submitAccessRequest}
                         accessRequestSent={accessRequestSent}
                         onStartModule={handleStartModule}
+                        plans={plans}
+                        currentUser={currentUserDoc}
                       />
                     )
                   )}
