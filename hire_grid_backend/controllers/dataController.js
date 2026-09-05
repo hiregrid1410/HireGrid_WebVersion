@@ -1530,11 +1530,9 @@ exports.getModuleQuestions = async (req, res) => {
   const userId = req.user ? req.user.id : null;
   try {
     let role = "student";
-    if (userId) {
-      const accessCheck = await verifyUserItemAccess(userId, id, "module");
-      if (!accessCheck.allowed) {
-        return res.status(403).json({ error: accessCheck.reason || "Module access locked under current plan." });
-      }
+    const accessCheck = await verifyUserItemAccess(userId, id, "module");
+    if (!accessCheck.allowed) {
+      return res.status(403).json({ error: accessCheck.reason || "Module access locked under current plan." });
     }
     
     // Check if user is authorized to see correct answers (admin, content manager, or has already completed the module)
