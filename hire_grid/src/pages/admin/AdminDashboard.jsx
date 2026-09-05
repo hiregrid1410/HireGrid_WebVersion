@@ -421,28 +421,28 @@ export default function AdminDashboard() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden max-h-screen">
         {/* Top Header */}
-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 shrink-0 relative z-20 shadow-sm">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 sm:px-6 md:px-8 shrink-0 relative z-20 shadow-sm">
           {/* Breadcrumbs */}
-          <div className="flex items-center space-x-2 text-xs font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
+          <div className="flex items-center space-x-1.5 sm:space-x-2 text-xs font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500 overflow-hidden">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 -ml-2 mr-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="md:hidden p-2 -ml-1 mr-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="hidden sm:inline">Command Center</span>
-            <ChevronRight className="w-3.5 h-3.5 hidden sm:block" />
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+            <span className="hidden sm:inline shrink-0">Command Center</span>
+            <ChevronRight className="w-3.5 h-3.5 hidden sm:block shrink-0" />
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
               {getBreadcrumbTitle()}
             </span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="font-semibold text-slate-800 dark:text-white">
+            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+            <span className="font-semibold text-slate-800 dark:text-white truncate">
               {getSubTabTitle()}
             </span>
           </div>
 
           {/* Top Bar Actions */}
-          <div className="flex items-center space-x-5">
+          <div className="flex items-center space-x-3 sm:space-x-5 shrink-0">
             {/* Search Box */}
             <div className="relative max-w-xs hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -466,7 +466,7 @@ export default function AdminDashboard() {
         </header>
 
         {/* Workspace Canvas */}
-        <main className="flex-1 overflow-y-auto bg-bg-page custom-scrollbar p-8">
+        <main className="flex-1 overflow-y-auto bg-bg-page custom-scrollbar p-3 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto">
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
               {activeWorkspace === "overview" && activeSubTab === "dashboard" && (

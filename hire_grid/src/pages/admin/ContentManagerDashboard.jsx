@@ -349,28 +349,28 @@ export default function ContentManagerDashboard() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden h-full">
         {/* Top Header */}
-        <header className="h-16 bg-slate-900 border-b border-slate-850 flex items-center justify-between px-8 shrink-0 relative z-20">
+        <header className="h-16 bg-[#0B1F3A] border-b border-slate-800 flex items-center justify-between px-3 sm:px-6 md:px-8 shrink-0 relative z-20 shadow-sm">
           {/* Breadcrumbs */}
-          <div className="flex items-center space-x-2 text-xs font-mono uppercase tracking-widest text-slate-400">
+          <div className="flex items-center space-x-1.5 sm:space-x-2 text-xs font-mono uppercase tracking-widest text-slate-400 overflow-hidden">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 -ml-2 mr-1 rounded-lg text-slate-500 hover:bg-slate-800 transition-colors"
+              className="md:hidden p-2 -ml-1 mr-1 rounded-lg text-slate-500 hover:bg-slate-800 transition-colors shrink-0"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="hidden sm:inline">Content Portal</span>
-            <ChevronRight className="w-3.5 h-3.5 hidden sm:block" />
-            <span className="font-semibold text-emerald-400 capitalize">
+            <span className="hidden sm:inline shrink-0">Content Portal</span>
+            <ChevronRight className="w-3.5 h-3.5 hidden sm:block shrink-0" />
+            <span className="font-semibold text-emerald-400 capitalize truncate">
               Content Manager
             </span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="font-semibold text-white capitalize">
+            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+            <span className="font-semibold text-white capitalize truncate">
               {activeTab.replace("-", " ")}
             </span>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center space-x-5">
+          <div className="flex items-center space-x-3 sm:space-x-5 shrink-0">
             {/* Current Date */}
             <div className="hidden lg:flex items-center space-x-1.5 text-xs text-slate-400 font-mono">
               <Calendar className="w-3.5 h-3.5" />
@@ -380,7 +380,7 @@ export default function ContentManagerDashboard() {
             <ThemeToggle />
 
             {/* Profile Avatar */}
-            <div className="flex items-center space-x-3 border-l border-slate-800 pl-5">
+            <div className="flex items-center space-x-3 border-l border-slate-800 pl-3 sm:pl-5">
               <div className="h-8 w-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs uppercase">
                 {userName.slice(0, 2)}
               </div>
@@ -393,7 +393,7 @@ export default function ContentManagerDashboard() {
         </header>
 
         {/* Content Canvas */}
-        <main className="flex-1 overflow-y-auto bg-slate-950 p-8 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto bg-slate-950 p-3 sm:p-6 md:p-8 custom-scrollbar">
           <div className="max-w-7xl mx-auto">
             {activeTab === "dashboard" && (
               loadingStats ? (
