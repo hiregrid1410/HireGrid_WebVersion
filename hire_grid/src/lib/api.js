@@ -131,8 +131,11 @@ async function request(method, path, body = null, requestOptions = {}) {
   }
 
   const reqPromise = (async () => {
-    let attemptsLeft = 2;
+    let attemptsLeft = 3;
+    let lastError = null;
+
     while (attemptsLeft > 0) {
+      attemptsLeft--;
       try {
         const res = await fetch(`${API_BASE}${path}`, options);
         const data = await res.json().catch(() => ({}));
@@ -155,9 +158,12 @@ async function request(method, path, body = null, requestOptions = {}) {
             }
           }
 
-          // If it is a 503 Service Unavailable, or a database connection error
+          // If it is a 503/502 Service Unavailable, or connection drop/database error
           const lowercaseMsg = message.toLowerCase();
-          const isDbOrUnavailable = res.status === 503 ||
+          const isDbOrUnavailable =
+            res.status === 503 ||
+            res.status === 502 ||
+            res.status === 504 ||
             lowercaseMsg.includes("econnreset") ||
             lowercaseMsg.includes("connection reset") ||
             lowercaseMsg.includes("timeout") ||
@@ -166,7 +172,6 @@ async function request(method, path, body = null, requestOptions = {}) {
             lowercaseMsg.includes("admin_shutdown");
 
           if (isDbOrUnavailable) {
-            // Fallthrough to the catch block to wait/retry
             throw new Error(`DB_CONN_ERROR: ${message}`);
           }
 
@@ -186,40 +191,41 @@ async function request(method, path, body = null, requestOptions = {}) {
           throw err;
         }
 
+        lastError = err;
         const isDbConnError = err.message && err.message.startsWith("DB_CONN_ERROR:");
-        // If it is a business/HTTP error thrown by us above (not a DB_CONN_ERROR), don't retry
-        if (
-          err.message &&
-          !isDbConnError &&
-          !err.message.includes("Failed to fetch") &&
-          !err.message.includes("NetworkError") &&
-          !err.message.includes("Network Error") &&
-          !err.message.includes("status") &&
-          !err.message.includes("fetch")
-        ) {
+        const isNetworkOrFetchError =
+          isDbConnError ||
+          !err.message ||
+          err.message.includes("Failed to fetch") ||
+          err.message.includes("NetworkError") ||
+          err.message.includes("Network Error") ||
+          err.message.includes("status") ||
+          err.message.includes("fetch");
+
+        // If it's an explicit business/HTTP error thrown above (not network/DB connection drop), don't retry
+        if (!isNetworkOrFetchError) {
           throw err;
         }
 
-        // Check if server and DB are already awake/healthy
-        const isHealthy = await checkHealth();
-        const isReady = isHealthy ? await checkReady() : false;
-        if (isHealthy && isReady) {
-          console.error("API Error (Server & DB are ready):", err);
-          const finalErr = isDbConnError ? new Error(err.message.replace("DB_CONN_ERROR: ", "")) : err;
-          throw finalErr;
+        // If retries remain, wait a short moment and retry fetch request
+        if (attemptsLeft > 0) {
+          console.warn(`Connection dropped (${err.message || "Fetch error"}). Retrying (${attemptsLeft} retries left)...`);
+          const isHealthy = await checkHealth();
+          if (!isHealthy) {
+            await waitForServerToWake();
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
+          continue;
         }
 
-        // Server/DB is sleeping/waking. Wait for it.
-        console.log("Server/DB is sleeping/waking. Waiting for it to start...");
-        await waitForServerToWake();
-
-        attemptsLeft--;
-        if (attemptsLeft === 0) {
-          const finalErr = isDbConnError ? new Error(err.message.replace("DB_CONN_ERROR: ", "")) : err;
-          throw finalErr;
-        }
+        // Retries exhausted
+        const finalErr = isDbConnError ? new Error(err.message.replace("DB_CONN_ERROR: ", "")) : err;
+        throw finalErr;
       }
     }
+
+    throw lastError || new Error("Connection failed after retries.");
   })();
 
   if (method === "GET") {
