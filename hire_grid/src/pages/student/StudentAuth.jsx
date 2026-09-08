@@ -108,6 +108,10 @@ export default function StudentAuth() {
           role: "student",
         });
 
+        if (!res || !res.token || !res.user) {
+          throw new Error(res?.error || res?.message || "Registration failed. Please try again.");
+        }
+
         localStorage.setItem("token", res.token);
         localStorage.setItem("user", JSON.stringify(res.user));
         navigate("/student-dashboard", { state: { user: res.user } });
@@ -127,6 +131,10 @@ export default function StudentAuth() {
           deviceId: getDeviceId(),
           deviceName: getDeviceName(),
         });
+
+        if (!res || !res.token || !res.user) {
+          throw new Error(res?.error || res?.message || "Invalid credentials. Please try again.");
+        }
 
         localStorage.setItem("token", res.token);
         localStorage.setItem("user", JSON.stringify(res.user));
