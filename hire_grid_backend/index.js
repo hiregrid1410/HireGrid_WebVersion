@@ -155,6 +155,14 @@ const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`FATAL: Port ${PORT} is already in use by another process.`);
+  } else {
+    console.error("Server startup error:", err);
+  }
+});
+
 // Graceful Shutdown Handlers (Render redeploys and restarts)
 const { pool } = require("./config/db");
 const gracefulShutdown = (signal) => {
