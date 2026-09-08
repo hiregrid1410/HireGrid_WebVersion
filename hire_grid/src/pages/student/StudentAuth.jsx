@@ -108,13 +108,16 @@ export default function StudentAuth() {
           role: "student",
         });
 
-        if (!res || !res.token || !res.user) {
+        const token = res?.token || res?.data?.accessToken;
+        const user = res?.user || res?.data?.user;
+
+        if (!res || !token || !user) {
           throw new Error(res?.error || res?.message || "Registration failed. Please try again.");
         }
 
-        localStorage.setItem("token", res.token);
-        localStorage.setItem("user", JSON.stringify(res.user));
-        navigate("/student-dashboard", { state: { user: res.user } });
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user));
+        navigate("/student-dashboard", { state: { user } });
       } else {
         // Login validation
         if (!formData.email || !formData.password) {
@@ -132,13 +135,16 @@ export default function StudentAuth() {
           deviceName: getDeviceName(),
         });
 
-        if (!res || !res.token || !res.user) {
+        const token = res?.token || res?.data?.accessToken;
+        const user = res?.user || res?.data?.user;
+
+        if (!res || !token || !user) {
           throw new Error(res?.error || res?.message || "Invalid credentials. Please try again.");
         }
 
-        localStorage.setItem("token", res.token);
-        localStorage.setItem("user", JSON.stringify(res.user));
-        navigate("/student-dashboard", { state: { user: res.user } });
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user));
+        navigate("/student-dashboard", { state: { user } });
       }
     } catch (err) {
       setError(err.message || "Authentication failed. Please try again.");

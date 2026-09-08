@@ -37,27 +37,30 @@ export default function AdminAuth() {
         isAdminLogin: true,
       });
 
-      if (!res || !res.token || !res.user) {
+      const token = res?.token || res?.data?.accessToken;
+      const user = res?.user || res?.data?.user;
+
+      if (!res || !token || !user) {
         throw new Error(res?.error || res?.message || "Access denied. Invalid credentials.");
       }
 
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("user", JSON.stringify(res.user));
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
 
-      if (res.user.role === "content_manager") {
+      if (user.role === "content_manager") {
         navigate("/content-manager-dashboard", {
           state: {
             role: "content_manager",
-            name: res.user.name,
-            id: res.user.id,
+            name: user.name,
+            id: user.id,
           },
         });
       } else {
         navigate("/admin-dashboard", {
           state: {
             role: "admin",
-            name: res.user.name || "Admin",
-            id: !email || email.trim() === "" ? "super_admin" : res.user.id,
+            name: user.name || "Admin",
+            id: !email || email.trim() === "" ? "super_admin" : user.id,
           },
         });
       }
