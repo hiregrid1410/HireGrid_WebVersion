@@ -32,10 +32,14 @@ export default function AdminAuth() {
 
     try {
       const res = await api.post("/auth/login", {
-        email: email || "",
+        email: email ? email.trim() : "",
         password,
         isAdminLogin: true,
       });
+
+      if (!res || !res.token || !res.user) {
+        throw new Error(res?.error || res?.message || "Access denied. Invalid credentials.");
+      }
 
       localStorage.setItem("token", res.token);
       localStorage.setItem("user", JSON.stringify(res.user));
@@ -52,14 +56,14 @@ export default function AdminAuth() {
         navigate("/admin-dashboard", {
           state: {
             role: "admin",
-            name: res.user.name,
+            name: res.user.name || "Admin",
             id: !email || email.trim() === "" ? "super_admin" : res.user.id,
           },
         });
       }
     } catch (err) {
       console.error(err);
-      setError("Access denied. Invalid credentials. Please try again.");
+      setError(err.message || "Access denied. Invalid credentials. Please try again.");
     } finally {
       setLoading(false);
     }
