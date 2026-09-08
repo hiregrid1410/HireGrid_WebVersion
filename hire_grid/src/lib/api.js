@@ -141,12 +141,14 @@ async function request(method, path, body = null, requestOptions = {}) {
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
+          const rawError = data.error || data.message;
           const message =
-            data.error ||
-            data.message ||
-            `Request failed with status ${res.status}`;
+            (typeof rawError === "object"
+              ? rawError?.message || rawError?.error || rawError?.code || JSON.stringify(rawError)
+              : rawError) || `Request failed with status ${res.status}`;
 
-          if (res.status === 401 || (res.status === 404 && path.includes("/users/"))) {
+          const isAuthEndpoint = path.startsWith("/auth/");
+          if (!isAuthEndpoint && (res.status === 401 || (res.status === 404 && path.includes("/users/")))) {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
 
@@ -159,7 +161,7 @@ async function request(method, path, body = null, requestOptions = {}) {
           }
 
           // If it is a 503/502 Service Unavailable, or connection drop/database error
-          const lowercaseMsg = message.toLowerCase();
+          const lowercaseMsg = String(message).toLowerCase();
           const isDbOrUnavailable =
             res.status === 503 ||
             res.status === 502 ||
