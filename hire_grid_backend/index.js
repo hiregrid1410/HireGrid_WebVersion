@@ -158,6 +158,7 @@ const server = app.listen(PORT, () => {
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
     console.error(`FATAL: Port ${PORT} is already in use by another process.`);
+    process.exit(1);
   } else {
     console.error("Server startup error:", err);
   }
