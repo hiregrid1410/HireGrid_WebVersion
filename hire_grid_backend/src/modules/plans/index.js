@@ -1,0 +1,7 @@
+const plansController = require("./plans.controller");
+const plansService = require("./plans.service");
+
+module.exports = {
+  plansController,
+  plansService
+};

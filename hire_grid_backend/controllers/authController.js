@@ -225,101 +225,93 @@ const validateAndRegisterDevice = async (user, deviceId, deviceName) => {
 exports.login = async (req, res) => {
   const { email, password, isAdminLogin = false, deviceId, deviceName } = req.body;
 
-  if (!password || (!isAdminLogin && !email)) {
+  if (!password || (!isAdminLogin && (!email || email.trim() === ""))) {
     return res.status(400).json({ error: isAdminLogin ? "Password is required." : "Email and password are required." });
   }
 
   try {
-    let user;
+    let user = null;
+    const emailTrimmed = email ? email.trim().toLowerCase() : "";
 
-    if (isAdminLogin) {
-      if (!email || email.trim() === "") {
-        // Password-only login: Look up configured admin email or fallback to first admin
-        const targetEmail = process.env.ADMIN_EMAIL || 'saumya@admin.com';
-        let adminsResult = await pool.query(`SELECT * FROM admin_users WHERE email = $1 LIMIT 1`, [targetEmail]);
-        if (adminsResult.rows.length === 0) {
-          adminsResult = await pool.query(`SELECT * FROM admin_users ORDER BY created_at ASC LIMIT 1`);
-        }
-        
-        if (adminsResult.rows.length === 0) {
-          return res.status(401).json({ error: "No admin user found in database." });
-        }
-
-        const adminUser = adminsResult.rows[0];
-        const envAdminPass = process.env.ADMIN_PASSWORD;
-        let isMatch = false;
-
-        if (envAdminPass && password === envAdminPass) {
-          isMatch = true;
-        } else if (password === "admin" || password === "admin123") {
-          isMatch = true;
-        } else {
-          isMatch = await bcrypt.compare(password, adminUser.password);
-        }
-
-        if (!isMatch) {
-          return res.status(401).json({ error: "Invalid password." });
-        }
-        user = adminUser;
-      } else {
-        // Email + Password login (single UNION ALL query for admin_users & content_managers)
-        const emailLower = email.trim().toLowerCase();
-        const queryResult = await pool.query(
-          `SELECT * FROM admin_users WHERE email = $1
-           UNION ALL
-           SELECT * FROM content_managers WHERE email = $2
-           LIMIT 1`,
-          [emailLower, emailLower]
-        );
-
-        if (queryResult.rows.length === 0) {
-          return res.status(401).json({ error: "Invalid email or password." });
-        }
-
-        const foundUser = queryResult.rows[0];
-        const isMatch = await bcrypt.compare(password, foundUser.password);
-        if (!isMatch) {
-          return res.status(401).json({ error: "Invalid email or password." });
-        }
-        user = foundUser;
+    if (!emailTrimmed && isAdminLogin) {
+      // Password-only admin login
+      const targetEmail = process.env.ADMIN_EMAIL || 'saumya@admin.com';
+      let adminsResult = await pool.query(`SELECT * FROM admin_users WHERE email = $1 LIMIT 1`, [targetEmail]);
+      if (adminsResult.rows.length === 0) {
+        adminsResult = await pool.query(`SELECT * FROM admin_users ORDER BY created_at ASC LIMIT 1`);
       }
-    } else {
-      // Look strictly in users (student)
-      const emailTrimmed = email ? email.trim().toLowerCase() : "";
-      const userResult = await pool.query(
-        `SELECT * FROM users WHERE email = $1`,
-        [emailTrimmed]
-      );
+      
+      if (adminsResult.rows.length === 0) {
+        return res.status(401).json({ error: "No admin user found in database." });
+      }
 
-      if (userResult.rows.length === 0) {
+      const adminUser = adminsResult.rows[0];
+      const isMatch = await bcrypt.compare(password, adminUser.password);
+      if (!isMatch) {
+        return res.status(401).json({ error: "Invalid password." });
+      }
+      user = adminUser;
+    } else {
+      // Email provided — search across tables with preference based on isAdminLogin
+      let queryResult;
+      if (isAdminLogin) {
+        // Search admin_users & content_managers first, then users
+        queryResult = await pool.query(
+          `SELECT id, email, password, role, name, created_at FROM admin_users WHERE email = $1
+           UNION ALL
+           SELECT id, email, password, role, name, created_at FROM content_managers WHERE email = $2
+           LIMIT 1`,
+          [emailTrimmed, emailTrimmed]
+        );
+        if (queryResult.rows.length === 0) {
+          queryResult = await pool.query(`SELECT * FROM users WHERE email = $1 LIMIT 1`, [emailTrimmed]);
+        }
+      } else {
+        // Search users first, then content_managers & admin_users
+        queryResult = await pool.query(`SELECT * FROM users WHERE email = $1 LIMIT 1`, [emailTrimmed]);
+        if (queryResult.rows.length === 0) {
+          queryResult = await pool.query(
+            `SELECT id, email, password, role, name, created_at FROM admin_users WHERE email = $1
+             UNION ALL
+             SELECT id, email, password, role, name, created_at FROM content_managers WHERE email = $2
+             LIMIT 1`,
+            [emailTrimmed, emailTrimmed]
+          );
+        }
+      }
+
+      if (queryResult.rows.length === 0) {
         return res.status(401).json({ error: "Invalid email or password." });
       }
 
-      user = userResult.rows[0];
+      const foundUser = queryResult.rows[0];
 
-      // Handle Google-registered accounts with no password
-      if (!user.password && user.google_id) {
+      // Handle Google-registered student accounts with no password
+      if (foundUser.role === "student" && !foundUser.password && foundUser.google_id) {
         return res.status(400).json({ error: "This account is registered via Google. Please use 'Log in with Google'." });
       }
 
-      if (!user.password) {
+      if (!foundUser.password) {
         return res.status(401).json({ error: "Invalid email or password." });
       }
 
-      // Check password
-      const isMatch = await bcrypt.compare(password, user.password);
+      const isMatch = await bcrypt.compare(password, foundUser.password);
       if (!isMatch) {
         return res.status(401).json({ error: "Invalid email or password." });
       }
 
-      // Check device restrictions
-      const deviceCheck = await validateAndRegisterDevice(user, deviceId, deviceName);
-      if (!deviceCheck.allowed) {
-        return res.status(403).json({
-          error: deviceCheck.message,
-          deviceLimitReached: true,
-          maxDevices: deviceCheck.maxDevices,
-        });
+      user = foundUser;
+
+      // Apply device limit check ONLY for student role
+      if (user.role === "student") {
+        const deviceCheck = await validateAndRegisterDevice(user, deviceId, deviceName);
+        if (!deviceCheck.allowed) {
+          return res.status(403).json({
+            error: deviceCheck.message,
+            deviceLimitReached: true,
+            maxDevices: deviceCheck.maxDevices,
+          });
+        }
       }
     }
 

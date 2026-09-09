@@ -2862,3 +2862,36 @@ exports.saveContentMappingsBatch = async (req, res) => {
   }
 };
 
+// Notifications
+exports.getNotifications = async (req, res) => {
+  try {
+    res.json({ success: true, notifications: [] });
+  } catch (err) {
+    console.error("getNotifications error:", err);
+    res.json({ success: true, notifications: [] });
+  }
+};
+
+// Purchases
+exports.getPurchases = async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM purchases ORDER BY created_at DESC");
+    res.json({ success: true, purchases: result.rows });
+  } catch (err) {
+    console.error("getPurchases error:", err);
+    res.json({ success: true, purchases: [] });
+  }
+};
+
+// Audit Logs
+exports.getAuditLogs = async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM security_logs ORDER BY created_at DESC");
+    res.json({ success: true, logs: result.rows, audit_logs: result.rows });
+  } catch (err) {
+    console.error("getAuditLogs error:", err);
+    res.json({ success: true, logs: [], audit_logs: [] });
+  }
+};
+
+

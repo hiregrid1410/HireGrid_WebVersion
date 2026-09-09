@@ -97,22 +97,34 @@ function getCacheTtl(key) {
   return 60000; // 1 minute default for others (e.g. dynamic settings)
 }
 
+function getCacheUserId() {
+  try {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      const u = JSON.parse(userStr);
+      return u.id || u.uid || "anon";
+    }
+  } catch (e) {}
+  return "anon";
+}
+
 function getCache(key) {
   try {
+    const scopedKey = `${getCacheUserId()}:${key}`;
     const ttl = getCacheTtl(key);
-    const mem = memoryCache.get(key);
+    const mem = memoryCache.get(scopedKey);
     if (mem && Date.now() - mem.timestamp < ttl) {
       return mem.data;
     }
-    const raw = localStorage.getItem(`cache_${key}`);
+    const raw = localStorage.getItem(`cache_${scopedKey}`);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && Date.now() - parsed.timestamp < ttl) {
-      memoryCache.set(key, parsed);
+      memoryCache.set(scopedKey, parsed);
       return parsed.data;
     }
-    localStorage.removeItem(`cache_${key}`);
-    memoryCache.delete(key);
+    localStorage.removeItem(`cache_${scopedKey}`);
+    memoryCache.delete(scopedKey);
   } catch (e) {
     console.error("Cache read failed", e);
   }
@@ -121,9 +133,10 @@ function getCache(key) {
 
 function setCache(key, data) {
   try {
+    const scopedKey = `${getCacheUserId()}:${key}`;
     const entry = { timestamp: Date.now(), data };
-    memoryCache.set(key, entry);
-    localStorage.setItem(`cache_${key}`, JSON.stringify(entry));
+    memoryCache.set(scopedKey, entry);
+    localStorage.setItem(`cache_${scopedKey}`, JSON.stringify(entry));
   } catch (e) {
     console.error("Cache write failed", e);
   }
