@@ -19,78 +19,126 @@ export function invalidateCache(pathPattern) {
   }
 }
 
+// Server readiness status
+let isBackendReady = false;
 let isServerWaking = false;
 let wakingPromise = null;
 
-async function checkHealth() {
+export function getIsBackendReady() {
+  return isBackendReady;
+}
+
+export function setIsBackendReady(status) {
+  isBackendReady = Boolean(status);
+}
+
+// Lightweight health check (does not hit heavy SQL)
+export async function checkHealth(timeoutMs = 4000) {
   try {
-    const res = await fetch(`${API_URL}/health`, { method: "GET" });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(`${API_URL}/health`, { 
+      method: "GET",
+      signal: controller.signal
+    });
+    clearTimeout(timer);
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
-      return data.status === "ok";
+      if (data.status === "ok") {
+        isBackendReady = true;
+        return true;
+      }
     }
   } catch (e) {
-    // unreachable
+    // unreachable or timed out
   }
   return false;
 }
 
-async function checkReady() {
+// Database Readiness check
+export async function checkReady(timeoutMs = 5000) {
   try {
-    const res = await fetch(`${API_URL}/ready`, { method: "GET" });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(`${API_URL}/ready`, { 
+      method: "GET",
+      signal: controller.signal
+    });
+    clearTimeout(timer);
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
-      return data.status === "ready";
+      if (data.status === "ready") {
+        isBackendReady = true;
+        return true;
+      }
     }
   } catch (e) {
-    // unreachable
+    // unreachable or timed out
   }
   return false;
 }
 
-async function waitForServerToWake() {
+export async function waitForServerToWake(onProgress = null) {
   if (wakingPromise) {
     return wakingPromise;
   }
 
   wakingPromise = (async () => {
     isServerWaking = true;
-    window.dispatchEvent(new CustomEvent("server-waking"));
+    window.dispatchEvent(new CustomEvent("server-waking", { detail: { stage: "starting" } }));
+    if (onProgress) onProgress("starting");
 
-    const maxRetries = 30; // 90 seconds max wait
+    const maxHealthChecks = 35; // ~70-90 seconds max wait for cold Render instance
     let attempts = 0;
     let isWoke = false;
-    
-    // 1. Wait for Node.js process to start accepting requests
-    while (attempts < maxRetries) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    // 1. Wait for Node.js process to start responding on /health
+    while (attempts < maxHealthChecks) {
       attempts++;
-      const ok = await checkHealth();
+      const stage = attempts > 5 ? "waking" : "connecting";
+      window.dispatchEvent(new CustomEvent("server-waking", { detail: { stage, attempt: attempts } }));
+      if (onProgress) onProgress(stage);
+
+      const ok = await checkHealth(3000);
       if (ok) {
         isWoke = true;
         break;
       }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
-    // 2. Wait for database connection readiness
+    // 2. Wait for database readiness if process is up
     if (isWoke) {
       attempts = 0;
-      while (attempts < 10) { // Give database up to 30 seconds more if process is already up
-        const ready = await checkReady();
+      while (attempts < 10) {
+        const ready = await checkReady(4000);
         if (ready) {
           break;
         }
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         attempts++;
       }
     }
 
+    isBackendReady = true;
     isServerWaking = false;
     wakingPromise = null;
     window.dispatchEvent(new CustomEvent("server-ready"));
   })();
 
   return wakingPromise;
+}
+
+// Ensure backend is reachable before initial request stampede
+export async function ensureBackendReady() {
+  if (isBackendReady) return true;
+  const initialCheck = await checkHealth(2500);
+  if (initialCheck) {
+    isBackendReady = true;
+    return true;
+  }
+  await waitForServerToWake();
+  return isBackendReady;
 }
 
 async function request(method, path, body = null, requestOptions = {}) {
@@ -131,7 +179,9 @@ async function request(method, path, body = null, requestOptions = {}) {
   }
 
   const reqPromise = (async () => {
-    let attemptsLeft = 3;
+    // Only retry idempotent GET requests; do not retry destructive POST/PUT/DELETE
+    const isIdempotent = method === "GET";
+    let attemptsLeft = isIdempotent ? 3 : 1;
     let lastError = null;
 
     while (attemptsLeft > 0) {
@@ -141,14 +191,13 @@ async function request(method, path, body = null, requestOptions = {}) {
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          const rawError = data.error || data.message;
           const message =
-            (typeof rawError === "object"
-              ? rawError?.message || rawError?.error || rawError?.code || JSON.stringify(rawError)
-              : rawError) || `Request failed with status ${res.status}`;
+            data.error ||
+            data.message ||
+            `Request failed with status ${res.status}`;
 
-          const isAuthEndpoint = path.startsWith("/auth/");
-          if (!isAuthEndpoint && (res.status === 401 || (res.status === 404 && path.includes("/users/")))) {
+          // Only log out on explicit 401 Unauthorized from backend
+          if (res.status === 401 || (res.status === 404 && path.includes("/users/"))) {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
 
@@ -160,8 +209,8 @@ async function request(method, path, body = null, requestOptions = {}) {
             }
           }
 
-          // If it is a 503/502 Service Unavailable, or connection drop/database error
-          const lowercaseMsg = String(message).toLowerCase();
+          // Infrastructure/Waking error checks (502, 503, 504, DB connection resets)
+          const lowercaseMsg = message.toLowerCase();
           const isDbOrUnavailable =
             res.status === 503 ||
             res.status === 502 ||
@@ -179,6 +228,9 @@ async function request(method, path, body = null, requestOptions = {}) {
 
           throw new Error(message);
         }
+
+        // Successful request confirms backend is awake
+        isBackendReady = true;
 
         if (method === "GET") {
           responseCache.set(path, {
@@ -204,15 +256,14 @@ async function request(method, path, body = null, requestOptions = {}) {
           err.message.includes("status") ||
           err.message.includes("fetch");
 
-        // If it's an explicit business/HTTP error thrown above (not network/DB connection drop), don't retry
-        if (!isNetworkOrFetchError) {
+        // Non-network business error or non-idempotent mutation -> throw immediately
+        if (!isNetworkOrFetchError || !isIdempotent) {
           throw err;
         }
 
-        // If retries remain, wait a short moment and retry fetch request
+        // Safe retry loop for GET requests
         if (attemptsLeft > 0) {
-          console.warn(`Connection dropped (${err.message || "Fetch error"}). Retrying (${attemptsLeft} retries left)...`);
-          const isHealthy = await checkHealth();
+          const isHealthy = await checkHealth(2000);
           if (!isHealthy) {
             await waitForServerToWake();
           } else {

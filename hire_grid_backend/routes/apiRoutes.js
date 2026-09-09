@@ -126,4 +126,10 @@ router.get("/feedbacks", dataController.getFeedbacks);
 router.post("/feedbacks", dataController.createFeedback);
 router.delete("/feedbacks/:id", dataController.deleteFeedback);
 
+// Notifications, Purchases, Audit Logs
+router.get("/notifications", dataController.getNotifications);
+router.get("/purchases", dataController.getPurchases);
+router.get("/audit-logs", dataController.getAuditLogs);
+router.get("/audit_logs", dataController.getAuditLogs);
+
 module.exports = router;
