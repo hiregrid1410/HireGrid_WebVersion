@@ -157,11 +157,16 @@ export default function StudentDashboard() {
     warningCount,
     showWarningModal,
     lastViolationReason,
+    lastViolationType,
+    isFullscreen,
+    enterFullscreen,
+    exitFullscreen,
     dismissWarningModal,
     resetWarnings,
     acquireSubmissionLock,
     markSubmitted,
     releaseSubmissionLock,
+    isStartingExamRef,
   } = useExamAntiCheat({
     activeModule,
     currentQuestionIndex,
@@ -750,9 +755,22 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleStartActualTest = () => {
+  const [fullscreenRequiredModal, setFullscreenRequiredModal] = useState(false);
+
+  const handleStartActualTest = async () => {
+    if (isStartingExamRef) isStartingExamRef.current = true;
     resetWarnings();
+    const entered = await enterFullscreen();
+    if (!entered) {
+      setFullscreenRequiredModal(true);
+      if (isStartingExamRef) isStartingExamRef.current = false;
+      return;
+    }
+    setFullscreenRequiredModal(false);
     setCurrentQuestionIndex(0);
+    setTimeout(() => {
+      if (isStartingExamRef) isStartingExamRef.current = false;
+    }, 500);
   };
 
   const handleSelectOption = (index) => {
@@ -1383,7 +1401,74 @@ export default function StudentDashboard() {
 
             {/* Secure Exam assessment screen */}
             {activeModule && (
-              <div className="max-w-3xl mx-auto">
+              <div className="max-w-3xl mx-auto relative">
+                {/* Fullscreen Required Modal */}
+                {fullscreenRequiredModal && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-center">
+                      <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-600 dark:text-emerald-400">
+                        <ShieldAlert className="w-10 h-10 animate-pulse" />
+                      </div>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-2">
+                        Fullscreen Required
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">
+                        This examination must be taken in fullscreen mode to ensure testing integrity.
+                      </p>
+                      <button
+                        onClick={handleStartActualTest}
+                        className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl text-base shadow-lg transition-all"
+                      >
+                        Enter Fullscreen & Start Exam
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Anti-Cheating Violation Modal Overlay */}
+                {showWarningModal && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white dark:bg-slate-900 border-2 border-rose-500 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-center">
+                      <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600 dark:text-rose-400">
+                        <AlertTriangle className="w-10 h-10 animate-bounce" />
+                      </div>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-2">
+                        {warningCount >= 3 ? "Maximum Violations Reached" : "Anti-Cheating Warning"}
+                      </h3>
+                      {lastViolationReason && (
+                        <p className="text-sm font-bold text-rose-600 dark:text-rose-400 mb-2">
+                          Reason: {lastViolationReason}
+                        </p>
+                      )}
+                      <div className="bg-slate-100 dark:bg-slate-800/80 p-4 rounded-xl mb-6 text-slate-700 dark:text-slate-300 text-sm">
+                        <p className="font-bold text-base mb-1">
+                          Warning Status: <span className="text-rose-500 font-mono font-black">{warningCount} of 3 Allowed Warnings</span>
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {warningCount >= 3
+                            ? "Your exam is being submitted automatically..."
+                            : warningCount === 2
+                            ? "One more violation will automatically submit your exam."
+                            : "Two warnings remain before your exam is automatically submitted."}
+                        </p>
+                      </div>
+                      {warningCount < 3 ? (
+                        <button
+                          onClick={dismissWarningModal}
+                          className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl text-base shadow-lg transition-all"
+                        >
+                          {lastViolationType === "fullscreen_exit" ? "Return to Fullscreen & Continue" : "Continue Exam"}
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-center space-x-2 py-2 text-rose-500 font-bold">
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Submitting exam responses...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {!isFinished && currentQuestionIndex === -1 && (
                   <button
                     onClick={() => {
@@ -1411,21 +1496,6 @@ export default function StudentDashboard() {
                         }}
                       >
 
-
-                        {/* Dynamic Watermark */}
-                        <div className="watermark-overlay" style={{ transform: `translate(${watermarkOffset.x}px, ${watermarkOffset.y}px) rotate(-25deg) scale(1.2)` }}>
-                          {Array.from({ length: 16 }).map((_, i) => (
-                            <div 
-                              key={i} 
-                              className="watermark-item select-none text-slate-400 dark:text-slate-650"
-                              style={{ opacity: watermarkOpacity, transition: "opacity 0.3s ease-in-out" }}
-                            >
-                              {currentUserDoc ? `${currentUserDoc.name || "Student"} • ${currentUserDoc.email ? currentUserDoc.email.replace(/(.{2})(.*)(@.*)/, "$1***$3") : ""} • ID: ${currentUserDoc.id ? currentUserDoc.id.substring(0, 8) : ""}` : "Protected Assessment"}
-                              <br />
-                              {new Date().toLocaleDateString()} • Attempt: {attemptId ? attemptId.substring(0, 8) : "Active"}
-                            </div>
-                          ))}
-                        </div>
 
                         {/* Anti-Cheating Violation Modal Overlay inside Review */}
                         {showWarningModal && (
@@ -1782,60 +1852,6 @@ export default function StudentDashboard() {
                       }}
                     >
 
-
-                      {/* Dynamic Watermark */}
-                      <div className="watermark-overlay" style={{ transform: `translate(${watermarkOffset.x}px, ${watermarkOffset.y}px) rotate(-25deg) scale(1.2)` }}>
-                        {Array.from({ length: 16 }).map((_, i) => (
-                          <div 
-                            key={i} 
-                            className="watermark-item select-none text-slate-400 dark:text-slate-650"
-                            style={{ opacity: watermarkOpacity, transition: "opacity 0.3s ease-in-out" }}
-                          >
-                            {currentUserDoc ? `${currentUserDoc.name || "Student"} • ${currentUserDoc.email ? currentUserDoc.email.replace(/(.{2})(.*)(@.*)/, "$1***$3") : ""} • ID: ${currentUserDoc.id ? currentUserDoc.id.substring(0, 8) : ""}` : "Protected Assessment"}
-                            <br />
-                            {new Date().toLocaleDateString()} • Attempt: {attemptId ? attemptId.substring(0, 8) : "Active"}
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Anti-Cheating Violation Modal Overlay */}
-                      {showWarningModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-                          <div className="bg-white dark:bg-slate-900 border-2 border-rose-500 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-center">
-                            <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600 dark:text-rose-400">
-                              <AlertTriangle className="w-10 h-10 animate-bounce" />
-                            </div>
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-2">
-                              {warningCount >= 3 ? "Exam Automatically Submitted" : "Anti-Cheating Warning"}
-                            </h3>
-                            {lastViolationReason && (
-                              <p className="text-sm font-bold text-rose-600 dark:text-rose-400 mb-2">
-                                Reason: {lastViolationReason}
-                              </p>
-                            )}
-                            <div className="bg-slate-100 dark:bg-slate-800/80 p-4 rounded-xl mb-6 text-slate-700 dark:text-slate-300 text-sm">
-                              <p className="font-bold text-base mb-1">
-                                Warning Status: <span className="text-rose-500 font-mono font-black">{warningCount} of 3 Allowed Warnings</span>
-                              </p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                {warningCount >= 3
-                                  ? "The maximum number of anti-cheating violations has been reached. Submitting your exam..."
-                                  : warningCount === 2
-                                  ? "One more violation will automatically submit your exam."
-                                  : "You can continue the exam. On the third violation, your exam will be submitted automatically."}
-                              </p>
-                            </div>
-                            {warningCount < 3 && (
-                              <button
-                                onClick={dismissWarningModal}
-                                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl text-base shadow-lg transition-all"
-                              >
-                                Continue Exam
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
 
                       <div className="flex flex-wrap justify-between items-center mb-8 border-b border-emerald-500/20 pb-4 gap-4">
                         <div>
