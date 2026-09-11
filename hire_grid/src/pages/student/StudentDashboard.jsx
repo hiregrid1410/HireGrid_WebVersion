@@ -51,7 +51,7 @@ import { OperationType, auth, collection, db, doc, getDocs, handleFirestoreError
 
 import { MathText } from "../../components/common/MathText";
 import { showToast } from "../../components/common/Toast";
-import { useFullScreenSecurity } from "../../hooks/useFullScreenSecurity";
+import { useExamAntiCheat, MAX_VIOLATIONS } from "../../hooks/useExamAntiCheat";
 import { useWatermark } from "../../hooks/useWatermark";
 import { validateProfile } from "../../utils/validators";
 // Memory cache for Firestore master collections
@@ -106,8 +106,7 @@ export default function StudentDashboard() {
   const [submittedResult, setSubmittedResult] = useState(null);
 
   // Anti-Cheating & Auto-Fullscreen System
-  const [warningCount, setWarningCount] = useState(0);
-  const [showNavigator, setShowNavigator] = useState(false);
+    const [showNavigator, setShowNavigator] = useState(false);
   const [visitedQuestions, setVisitedQuestions] = useState(new Set());
 
   useEffect(() => {
@@ -155,30 +154,31 @@ export default function StudentDashboard() {
   });
 
   const {
-    isFullscreen,
-    setIsFullscreen,
+    warningCount,
     showWarningModal,
-    setShowWarningModal,
-    enterFullscreen,
-    exitFullscreen,
-    isFullscreenSupported,
-    handleStartReview: baseStartReview,
-    handleExitReview: baseExitReview,
-  } = useFullScreenSecurity({
+    lastViolationReason,
+    dismissWarningModal,
+    resetWarnings,
+    acquireSubmissionLock,
+    markSubmitted,
+    releaseSubmissionLock,
+  } = useExamAntiCheat({
     activeModule,
     currentQuestionIndex,
     isFinished,
     isReviewing,
-    setWarningCount,
+    attemptId,
+    isPlacementAttempt,
+    triggerWatermarkVisibility,
+    onAutoSubmit: () => handleFinishTest(true),
+    initialViolationCount: 0,
   });
 
   const handleStartReview = () => {
-    baseStartReview();
     setIsReviewing(true);
   };
 
   const handleExitReview = () => {
-    baseExitReview();
     setIsReviewing(false);
   };
 
@@ -692,155 +692,7 @@ export default function StudentDashboard() {
     return () => clearTimeout(timer);
   }, [timeLeft, activeModule, isFinished, isReviewing, currentQuestionIndex, attemptId]);
 
-  // Anti-Cheating Security Listener (Tab Switch, Window Blur, Fullscreen Exit)
-  useEffect(() => {
-    const isSecurityActive =
-      activeModule &&
-      ((currentQuestionIndex >= 0 && !isFinished && !isReviewing) || isReviewing);
-
-    if (!isSecurityActive) return;
-
-    const triggerViolation = (type = "tab_switch") => {
-      triggerWatermarkVisibility();
-
-      api.post("/security-logs", {
-        eventType: type === "blur" ? "window_blur" : "tab_switch",
-        details: isReviewing
-          ? `Review mode violation (tab switch/window blur) on module "${activeModule.title}"`
-          : `Assessment violation triggered (tab switch / window minimized) on module "${activeModule.title}" (Question ${currentQuestionIndex + 1})`
-      }).catch(() => {});
-
-      setWarningCount((prev) => {
-        const nextCount = prev + 1;
-        if (attemptId && !isReviewing) {
-          api.post(`/attempts/${attemptId}/sync`, { violationCount: nextCount }).catch(() => {});
-        }
-        if (nextCount >= 3) {
-          if (isReviewing) {
-            showToast(
-              "ANTI-CHEATING SYSTEM VIOLATION: Maximum allowed security warnings exceeded (3/3). Exiting review screen.",
-              "warning", 6000
-            );
-            handleExitReview();
-          } else {
-            showToast(
-              "ANTI-CHEATING SYSTEM VIOLATION: Maximum allowed security warnings exceeded (3/3). Your exam is being automatically submitted immediately.",
-              "warning", 6000
-            );
-            handleFinishTest(true);
-          }
-        } else {
-          setShowWarningModal(true);
-        }
-        return nextCount;
-      });
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        triggerViolation("visibility");
-      }
-    };
-
-    const handleBlur = () => {
-      triggerViolation("blur");
-    };
-
-    const handleFullscreenChange = () => {
-      const inFS = !!(
-        document.fullscreenElement || document.webkitFullscreenElement
-      );
-      setIsFullscreen(inFS);
-      if (!inFS) {
-        triggerViolation("fullscreen");
-      }
-    };
-
-    const handleKeydown = (e) => {
-      const isScreenshotKey = e.key === "PrintScreen" || 
-        (e.metaKey && e.shiftKey && (e.key === "3" || e.key === "4" || e.key === "s" || e.key === "S"));
-      const isPrintKey = (e.ctrlKey && e.key === "p") || (e.metaKey && e.key === "p");
-
-      if (isScreenshotKey || isPrintKey) {
-        e.preventDefault();
-        triggerWatermarkVisibility();
-
-        const eventType = isScreenshotKey ? "screenshot_attempt" : "print_attempt";
-        const details = isScreenshotKey
-          ? (isReviewing 
-              ? `Screenshot capture attempt detected in review mode on module "${activeModule.title}"`
-              : `Screenshot capture attempt detected (shortcut keys) on module "${activeModule.title}" (Question ${currentQuestionIndex + 1})`)
-          : (isReviewing
-              ? `Print screen / PDF export attempt in review mode on module "${activeModule.title}"`
-              : `Print screen / PDF export attempt detected on module "${activeModule.title}" (Question ${currentQuestionIndex + 1})`);
-
-        api.post("/security-logs", { eventType, details }).catch(() => {});
-        showToast("Anti-Cheat: Screen capturing or printing is disabled. This incident has been reported to the Super Admin.", "warning");
-      }
-    };
-
-    const handleCopyPaste = (e) => {
-      e.preventDefault();
-      triggerWatermarkVisibility();
-      api.post("/security-logs", {
-        eventType: "copy_attempt",
-        details: isReviewing
-          ? `Copy/Paste block triggered in review mode on module "${activeModule.title}"`
-          : `Copy/Paste block triggered on module "${activeModule.title}" (Question ${currentQuestionIndex + 1})`
-      }).catch(() => {});
-      showToast("Anti-Cheat: Copy/Paste is disabled during exams.", "warning");
-    };
-
-    const handleContextMenu = (e) => {
-      e.preventDefault();
-      triggerWatermarkVisibility();
-      api.post("/security-logs", {
-        eventType: "copy_attempt",
-        details: isReviewing
-          ? `Right-click context menu block triggered in review mode on module "${activeModule.title}"`
-          : `Right-click context menu block triggered on module "${activeModule.title}" (Question ${currentQuestionIndex + 1})`
-      }).catch(() => {});
-    };
-
-    const handleBeforePrint = () => {
-      triggerWatermarkVisibility();
-      api.post("/security-logs", {
-        eventType: "print_attempt",
-        details: isReviewing
-          ? `Print dialog trigger in review mode on module "${activeModule.title}"`
-          : `Print dialog trigger detected on module "${activeModule.title}" (Question ${currentQuestionIndex + 1})`
-      }).catch(() => {});
-      document.body.style.display = "none";
-    };
-    const handleAfterPrint = () => {
-      document.body.style.display = "block";
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", handleBlur);
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-    window.addEventListener("keydown", handleKeydown, true);
-    document.addEventListener("copy", handleCopyPaste);
-    document.addEventListener("paste", handleCopyPaste);
-    document.addEventListener("contextmenu", handleContextMenu);
-    window.addEventListener("beforeprint", handleBeforePrint);
-    window.addEventListener("afterprint", handleAfterPrint);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleBlur);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-      window.removeEventListener("keydown", handleKeydown, true);
-      document.removeEventListener("copy", handleCopyPaste);
-      document.removeEventListener("paste", handleCopyPaste);
-      document.removeEventListener("contextmenu", handleContextMenu);
-      window.removeEventListener("beforeprint", handleBeforePrint);
-      window.removeEventListener("afterprint", handleAfterPrint);
-      document.body.style.display = "block";
-    };
-  }, [activeModule, currentQuestionIndex, isFinished, isReviewing, attemptId]);
+  // Anti-Cheating and security listener managed centrally by useExamAntiCheat hook
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60)
@@ -878,7 +730,7 @@ export default function StudentDashboard() {
         const fullModuleObj = { ...mod, questions: fetchedQuestions };
         setActiveModule(fullModuleObj);
         setAttemptId(res.attemptId);
-        setWarningCount(res.violationCount || 0);
+        // violationCount handled by useExamAntiCheat
 
         const serverAnswers = { ...(res.answers || {}) };
         delete serverAnswers._question_order;
@@ -887,7 +739,7 @@ export default function StudentDashboard() {
         setMarkedForReview({});
         setIsFinished(false);
         setIsReviewing(false);
-        setShowWarningModal(false);
+        resetWarnings();
         setTimeLeft(res.timeLeft);
         setCurrentQuestionIndex(-1);
       }
@@ -899,9 +751,7 @@ export default function StudentDashboard() {
   };
 
   const handleStartActualTest = () => {
-    setWarningCount(0);
-    setShowWarningModal(false);
-    enterFullscreen();
+    resetWarnings();
     setCurrentQuestionIndex(0);
   };
 
@@ -936,8 +786,8 @@ export default function StudentDashboard() {
       if (!confirmSubmit) return;
     }
 
-    exitFullscreen();
-    setShowWarningModal(false);
+    // Acquire submission lock synchronously - disables all anti-cheat listeners immediately
+    if (!acquireSubmissionLock()) return;
 
     setSubmitState("submitting");
     setShowPreparingResult(false);
@@ -958,7 +808,8 @@ export default function StudentDashboard() {
 
       clearTimeout(preparingTimer);
 
-      if (result.success) {
+      if (result && (result.success || result.score !== undefined)) {
+        markSubmitted();
         const percentage = result.score;
         const correctCount = result.correctCount;
         const totalQ = result.totalQuestions;
@@ -1018,10 +869,12 @@ export default function StudentDashboard() {
         setSubmitState(null);
         showToast(`Test finished successfully! Score: ${percentage}%, XP Earned: ${gainedXP}`, "success");
       } else {
+        releaseSubmissionLock();
         setSubmitState(null);
         showToast("Error scoring test: " + (result.error || "Unknown error"), "error");
       }
     } catch (err) {
+      releaseSubmissionLock();
       clearTimeout(preparingTimer);
       console.error("Score submission error:", err);
       setSubmitState(null);
@@ -1534,7 +1387,6 @@ export default function StudentDashboard() {
                 {!isFinished && currentQuestionIndex === -1 && (
                   <button
                     onClick={() => {
-                      exitFullscreen();
                       setActiveModule(null);
                     }}
                     className="flex items-center text-xs font-bold text-slate-455 hover:text-emerald-400 transition-colors mb-6 uppercase tracking-wider gap-1"
@@ -1583,28 +1435,31 @@ export default function StudentDashboard() {
                                 <AlertTriangle className="w-10 h-10 animate-bounce" />
                               </div>
                               <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-2">
-                                Anti-Cheating Security Alert
+                                {warningCount >= 3 ? "Review Session Ended" : "Anti-Cheating Security Alert"}
                               </h3>
-                              <p className="text-sm font-semibold text-rose-600 dark:text-rose-400 mb-4">
-                                Tab switching, window minimization, or exiting fullscreen is strictly prohibited!
-                              </p>
+                              {lastViolationReason && (
+                                <p className="text-sm font-bold text-rose-600 dark:text-rose-400 mb-2">
+                                  Reason: {lastViolationReason}
+                                </p>
+                              )}
                               <div className="bg-slate-100 dark:bg-slate-800/80 p-4 rounded-xl mb-6 text-slate-700 dark:text-slate-300 text-sm">
                                 <p className="font-bold text-base mb-1">
                                   Warning Status: <span className="text-rose-500 font-mono font-black">{warningCount} of 3 Allowed Warnings</span>
                                 </p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                                  Exceeding 3 warnings will result in immediate termination of review session.
+                                  {warningCount >= 3
+                                    ? "Maximum allowed violations reached. Exiting review..."
+                                    : "Suspicious activity detected. On the 3rd violation, review session will close."}
                                 </p>
                               </div>
-                              <button
-                                onClick={() => {
-                                  enterFullscreen();
-                                  setShowWarningModal(false);
-                                }}
-                                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl text-base shadow-lg transition-all"
-                              >
-                                Re-enter Fullscreen & Continue Review
-                              </button>
+                              {warningCount < 3 && (
+                                <button
+                                  onClick={dismissWarningModal}
+                                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl text-base shadow-lg transition-all"
+                                >
+                                  Continue Review
+                                </button>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1951,28 +1806,33 @@ export default function StudentDashboard() {
                               <AlertTriangle className="w-10 h-10 animate-bounce" />
                             </div>
                             <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-2">
-                              Anti-Cheating Security Alert
+                              {warningCount >= 3 ? "Exam Automatically Submitted" : "Anti-Cheating Warning"}
                             </h3>
-                            <p className="text-sm font-semibold text-rose-600 dark:text-rose-400 mb-4">
-                              Tab switching, window minimization, or exiting fullscreen is strictly prohibited!
-                            </p>
+                            {lastViolationReason && (
+                              <p className="text-sm font-bold text-rose-600 dark:text-rose-400 mb-2">
+                                Reason: {lastViolationReason}
+                              </p>
+                            )}
                             <div className="bg-slate-100 dark:bg-slate-800/80 p-4 rounded-xl mb-6 text-slate-700 dark:text-slate-300 text-sm">
                               <p className="font-bold text-base mb-1">
                                 Warning Status: <span className="text-rose-500 font-mono font-black">{warningCount} of 3 Allowed Warnings</span>
                               </p>
                               <p className="text-xs text-slate-500 dark:text-slate-400">
-                                Exceeding 3 warnings will result in immediate automatic exam submission.
+                                {warningCount >= 3
+                                  ? "The maximum number of anti-cheating violations has been reached. Submitting your exam..."
+                                  : warningCount === 2
+                                  ? "One more violation will automatically submit your exam."
+                                  : "You can continue the exam. On the third violation, your exam will be submitted automatically."}
                               </p>
                             </div>
-                            <button
-                              onClick={() => {
-                                enterFullscreen();
-                                setShowWarningModal(false);
-                              }}
-                              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl text-base shadow-lg transition-all"
-                            >
-                              Re-enter Fullscreen & Continue Exam
-                            </button>
+                            {warningCount < 3 && (
+                              <button
+                                onClick={dismissWarningModal}
+                                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl text-base shadow-lg transition-all"
+                              >
+                                Continue Exam
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -2013,14 +1873,7 @@ export default function StudentDashboard() {
                             </span>
                           </div>
 
-                          {!isFullscreen && (
-                            <button
-                              onClick={enterFullscreen}
-                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center transition-all shadow"
-                            >
-                              <Maximize className="w-4 h-4 mr-1.5" /> Fullscreen
-                            </button>
-                          )}
+                          
 
                           {timeLeft !== null && (
                             <div
