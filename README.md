@@ -44,12 +44,23 @@ Hire_Grid is a full-stack placement preparation platform designed to help studen
 
 ---
 
+## 🚀 Performance & Cold-Start Strategy
+
+HireGrid implements production-grade mitigations for Render and Neon free-tier cold starts:
+- **Lightweight `/health` and `/ping` endpoints**: Enables zero-SQL keep-alive pings to prevent Render instance sleep.
+- **Neon Connection Pooling & Exponential Retry Backoff**: Automatic fallback to pooled connection strings (`-pooler`) with 300ms/700ms/1500ms query retries on compute wake.
+- **In-Memory Cache & Server Timeout**: 18s request timeout guard and response caching on high-frequency read endpoints.
+- **Cold-Start Aware Frontend UX**: Skeleton screens on initial load and friendly notification toasts if server response exceeds 3 seconds.
+- **Scheduled Keep-Alive Workflow**: See [`KEEP_ALIVE.md`](KEEP_ALIVE.md) for GitHub Actions cron setup.
+
+---
+
 ## 🏗️ Tech Stack
 
 ### Frontend
 - React.js
 - React Router
-- Axios
+- Tailwind CSS
 - CSS
 
 ### Backend
@@ -57,7 +68,7 @@ Hire_Grid is a full-stack placement preparation platform designed to help studen
 - Express.js
 
 ### Database
-- PostgreSQL
+- PostgreSQL (Neon Serverless)
 
 ### Authentication
 - JWT Authentication

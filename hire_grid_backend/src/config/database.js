@@ -1,15 +1,21 @@
 const { Pool } = require("pg");
 const env = require("./env");
 
-const pool = env.DATABASE_URL
+// Ensure DATABASE_URL uses Neon's pooled connection string (-pooler) when on Neon
+let connectionString = env.DATABASE_URL;
+if (connectionString && connectionString.includes("neon.tech") && !connectionString.includes("-pooler")) {
+  connectionString = connectionString.replace(".neon.tech", "-pooler.neon.tech");
+}
+
+const pool = connectionString
   ? new Pool({
-      connectionString: env.DATABASE_URL,
+      connectionString,
       ssl: {
         rejectUnauthorized: false,
       },
       max: 10,
       idleTimeoutMillis: 15000,
-      connectionTimeoutMillis: 30000,
+      connectionTimeoutMillis: 20000,
     })
   : new Pool({
       host: env.DB_HOST,
@@ -22,13 +28,16 @@ const pool = env.DATABASE_URL
         : false,
       max: 10,
       idleTimeoutMillis: 15000,
-      connectionTimeoutMillis: 30000,
+      connectionTimeoutMillis: 20000,
     });
 
 // Handle pool errors so idle connection socket drops don't crash Node process
 pool.on("error", (err) => {
   console.error("Unexpected error on idle database client:", err.message);
 });
+
+// Retry delay configuration: 300ms, 700ms, 1500ms
+const RETRY_DELAYS = [300, 700, 1500];
 
 // Helper function to check if an error is a database connection/socket issue
 function isDbConnectionError(err) {
@@ -47,7 +56,8 @@ function isDbConnectionError(err) {
     msg.includes("terminated due to administrator command") ||
     msg.includes("socket") ||
     msg.includes("read") ||
-    msg.includes("connection timeout")
+    msg.includes("connection timeout") ||
+    msg.includes("server closed the connection")
   );
 }
 
@@ -68,10 +78,11 @@ pool.query = function (text, params, callback) {
     const tryQuery = () => {
       originalPoolQuery.call(pool, text, actualParams, (err, result) => {
         if (err) {
-          attempts++;
           if (isDbConnectionError(err) && attempts < maxAttempts) {
-            console.warn(`[DB pool.query callback warning] Connection error: ${err.message}. Retrying (attempt ${attempts + 1}/${maxAttempts}) in ${attempts}s...`);
-            setTimeout(tryQuery, attempts * 1000);
+            const delay = RETRY_DELAYS[attempts] || 1000;
+            attempts++;
+            console.warn(`[DB pool.query callback warning] Connection error: ${err.message}. Retrying (attempt ${attempts}/${maxAttempts}) in ${delay}ms...`);
+            setTimeout(tryQuery, delay);
             return;
           }
           return actualCallback(err, result);
@@ -93,10 +104,11 @@ pool.query = function (text, params, callback) {
         resolve(result);
         return;
       } catch (err) {
-        attempts++;
-        if (isDbConnectionError(err) && attempts < maxAttempts) {
-          console.warn(`[DB pool.query promise warning] Connection error: ${err.message}. Retrying (attempt ${attempts + 1}/${maxAttempts}) in ${attempts}s...`);
-          await new Promise((r) => setTimeout(r, attempts * 1000));
+        if (isDbConnectionError(err) && attempts < maxAttempts - 1) {
+          const delay = RETRY_DELAYS[attempts] || 1000;
+          attempts++;
+          console.warn(`[DB pool.query promise warning] Connection error: ${err.message}. Retrying (attempt ${attempts}/${maxAttempts}) in ${delay}ms...`);
+          await new Promise((r) => setTimeout(r, delay));
           continue;
         }
         reject(err);
@@ -116,10 +128,11 @@ pool.connect = function (callback) {
     const tryConnect = () => {
       originalPoolConnect.call(pool, (err, client, release) => {
         if (err) {
-          attempts++;
           if (isDbConnectionError(err) && attempts < maxAttempts) {
-            console.warn(`[DB pool.connect callback warning] Connection error: ${err.message}. Retrying (attempt ${attempts + 1}/${maxAttempts}) in ${attempts}s...`);
-            setTimeout(tryConnect, attempts * 1000);
+            const delay = RETRY_DELAYS[attempts] || 1000;
+            attempts++;
+            console.warn(`[DB pool.connect callback warning] Connection error: ${err.message}. Retrying (attempt ${attempts}/${maxAttempts}) in ${delay}ms...`);
+            setTimeout(tryConnect, delay);
             return;
           }
           return callback(err, client, release);
@@ -141,10 +154,11 @@ pool.connect = function (callback) {
         resolve(client);
         return;
       } catch (err) {
-        attempts++;
-        if (isDbConnectionError(err) && attempts < maxAttempts) {
-          console.warn(`[DB pool.connect promise warning] Connection error: ${err.message}. Retrying (attempt ${attempts + 1}/${maxAttempts}) in ${attempts}s...`);
-          await new Promise((r) => setTimeout(r, attempts * 1000));
+        if (isDbConnectionError(err) && attempts < maxAttempts - 1) {
+          const delay = RETRY_DELAYS[attempts] || 1000;
+          attempts++;
+          console.warn(`[DB pool.connect promise warning] Connection error: ${err.message}. Retrying (attempt ${attempts}/${maxAttempts}) in ${delay}ms...`);
+          await new Promise((r) => setTimeout(r, delay));
           continue;
         }
         reject(err);

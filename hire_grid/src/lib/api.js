@@ -184,101 +184,116 @@ async function request(method, path, body = null, requestOptions = {}) {
     let attemptsLeft = isIdempotent ? 3 : 1;
     let lastError = null;
 
-    while (attemptsLeft > 0) {
-      attemptsLeft--;
-      try {
-        const res = await fetch(`${API_BASE}${path}`, options);
-        const data = await res.json().catch(() => ({}));
+    // Timer to trigger global cold-start notification if request takes longer than 3 seconds
+    let slowNoticeTimer = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("server-waking", {
+          detail: { stage: "slow_request", path, message: "Waking up the server, this may take up to 20 seconds..." },
+        })
+      );
+    }, 3000);
 
-        if (!res.ok) {
-          const message =
-            data.error ||
-            data.message ||
-            `Request failed with status ${res.status}`;
+    try {
+      while (attemptsLeft > 0) {
+        attemptsLeft--;
+        try {
+          const res = await fetch(`${API_BASE}${path}`, options);
+          const data = await res.json().catch(() => ({}));
 
-          // Only log out on explicit 401 Unauthorized from backend
-          if (res.status === 401 || (res.status === 404 && path.includes("/users/"))) {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
+          if (!res.ok) {
+            const message =
+              data.error ||
+              data.message ||
+              `Request failed with status ${res.status}`;
 
-            if (
-              window.location.pathname !== "/" &&
-              window.location.pathname !== "/admin"
-            ) {
-              window.location.href = "/";
+            // Only log out on explicit 401 Unauthorized from backend
+            if (res.status === 401 || (res.status === 404 && path.includes("/users/"))) {
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
+
+              if (
+                window.location.pathname !== "/" &&
+                window.location.pathname !== "/admin"
+              ) {
+                window.location.href = "/";
+              }
             }
+
+            // Infrastructure/Waking error checks (502, 503, 504, DB connection resets)
+            const lowercaseMsg = message.toLowerCase();
+            const isDbOrUnavailable =
+              res.status === 503 ||
+              res.status === 502 ||
+              res.status === 504 ||
+              data.code === "SERVER_TIMEOUT" ||
+              lowercaseMsg.includes("econnreset") ||
+              lowercaseMsg.includes("connection reset") ||
+              lowercaseMsg.includes("timeout") ||
+              lowercaseMsg.includes("starting up") ||
+              lowercaseMsg.includes("too many connections") ||
+              lowercaseMsg.includes("admin_shutdown");
+
+            if (isDbOrUnavailable) {
+              throw new Error(`DB_CONN_ERROR: ${message}`);
+            }
+
+            throw new Error(message);
           }
 
-          // Infrastructure/Waking error checks (502, 503, 504, DB connection resets)
-          const lowercaseMsg = message.toLowerCase();
-          const isDbOrUnavailable =
-            res.status === 503 ||
-            res.status === 502 ||
-            res.status === 504 ||
-            lowercaseMsg.includes("econnreset") ||
-            lowercaseMsg.includes("connection reset") ||
-            lowercaseMsg.includes("timeout") ||
-            lowercaseMsg.includes("starting up") ||
-            lowercaseMsg.includes("too many connections") ||
-            lowercaseMsg.includes("admin_shutdown");
+          // Successful request confirms backend is awake
+          isBackendReady = true;
 
-          if (isDbOrUnavailable) {
-            throw new Error(`DB_CONN_ERROR: ${message}`);
+          if (method === "GET") {
+            responseCache.set(path, {
+              data,
+              timestamp: Date.now(),
+            });
           }
 
-          throw new Error(message);
-        }
-
-        // Successful request confirms backend is awake
-        isBackendReady = true;
-
-        if (method === "GET") {
-          responseCache.set(path, {
-            data,
-            timestamp: Date.now(),
-          });
-        }
-
-        return data;
-      } catch (err) {
-        if (err.name === "AbortError") {
-          throw err;
-        }
-
-        lastError = err;
-        const isDbConnError = err.message && err.message.startsWith("DB_CONN_ERROR:");
-        const isNetworkOrFetchError =
-          isDbConnError ||
-          !err.message ||
-          err.message.includes("Failed to fetch") ||
-          err.message.includes("NetworkError") ||
-          err.message.includes("Network Error") ||
-          err.message.includes("status") ||
-          err.message.includes("fetch");
-
-        // Non-network business error or non-idempotent mutation -> throw immediately
-        if (!isNetworkOrFetchError || !isIdempotent) {
-          throw err;
-        }
-
-        // Safe retry loop for GET requests
-        if (attemptsLeft > 0) {
-          const isHealthy = await checkHealth(2000);
-          if (!isHealthy) {
-            await waitForServerToWake();
-          } else {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+          return data;
+        } catch (err) {
+          if (err.name === "AbortError") {
+            throw err;
           }
-          continue;
-        }
 
-        // Retries exhausted
-        const finalErr = isDbConnError ? new Error(err.message.replace("DB_CONN_ERROR: ", "")) : err;
-        throw finalErr;
+          lastError = err;
+          const isDbConnError = err.message && err.message.startsWith("DB_CONN_ERROR:");
+          const isNetworkOrFetchError =
+            isDbConnError ||
+            !err.message ||
+            err.message.includes("Failed to fetch") ||
+            err.message.includes("NetworkError") ||
+            err.message.includes("Network Error") ||
+            err.message.includes("status") ||
+            err.message.includes("fetch");
+
+          // Non-network business error or non-idempotent mutation -> throw immediately
+          if (!isNetworkOrFetchError || !isIdempotent) {
+            throw err;
+          }
+
+          // Safe retry loop for GET requests with exponential backoff (300ms, 700ms, 1500ms)
+          if (attemptsLeft > 0) {
+            const backoff = attemptsLeft === 2 ? 300 : attemptsLeft === 1 ? 700 : 1500;
+            const isHealthy = await checkHealth(2000);
+            if (!isHealthy) {
+              await waitForServerToWake();
+            } else {
+              await new Promise((resolve) => setTimeout(resolve, backoff));
+            }
+            continue;
+          }
+
+          // Retries exhausted
+          const finalErr = isDbConnError ? new Error(err.message.replace("DB_CONN_ERROR: ", "")) : err;
+          throw finalErr;
+        }
       }
-    }
 
-    throw lastError || new Error("Connection failed after retries.");
+      throw lastError || new Error("Connection failed after retries.");
+    } finally {
+      clearTimeout(slowNoticeTimer);
+    }
   })();
 
   if (method === "GET") {

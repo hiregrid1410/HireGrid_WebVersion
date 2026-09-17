@@ -4,6 +4,7 @@ const router = express.Router();
 // Middlewares
 const authenticate = require("../middlewares/auth.middleware");
 const { apiRateLimiter, sensitiveActionRateLimiter } = require("../middlewares/rateLimit.middleware");
+const { cacheResponse, invalidateCacheMiddleware } = require("../middlewares/cache.middleware");
 
 // Controllers
 const { parserController } = require("../modules/parser");
@@ -42,37 +43,37 @@ router.post("/security-logs", (req, res, next) => miscController.logSecurityEven
 router.get("/security-logs", (req, res, next) => miscController.getSecurityLogs(req, res, next));
 
 // Modules
-router.get("/modules", (req, res, next) => modulesController.getModules(req, res, next));
-router.post("/modules", (req, res, next) => modulesController.saveModules(req, res, next));
-router.delete("/modules/:id", (req, res, next) => modulesController.deleteModule(req, res, next));
-router.get("/modules/:id/questions", (req, res, next) => modulesController.getModuleQuestions(req, res, next));
+router.get("/modules", cacheResponse(30000), (req, res, next) => modulesController.getModules(req, res, next));
+router.post("/modules", invalidateCacheMiddleware("/modules"), (req, res, next) => modulesController.saveModules(req, res, next));
+router.delete("/modules/:id", invalidateCacheMiddleware("/modules"), (req, res, next) => modulesController.deleteModule(req, res, next));
+router.get("/modules/:id/questions", cacheResponse(60000), (req, res, next) => modulesController.getModuleQuestions(req, res, next));
 
 // Stats
-router.get("/stats", (req, res, next) => miscController.getStats(req, res, next));
+router.get("/stats", cacheResponse(15000), (req, res, next) => miscController.getStats(req, res, next));
 
 // Scores
 router.get("/scores", (req, res, next) => examAttemptsController.getScores(req, res, next));
 router.post("/scores", (req, res, next) => examAttemptsController.submitScore(req, res, next));
 
 // Companies
-router.get("/companies", (req, res, next) => companiesController.getCompanies(req, res, next));
-router.post("/companies", (req, res, next) => companiesController.saveCompany(req, res, next));
-router.delete("/companies/:id", (req, res, next) => companiesController.deleteCompany(req, res, next));
+router.get("/companies", cacheResponse(30000), (req, res, next) => companiesController.getCompanies(req, res, next));
+router.post("/companies", invalidateCacheMiddleware("/companies"), (req, res, next) => companiesController.saveCompany(req, res, next));
+router.delete("/companies/:id", invalidateCacheMiddleware("/companies"), (req, res, next) => companiesController.deleteCompany(req, res, next));
 
 // Exams
-router.get("/exams", (req, res, next) => companiesController.getExams(req, res, next));
-router.post("/exams", (req, res, next) => companiesController.saveExam(req, res, next));
-router.delete("/exams/:id", (req, res, next) => companiesController.deleteExam(req, res, next));
+router.get("/exams", cacheResponse(30000), (req, res, next) => companiesController.getExams(req, res, next));
+router.post("/exams", invalidateCacheMiddleware("/exams"), (req, res, next) => companiesController.saveExam(req, res, next));
+router.delete("/exams/:id", invalidateCacheMiddleware("/exams"), (req, res, next) => companiesController.deleteExam(req, res, next));
 
 // Settings
-router.get("/settings/:id", (req, res, next) => miscController.getSettings(req, res, next));
-router.post("/settings/:id", (req, res, next) => miscController.saveSettings(req, res, next));
+router.get("/settings/:id", cacheResponse(30000), (req, res, next) => miscController.getSettings(req, res, next));
+router.post("/settings/:id", invalidateCacheMiddleware("/settings"), (req, res, next) => miscController.saveSettings(req, res, next));
 
 // Plans
-router.get("/plans", (req, res, next) => plansController.getPlans(req, res, next));
-router.get("/plans/:id", (req, res, next) => plansController.getPlanById(req, res, next));
-router.post("/plans", (req, res, next) => plansController.savePlan(req, res, next));
-router.delete("/plans/:id", (req, res, next) => plansController.deletePlan(req, res, next));
+router.get("/plans", cacheResponse(60000), (req, res, next) => plansController.getPlans(req, res, next));
+router.get("/plans/:id", cacheResponse(60000), (req, res, next) => plansController.getPlanById(req, res, next));
+router.post("/plans", invalidateCacheMiddleware("/plans"), (req, res, next) => plansController.savePlan(req, res, next));
+router.delete("/plans/:id", invalidateCacheMiddleware("/plans"), (req, res, next) => plansController.deletePlan(req, res, next));
 
 // Payment Requests
 router.get("/payment-requests", (req, res, next) => plansController.getPaymentRequests(req, res, next));
@@ -80,22 +81,22 @@ router.post("/payment-requests", (req, res, next) => plansController.createPayme
 router.put("/payment-requests/:id", (req, res, next) => plansController.updatePaymentRequest(req, res, next));
 
 // Hierarchy Nodes
-router.get("/hierarchy-nodes", (req, res, next) => companiesController.getHierarchyNodes(req, res, next));
-router.post("/hierarchy-nodes", (req, res, next) => companiesController.saveHierarchyNode(req, res, next));
-router.delete("/hierarchy-nodes/:id", (req, res, next) => companiesController.deleteHierarchyNode(req, res, next));
+router.get("/hierarchy-nodes", cacheResponse(30000), (req, res, next) => companiesController.getHierarchyNodes(req, res, next));
+router.post("/hierarchy-nodes", invalidateCacheMiddleware("/hierarchy-nodes"), (req, res, next) => companiesController.saveHierarchyNode(req, res, next));
+router.delete("/hierarchy-nodes/:id", invalidateCacheMiddleware("/hierarchy-nodes"), (req, res, next) => companiesController.deleteHierarchyNode(req, res, next));
 
 // GATE
-router.get("/gate/branches", (req, res, next) => gateController.getGateBranches(req, res, next));
-router.post("/gate/branches", (req, res, next) => gateController.saveGateBranch(req, res, next));
-router.get("/gate/papers", (req, res, next) => gateController.getGatePapers(req, res, next));
-router.post("/gate/papers", (req, res, next) => gateController.saveGatePaper(req, res, next));
+router.get("/gate/branches", cacheResponse(60000), (req, res, next) => gateController.getGateBranches(req, res, next));
+router.post("/gate/branches", invalidateCacheMiddleware("/gate"), (req, res, next) => gateController.saveGateBranch(req, res, next));
+router.get("/gate/papers", cacheResponse(60000), (req, res, next) => gateController.getGatePapers(req, res, next));
+router.post("/gate/papers", invalidateCacheMiddleware("/gate"), (req, res, next) => gateController.saveGatePaper(req, res, next));
 
 // Branches & Access Mappings
-router.get("/branches", (req, res, next) => branchesController.getBranches(req, res, next));
-router.get("/branches/active", (req, res, next) => branchesController.getActiveBranches(req, res, next));
-router.post("/branches", (req, res, next) => branchesController.saveBranch(req, res, next));
-router.put("/branches/:id", (req, res, next) => branchesController.saveBranch(req, res, next));
-router.delete("/branches/:id", (req, res, next) => branchesController.deleteBranch(req, res, next));
+router.get("/branches", cacheResponse(60000), (req, res, next) => branchesController.getBranches(req, res, next));
+router.get("/branches/active", cacheResponse(60000), (req, res, next) => branchesController.getActiveBranches(req, res, next));
+router.post("/branches", invalidateCacheMiddleware("/branches"), (req, res, next) => branchesController.saveBranch(req, res, next));
+router.put("/branches/:id", invalidateCacheMiddleware("/branches"), (req, res, next) => branchesController.saveBranch(req, res, next));
+router.delete("/branches/:id", invalidateCacheMiddleware("/branches"), (req, res, next) => branchesController.deleteBranch(req, res, next));
 
 router.get("/companies/:companyId/branches", (req, res, next) => branchesController.getCompanyBranches(req, res, next));
 router.put("/companies/:companyId/branches", (req, res, next) => branchesController.saveCompanyBranches(req, res, next));

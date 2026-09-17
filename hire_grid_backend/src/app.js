@@ -11,6 +11,7 @@ const { helmetOptions } = require("./config/security");
 const routes = require("./routes");
 const errorHandler = require("./middlewares/error.middleware");
 const notFound = require("./middlewares/notFound.middleware");
+const requestTimeout = require("./middlewares/timeout.middleware");
 const { pool } = require("./database/connection");
 const storageService = require("./services/storage.service");
 
@@ -28,6 +29,9 @@ app.use(cors(corsOptions));
 // Response Compression
 app.use(compression());
 
+// Server-side Request Timeout (18 seconds default)
+app.use(requestTimeout(18000));
+
 // Standard Body Parsers
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -35,7 +39,7 @@ app.use(cookieParser());
 
 // Performance Timing Middleware (skips health check noise)
 app.use((req, res, next) => {
-  if (req.originalUrl === "/health" || req.path === "/health" || req.path === "/ready") {
+  if (req.originalUrl === "/health" || req.path === "/health" || req.path === "/ping" || req.path === "/ready") {
     return next();
   }
   const start = performance.now();
@@ -51,16 +55,20 @@ app.use((req, res, next) => {
 // Static Uploads Directory
 app.use("/uploads", express.static(storageService.LOCAL_UPLOADS_DIR));
 
-// Health check route (Render wake-up handling)
+// Lightweight Health & Ping check routes (Instantly returns 200 OK without touching Neon DB compute)
 app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", timestamp: Date.now() });
 });
 
-// Database Readiness check route
+app.get("/ping", (req, res) => {
+  res.json({ status: "pong", timestamp: Date.now() });
+});
+
+// Database Readiness / Keep-Warm route (actively queries Neon DB)
 app.get("/ready", async (req, res) => {
   try {
     await pool.query("SELECT 1");
-    res.json({ status: "ready" });
+    res.json({ status: "ready", database: "connected", timestamp: Date.now() });
   } catch (err) {
     console.error("[READINESS CHECK FAILED]:", err.message);
     res.status(503).json({ status: "unready", error: "Database not reachable" });

@@ -91,6 +91,9 @@ export default function App() {
     // Listen to background server waking events
     const handleWaking = (e) => {
       if (e.detail?.stage) setWakingStage(e.detail.stage);
+      if (e.detail?.stage === "slow_request") {
+        showToast(e.detail.message || "Waking up the server, this may take up to 20 seconds...", "info");
+      }
     };
     const handleReady = () => {
       setAppState("READY");
@@ -142,7 +145,7 @@ export default function App() {
     if (wakingStage === "starting") {
       loaderMessage = "Connecting to server...";
     } else if (wakingStage === "waking") {
-      loaderMessage = "Server is starting. This may take a few seconds...";
+      loaderMessage = "Server is waking up. This may take up to 20 seconds on free tier...";
     }
 
     return <ProgressCircuitLoader fullScreen indeterminate label={loaderMessage} />;

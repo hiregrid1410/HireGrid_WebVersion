@@ -1,0 +1,25 @@
+name: Render Backend Keep-Alive
+
+on:
+  schedule:
+    # Run every 14 minutes to prevent Render free instance from spinning down
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Allow manual trigger from GitHub Actions tab
+
+jobs:
+  ping-backend:
+    name: Ping Render Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend Health Endpoint
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL || 'https://hiregrid-backend.onrender.com' }}
+        run: |
+          echo "Pinging ${BACKEND_URL}/health..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${BACKEND_URL}/health" || echo "failed")
+          echo "Health check response status: ${STATUS}"
+          if [ "${STATUS}" != "200" ]; then
+            echo "Warning: Health check did not return 200 (Status: ${STATUS}). Server may be waking up."
+          else
+            echo "Backend is alive and ready."
+          fi
