@@ -368,7 +368,14 @@ async function initDb() {
 
         CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_content_managers_email ON content_managers(email);
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_freemium BOOLEAN DEFAULT FALSE;
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration VARCHAR(50) DEFAULT 'free';
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS learning_content JSONB DEFAULT '[]';
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS company_modules JSONB DEFAULT '[]';
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS free_demo_modules JSONB DEFAULT '[]';
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        ALTER TABLE plans ALTER COLUMN duration_days DROP NOT NULL;
 
         CREATE INDEX IF NOT EXISTS idx_questions_module_id ON questions(module_id);
         CREATE INDEX IF NOT EXISTS idx_modules_module_type ON modules(module_type);
@@ -396,15 +403,6 @@ async function initDb() {
         ALTER TABLE companies ADD COLUMN IF NOT EXISTS created_by VARCHAR(255);
         ALTER TABLE modules ADD COLUMN IF NOT EXISTS created_by VARCHAR(255);
         ALTER TABLE hierarchy_nodes ADD COLUMN IF NOT EXISTS created_by VARCHAR(255);
-
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration VARCHAR(50) DEFAULT 'free';
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_freemium BOOLEAN DEFAULT FALSE;
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS learning_content JSONB DEFAULT '[]';
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS company_modules JSONB DEFAULT '[]';
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS free_demo_modules JSONB DEFAULT '[]';
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-        ALTER TABLE plans ALTER COLUMN duration_days DROP NOT NULL;
         
         ALTER TABLE modules ADD COLUMN IF NOT EXISTS description TEXT;
         ALTER TABLE modules ADD COLUMN IF NOT EXISTS category VARCHAR(255);

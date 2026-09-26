@@ -41,13 +41,6 @@ const gracefulShutdown = (signal) => {
   }
 };
 
-// Force shutdown if connections do not close within 10s
-setTimeout(() => {
-  console.error("Forceful shutdown triggered.");
-  process.exit(1);
-}, 10000);
-
-
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
@@ -60,4 +53,4 @@ process.on("unhandledRejection", (reason, promise) => {
   console.error("[UNHANDLED REJECTION]: at:", promise, "reason:", reason);
 });
 
-module.exports = server;
+module.exports = app;
