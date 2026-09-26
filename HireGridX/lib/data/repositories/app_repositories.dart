@@ -6,8 +6,33 @@ import '../models/mission_model.dart';
 import '../models/plan_model.dart';
 import '../models/device_model.dart';
 
+sealed class LoginResult {
+  const LoginResult();
+}
+
+class LoginSuccess extends LoginResult {
+  final UserModel user;
+  const LoginSuccess(this.user);
+}
+
+class LoginOtpRequired extends LoginResult {
+  final String email;
+  final String maskedEmail;
+  final int expiresInSeconds;
+  const LoginOtpRequired({
+    required this.email,
+    required this.maskedEmail,
+    this.expiresInSeconds = 900,
+  });
+}
+
 abstract class AuthRepository {
-  Future<UserModel> login(String emailOrMobile, String password);
+  Future<LoginResult> login(String emailOrMobile, String password);
+  Future<UserModel> verifyLoginOtp({
+    required String email,
+    required String otp,
+  });
+  Future<int> resendLoginOtp(String email);
   Future<UserModel> signup({
     required String name,
     required String email,

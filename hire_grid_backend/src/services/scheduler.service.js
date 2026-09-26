@@ -62,19 +62,44 @@ const runLeaderboardJob = async () => {
   }
 };
 
+const cleanupExpiredOtps = async () => {
+  try {
+    // Clean up login OTPs and general OTPs older than 24 hours
+    const result = await pool.query(`
+      DELETE FROM login_otps 
+      WHERE (expires_at < NOW() - INTERVAL '1 hour' OR used_at IS NOT NULL) 
+        AND created_at < NOW() - INTERVAL '24 hours'
+    `);
+    await pool.query(`
+      DELETE FROM otps 
+      WHERE (expires_at < NOW() - INTERVAL '1 hour' OR is_verified = TRUE) 
+        AND created_at < NOW() - INTERVAL '24 hours'
+    `);
+  } catch (err) {
+    console.error("[SCHEDULER] OTP cleanup job error:", err.message);
+  }
+};
+
 const startScheduler = () => {
   console.log("[SCHEDULER] Initializing Daily Leaderboard Job Scheduler (Asia/Kolkata timezone).");
   
   setTimeout(() => {
     runLeaderboardJob();
+    cleanupExpiredOtps();
   }, 5000);
 
   setInterval(() => {
     runLeaderboardJob();
   }, 5 * 60 * 1000);
+
+  // Run OTP cleanup once every hour
+  setInterval(() => {
+    cleanupExpiredOtps();
+  }, 60 * 60 * 1000);
 };
 
 module.exports = {
   startScheduler,
-  runLeaderboardJob
+  runLeaderboardJob,
+  cleanupExpiredOtps
 };

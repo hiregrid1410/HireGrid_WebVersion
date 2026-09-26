@@ -10,9 +10,28 @@ import 'mock_data.dart';
 
 class MockAuthRepository implements AuthRepository {
   @override
-  Future<UserModel> login(String emailOrMobile, String password) async {
+  Future<LoginResult> login(String emailOrMobile, String password) async {
     await Future.delayed(const Duration(milliseconds: 600));
+    return LoginOtpRequired(
+      email: emailOrMobile.trim().toLowerCase(),
+      maskedEmail: 'j***n@example.com',
+      expiresInSeconds: 900,
+    );
+  }
+
+  @override
+  Future<UserModel> verifyLoginOtp({
+    required String email,
+    required String otp,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 500));
     return MockData.currentUser;
+  }
+
+  @override
+  Future<int> resendLoginOtp(String email) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return 900;
   }
 
   @override

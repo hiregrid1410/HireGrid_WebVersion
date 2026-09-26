@@ -9,9 +9,13 @@ const errorHandler = (err, req, res, next) => {
   }
 
   // Preserve error response format expected by client
-  // Client checks for res.data.error || res.data.message
+  // Client checks for res.data.error || res.data.message || res.data.code
   const response = {
+    success: false,
     error: message || "Internal Server Error",
+    ...(err.code && { code: err.code }),
+    ...(err.retryAfterSeconds !== undefined && { retryAfterSeconds: err.retryAfterSeconds }),
+    ...(err.attemptsRemaining !== undefined && { attemptsRemaining: err.attemptsRemaining }),
     ...(config.env === "development" && { stack: err.stack })
   };
 

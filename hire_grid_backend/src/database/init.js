@@ -200,6 +200,22 @@ const createTablesQuery = `
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- 20b. login_otps
+  CREATE TABLE IF NOT EXISTS login_otps (
+    id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    purpose VARCHAR(50) DEFAULT 'login',
+    device_id VARCHAR(255),
+    device_name VARCHAR(255),
+    attempts INTEGER DEFAULT 0,
+    max_attempts INTEGER DEFAULT 5,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
   -- 21. feedbacks
   CREATE TABLE IF NOT EXISTS feedbacks (
     id VARCHAR(255) PRIMARY KEY,

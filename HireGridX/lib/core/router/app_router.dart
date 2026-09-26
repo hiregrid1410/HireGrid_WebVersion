@@ -6,6 +6,7 @@ import '../../features/splash/splash_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/signup_screen.dart';
 import '../../features/auth/otp_verify_screen.dart';
+import '../../features/auth/otp_verify_login_screen.dart';
 import '../../features/auth/forgot_password_screen.dart';
 import '../../features/onboarding/branch_selection_screen.dart';
 
@@ -48,6 +49,19 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/login',
       builder: (context, state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/login-otp-verify',
+      builder: (context, state) {
+        final email = state.uri.queryParameters['email'] ?? '';
+        final maskedEmail = state.uri.queryParameters['maskedEmail'] ?? email;
+        final expiresIn = int.tryParse(state.uri.queryParameters['expiresIn'] ?? '900') ?? 900;
+        return OtpVerifyLoginScreen(
+          email: email,
+          maskedEmail: maskedEmail,
+          initialExpiresInSeconds: expiresIn,
+        );
+      },
     ),
     GoRoute(
       path: '/signup',

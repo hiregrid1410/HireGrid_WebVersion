@@ -125,6 +125,127 @@ const sendOtpEmail = async (email, otp, purpose = "Verification") => {
   }
 };
 
+/**
+ * Sends a clean, responsive HTML Login OTP email via Nodemailer
+ * @param {string} email Target recipient
+ * @param {string} otp 6-digit verification code
+ */
+const sendLoginOtpEmail = async (email, otp) => {
+  const mailOptions = {
+    from: `"HireGridX" <${process.env.EMAIL_USER || 'no-reply@hiregrid.in'}>`,
+    to: email,
+    subject: "Your HireGridX Login Code",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>HireGridX Login Code</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d1117;
+            color: #e6edf3;
+            margin: 0;
+            padding: 0;
+          }
+          .container {
+            max-width: 540px;
+            margin: 30px auto;
+            background: #161b22;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #30363d;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+          }
+          .header {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            padding: 28px 20px;
+            text-align: center;
+            color: #ffffff;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 1.5px;
+            font-weight: 800;
+          }
+          .header p {
+            margin: 4px 0 0;
+            font-size: 13px;
+            opacity: 0.9;
+          }
+          .content {
+            padding: 32px 24px;
+            text-align: center;
+          }
+          .otp-code {
+            display: inline-block;
+            font-size: 36px;
+            font-weight: 800;
+            color: #10B981;
+            background-color: #0f2d1e;
+            padding: 14px 36px;
+            border-radius: 10px;
+            border: 2px solid #10B981;
+            letter-spacing: 6px;
+            margin: 24px 0;
+            font-family: monospace;
+          }
+          .expiry {
+            font-size: 14px;
+            color: #FBBF24;
+            font-weight: 600;
+          }
+          .footer {
+            background-color: #0d1117;
+            padding: 18px;
+            text-align: center;
+            font-size: 12px;
+            color: #8b949e;
+            border-top: 1px solid #21262d;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>HireGridX</h1>
+            <p>Placement Preparation Platform</p>
+          </div>
+          <div class="content">
+            <p style="font-size: 16px; margin-bottom: 8px;">Your login verification code is:</p>
+            <div class="otp-code">${otp}</div>
+            <p class="expiry">Valid for 15 minutes.</p>
+            <p style="font-size: 13px; color: #8b949e; margin-top: 24px; line-height: 1.5;">
+              If you didn't request this login code, please ignore this email and consider updating your account password immediately.
+            </p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} HireGridX. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[EmailService] Login OTP sent to ${email}: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("[EmailService] Nodemailer login OTP sending error:", error.message);
+    console.log("\n--- DEVELOPMENT LOGIN OTP FALLBACK ---");
+    console.log(`To: ${email}`);
+    console.log(`OTP: ${otp}`);
+    console.log("--------------------------------------\n");
+    return { success: true, fallback: true };
+  }
+};
+
 module.exports = {
   sendOtpEmail,
+  sendLoginOtpEmail,
 };

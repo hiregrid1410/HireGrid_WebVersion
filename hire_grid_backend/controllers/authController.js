@@ -301,27 +301,96 @@ exports.login = async (req, res) => {
       }
 
       user = foundUser;
+    }
 
-      // Apply device limit check ONLY for student role
-      if (user.role === "student") {
-        const deviceCheck = await validateAndRegisterDevice(user, deviceId, deviceName);
-        if (!deviceCheck.allowed) {
-          return res.status(403).json({
-            error: deviceCheck.message,
-            deviceLimitReached: true,
-            maxDevices: deviceCheck.maxDevices,
-          });
-        }
+    // Admins and Content Managers log in directly with password
+    if (user.role !== "student" || isAdminLogin) {
+      const jwtSecret = getJwtSecret();
+      if (!jwtSecret) {
+        console.error("FATAL ERROR: JWT_SECRET environment variable is not configured.");
+        return res.status(500).json({ error: "Server authentication error." });
       }
+
+      const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret, {
+        expiresIn: getJwtExpire(),
+      });
+
+      return res.json({
+        success: true,
+        message: "Login successful.",
+        token,
+        user: formatUserResponse(user),
+      });
+    }
+
+    // Student Login Step 1: Generate & Hash 6-digit numeric OTP, email to user, return otpRequired
+    const rawOtp = otpService.generateLoginOtp();
+    await otpService.saveLoginOtp(user.id, user.email, rawOtp, deviceId, deviceName);
+    await emailService.sendLoginOtpEmail(user.email, rawOtp);
+
+    const maskEmail = (emailStr) => {
+      if (!emailStr || !emailStr.includes("@")) return emailStr;
+      const [name, domain] = emailStr.split("@");
+      if (name.length <= 2) return `${name[0]}***@${domain}`;
+      return `${name[0]}***${name[name.length - 1]}@${domain}`;
+    };
+
+    return res.json({
+      success: true,
+      otpRequired: true,
+      email: maskEmail(user.email),
+      rawEmail: user.email,
+      expiresInSeconds: 900,
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Server login error." });
+  }
+};
+
+// Verify Login OTP
+exports.verifyLoginOtp = async (req, res) => {
+  const { email, otp, deviceId, deviceName } = req.body;
+  if (!email || !otp) {
+    return res.status(400).json({ error: "Email and OTP are required." });
+  }
+
+  try {
+    const emailLower = email.trim().toLowerCase();
+    const verification = await otpService.verifyLoginOtp(emailLower, otp.trim());
+
+    if (!verification.success) {
+      const statusCode = verification.code === "OTP_LOCKED" ? 429 : verification.code === "OTP_EXPIRED" ? 410 : 400;
+      return res.status(statusCode).json({
+        success: false,
+        error: verification.message,
+        code: verification.code,
+        ...(verification.attemptsRemaining !== undefined && { attemptsRemaining: verification.attemptsRemaining }),
+      });
+    }
+
+    const userResult = await pool.query(`SELECT * FROM users WHERE email = $1 LIMIT 1`, [emailLower]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    const user = userResult.rows[0];
+
+    const activeDeviceId = deviceId || verification.deviceId;
+    const activeDeviceName = deviceName || verification.deviceName;
+    const deviceCheck = await validateAndRegisterDevice(user, activeDeviceId, activeDeviceName);
+    if (!deviceCheck.allowed) {
+      return res.status(403).json({
+        error: deviceCheck.message,
+        deviceLimitReached: true,
+        maxDevices: deviceCheck.maxDevices,
+      });
     }
 
     const jwtSecret = getJwtSecret();
     if (!jwtSecret) {
-      console.error("FATAL ERROR: JWT_SECRET environment variable is not configured.");
       return res.status(500).json({ error: "Server authentication error." });
     }
 
-    // Generate JWT Token
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret, {
       expiresIn: getJwtExpire(),
     });
@@ -333,8 +402,46 @@ exports.login = async (req, res) => {
       user: formatUserResponse(user),
     });
   } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ error: "Server login error." });
+    console.error("Verify login OTP error:", err);
+    res.status(500).json({ error: "Server verification error." });
+  }
+};
+
+// Resend Login OTP
+exports.resendLoginOtp = async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "Email is required." });
+  }
+
+  try {
+    const emailLower = email.trim().toLowerCase();
+    const userResult = await pool.query(`SELECT * FROM users WHERE email = $1 LIMIT 1`, [emailLower]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    const user = userResult.rows[0];
+
+    const rateLimitCheck = await otpService.checkLoginOtpRateLimit(emailLower);
+    if (!rateLimitCheck.allowed) {
+      return res.status(429).json({
+        error: rateLimitCheck.message,
+        retryAfterSeconds: rateLimitCheck.retryAfterSeconds,
+      });
+    }
+
+    const rawOtp = otpService.generateLoginOtp();
+    await otpService.saveLoginOtp(user.id, user.email, rawOtp);
+    await emailService.sendLoginOtpEmail(user.email, rawOtp);
+
+    res.json({
+      success: true,
+      message: "New login code sent.",
+      expiresInSeconds: 900,
+    });
+  } catch (err) {
+    console.error("Resend login OTP error:", err);
+    res.status(500).json({ error: "Server resend error." });
   }
 };
 

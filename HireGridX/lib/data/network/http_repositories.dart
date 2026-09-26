@@ -25,17 +25,62 @@ class HttpAuthRepository implements AuthRepository {
   HttpAuthRepository(this._client, this._tokenStorage, this._deviceService);
 
   @override
-  Future<UserModel> login(String emailOrMobile, String password) async {
+  Future<LoginResult> login(String emailOrMobile, String password) async {
+    try {
+      final deviceId = await _deviceService.getOrCreateDeviceId();
+      final deviceName = await _deviceService.getDeviceName();
+      final emailClean = emailOrMobile.trim().toLowerCase();
+
+      final res = await _client.dio.post(
+        '/auth/login',
+        data: {
+          'email': emailClean,
+          'password': password,
+          'isAdminLogin': false,
+          'deviceId': deviceId,
+          'deviceName': deviceName,
+        },
+      );
+
+      final data = res.data;
+
+      // Handle 2-Step Login OTP requirement
+      if (data['otpRequired'] == true) {
+        return LoginOtpRequired(
+          email: data['rawEmail']?.toString() ?? emailClean,
+          maskedEmail: data['email']?.toString() ?? emailClean,
+          expiresInSeconds: data['expiresInSeconds'] is int
+              ? data['expiresInSeconds'] as int
+              : int.tryParse(data['expiresInSeconds']?.toString() ?? '900') ?? 900,
+        );
+      }
+
+      final token = data['token']?.toString() ?? '';
+      final userMap = data['user'] as Map<String, dynamic>;
+
+      await _tokenStorage.saveToken(token);
+      await _tokenStorage.saveCachedUser(userMap);
+
+      return LoginSuccess(UserModel.fromJson(userMap));
+    } catch (e) {
+      throw _client.mapDioException(e).message;
+    }
+  }
+
+  @override
+  Future<UserModel> verifyLoginOtp({
+    required String email,
+    required String otp,
+  }) async {
     try {
       final deviceId = await _deviceService.getOrCreateDeviceId();
       final deviceName = await _deviceService.getDeviceName();
 
       final res = await _client.dio.post(
-        '/auth/login',
+        '/auth/login/verify-otp',
         data: {
-          'email': emailOrMobile.trim().toLowerCase(),
-          'password': password,
-          'isAdminLogin': false,
+          'email': email.trim().toLowerCase(),
+          'otp': otp.trim(),
           'deviceId': deviceId,
           'deviceName': deviceName,
         },
@@ -49,6 +94,22 @@ class HttpAuthRepository implements AuthRepository {
       await _tokenStorage.saveCachedUser(userMap);
 
       return UserModel.fromJson(userMap);
+    } catch (e) {
+      throw _client.mapDioException(e).message;
+    }
+  }
+
+  @override
+  Future<int> resendLoginOtp(String email) async {
+    try {
+      final res = await _client.dio.post(
+        '/auth/login/resend-otp',
+        data: {'email': email.trim().toLowerCase()},
+      );
+      final data = res.data;
+      return data['expiresInSeconds'] is int
+          ? data['expiresInSeconds'] as int
+          : int.tryParse(data['expiresInSeconds']?.toString() ?? '900') ?? 900;
     } catch (e) {
       throw _client.mapDioException(e).message;
     }

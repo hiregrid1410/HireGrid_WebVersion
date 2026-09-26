@@ -7,6 +7,7 @@ import '../../core/theme/text_styles.dart';
 import '../../shared/widgets/brand_logo.dart';
 import '../../shared/widgets/app_buttons.dart';
 import '../../shared/widgets/app_text_field.dart';
+import '../../data/repositories/app_repositories.dart';
 import '../../providers/app_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -66,12 +67,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      final user = await authRepo.login(email, password);
-      ref.read(currentUserProvider.notifier).setUser(user);
+      final result = await authRepo.login(email, password);
 
       if (mounted) {
         setState(() => _isLoading = false);
-        context.go('/home');
+        switch (result) {
+          case LoginOtpRequired(:final email, :final maskedEmail, :final expiresInSeconds):
+            context.push(
+              '/login-otp-verify?email=${Uri.encodeComponent(email)}&maskedEmail=${Uri.encodeComponent(maskedEmail)}&expiresIn=$expiresInSeconds',
+            );
+          case LoginSuccess(:final user):
+            ref.read(currentUserProvider.notifier).setUser(user);
+            if (user.branch == null || user.branch!.isEmpty) {
+              context.go('/branch-selection');
+            } else {
+              context.go('/home');
+            }
+        }
       }
     } catch (e) {
       if (mounted) {

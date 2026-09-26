@@ -72,7 +72,15 @@ const parseJsonSafely = (val, fallback = {}) => {
   return fallback;
 };
 
+const maskEmail = (email) => {
+  if (!email || typeof email !== "string" || !email.includes("@")) return email;
+  const [name, domain] = email.split("@");
+  if (name.length <= 2) return `${name[0]}***@${domain}`;
+  return `${name[0]}***${name[name.length - 1]}@${domain}`;
+};
+
 module.exports = {
   formatUserResponse,
   parseJsonSafely,
+  maskEmail,
 };

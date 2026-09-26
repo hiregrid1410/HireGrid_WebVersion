@@ -9,6 +9,8 @@ router.post("/signup", authRateLimiter, (req, res, next) => authController.signu
 
 // Login
 router.post("/login", authRateLimiter, (req, res, next) => authController.login(req, res, next));
+router.post("/login/verify-otp", otpRateLimiter, (req, res, next) => authController.verifyLoginOtp(req, res, next));
+router.post("/login/resend-otp", otpRateLimiter, (req, res, next) => authController.resendLoginOtp(req, res, next));
 
 // Google Sign-In
 router.post("/google", authRateLimiter, (req, res, next) => authController.googleLogin(req, res, next));

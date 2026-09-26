@@ -154,12 +154,12 @@ class AuthService {
       const targetEmail = config.admin.email || "saumya@admin.com";
       const adminUser = await authRepo.findFirstAdmin(targetEmail);
       if (!adminUser) {
-        throw new ApiError(401, "No admin user found in database.");
+        throw new ApiError(401, "Invalid email or password.");
       }
 
       const isMatch = await bcrypt.compare(password, adminUser.password);
       if (!isMatch) {
-        throw new ApiError(401, "Invalid password.");
+        throw new ApiError(401, "Invalid email or password.");
       }
       user = adminUser;
     } else {
@@ -194,16 +194,65 @@ class AuthService {
       }
 
       user = foundUser;
+    }
 
-      if (user.role === "student") {
-        const deviceCheck = await this.validateAndRegisterDevice(user, deviceId, deviceName);
-        if (!deviceCheck.allowed) {
-          const err = new ApiError(403, deviceCheck.message);
-          err.deviceLimitReached = true;
-          err.maxDevices = deviceCheck.maxDevices;
-          throw err;
-        }
+    // Admins and Content Managers log in directly with password
+    if (user.role !== "student" || isAdminLogin) {
+      const token = this.generateToken(user);
+      return {
+        message: "Login successful.",
+        token,
+        user: formatUserResponse(user)
+      };
+    }
+
+    // Student Login Step 1: Generate & Hash 6-digit numeric OTP, email to user, return otpRequired
+    const rawOtp = otpService.generateLoginOtp();
+    await otpService.saveLoginOtp(user.id, user.email, rawOtp, deviceId, deviceName);
+    await emailService.sendLoginOtpEmail(user.email, rawOtp);
+
+    const { maskEmail } = require("../../utils/helpers");
+    return {
+      otpRequired: true,
+      email: maskEmail(user.email),
+      rawEmail: user.email,
+      expiresInSeconds: 900
+    };
+  }
+
+  async verifyLoginOtp({ email, otp, deviceId, deviceName }) {
+    if (!email || !otp) {
+      throw new ApiError(400, "Email and OTP are required.");
+    }
+
+    const emailTrimmed = email.trim().toLowerCase();
+    const verification = await otpService.verifyLoginOtp(emailTrimmed, otp.trim());
+
+    if (!verification.success) {
+      const statusCode = verification.code === "OTP_LOCKED" ? 429 : verification.code === "OTP_EXPIRED" ? 410 : 400;
+      const err = new ApiError(statusCode, verification.message);
+      err.code = verification.code;
+      if (verification.attemptsRemaining !== undefined) {
+        err.attemptsRemaining = verification.attemptsRemaining;
       }
+      throw err;
+    }
+
+    // Retrieve user
+    const user = await authRepo.findUserByEmail(emailTrimmed);
+    if (!user) {
+      throw new ApiError(404, "User account not found.");
+    }
+
+    // Run device lock check on successful OTP verification
+    const activeDeviceId = deviceId || verification.deviceId;
+    const activeDeviceName = deviceName || verification.deviceName;
+    const deviceCheck = await this.validateAndRegisterDevice(user, activeDeviceId, activeDeviceName);
+    if (!deviceCheck.allowed) {
+      const err = new ApiError(403, deviceCheck.message);
+      err.deviceLimitReached = true;
+      err.maxDevices = deviceCheck.maxDevices;
+      throw err;
     }
 
     const token = this.generateToken(user);
@@ -211,6 +260,34 @@ class AuthService {
       message: "Login successful.",
       token,
       user: formatUserResponse(user)
+    };
+  }
+
+  async resendLoginOtp({ email }) {
+    if (!email) {
+      throw new ApiError(400, "Email is required.");
+    }
+
+    const emailTrimmed = email.trim().toLowerCase();
+    const user = await authRepo.findUserByEmail(emailTrimmed);
+    if (!user) {
+      throw new ApiError(404, "User account not found.");
+    }
+
+    const rateLimitCheck = await otpService.checkLoginOtpRateLimit(emailTrimmed);
+    if (!rateLimitCheck.allowed) {
+      const err = new ApiError(429, rateLimitCheck.message);
+      err.retryAfterSeconds = rateLimitCheck.retryAfterSeconds;
+      throw err;
+    }
+
+    const rawOtp = otpService.generateLoginOtp();
+    await otpService.saveLoginOtp(user.id, user.email, rawOtp);
+    await emailService.sendLoginOtpEmail(user.email, rawOtp);
+
+    return {
+      message: "New login code sent.",
+      expiresInSeconds: 900
     };
   }
 
