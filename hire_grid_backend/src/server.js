@@ -6,27 +6,39 @@ const { startScheduler } = require("./services/scheduler.service");
 
 const PORT = config.port;
 
-// Initialize Database Schema & Run Safe Incremental Migrations
-initDb();
+let runningServer = null;
 
-// Start Background Daily Leaderboard Scheduler
-startScheduler();
+async function startServer() {
+  // 1. Initialize Database Schema & Run Safe Incremental Migrations
+  await initDb();
 
-// Start HTTP Server
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} [Env: ${config.env}]`);
-});
+  // 2. Start Background Daily Leaderboard Scheduler
+  startScheduler();
+
+  // 3. Start HTTP Server
+  runningServer = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} [Env: ${config.env}]`);
+  });
+
+  return runningServer;
+}
+
+startServer();
 
 // Graceful Shutdown Handlers (Render redeploys and restarts)
 const gracefulShutdown = (signal) => {
   console.log(`Received ${signal}. Shutting down gracefully...`);
-  server.close(() => {
-    console.log("HTTP server closed.");
-    pool.end(() => {
-      console.log("Database connection pool closed.");
-      process.exit(0);
+  if (runningServer) {
+    runningServer.close(() => {
+      console.log("HTTP server closed.");
+      pool.end(() => {
+        console.log("Database connection pool closed.");
+        process.exit(0);
+      });
     });
-  });
+  } else {
+    process.exit(0);
+  }
   
   // Force shutdown if connections do not close within 10s
   setTimeout(() => {
@@ -47,4 +59,4 @@ process.on("unhandledRejection", (reason, promise) => {
   console.error("[UNHANDLED REJECTION]: at:", promise, "reason:", reason);
 });
 
-module.exports = server;
+module.exports = app;

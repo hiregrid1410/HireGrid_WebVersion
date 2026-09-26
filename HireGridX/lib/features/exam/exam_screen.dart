@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../providers/app_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/text_styles.dart';
 import '../../data/models/question_model.dart';
@@ -19,23 +20,86 @@ class ExamScreen extends ConsumerStatefulWidget {
   ConsumerState<ExamScreen> createState() => _ExamScreenState();
 }
 
-class _ExamScreenState extends ConsumerState<ExamScreen> {
-  late List<QuestionModel> _questions;
+class _ExamScreenState extends ConsumerState<ExamScreen> with WidgetsBindingObserver {
+  List<QuestionModel> _questions = [];
   int _currentIndex = 0;
   final Map<String, String?> _selectedAnswers = {};
   final Set<String> _markedForReview = {};
-  late int _remainingSeconds;
+  int _remainingSeconds = 1800; // 30 minutes default
+  int _initialDurationSeconds = 1800;
+  int _violationCount = 0;
+  String _activeAttemptId = '';
+  String _testTitle = 'Assessment Test';
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
   Timer? _timer;
+  Timer? _syncTimer;
 
   @override
   void initState() {
     super.initState();
-    _questions = MockData.sampleQuestions;
-    _remainingSeconds = 1800; // 30 minutes
-    _startTimer();
+    WidgetsBinding.instance.addObserver(this);
+    _activeAttemptId = widget.attemptId;
+    _initializeExam();
+  }
+
+  Future<void> _initializeExam() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final examRepo = ref.read(examRepositoryProvider);
+      final attempt = await examRepo.startExam(widget.attemptId);
+
+      _activeAttemptId = attempt.attemptId;
+      _questions = attempt.questions.isNotEmpty ? attempt.questions : MockData.sampleQuestions;
+      _remainingSeconds = attempt.durationSeconds > 0 ? attempt.durationSeconds : 1800;
+      _initialDurationSeconds = _remainingSeconds;
+      _testTitle = attempt.testTitle;
+
+      // Restore previously saved answers if resuming
+      if (attempt.savedAnswers != null && attempt.savedAnswers!.isNotEmpty) {
+        attempt.savedAnswers!.forEach((key, val) {
+          if (val != null) {
+            _selectedAnswers[key] = val.toString();
+          }
+        });
+      }
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _startTimer();
+        _startSyncTimer();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          // Fallback to sample questions on error for resilience
+          _questions = MockData.sampleQuestions;
+          _remainingSeconds = 1800;
+          _initialDurationSeconds = 1800;
+        });
+        _startTimer();
+        _startSyncTimer();
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _violationCount++;
+      _triggerSync();
+    }
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         setState(() {
@@ -48,9 +112,29 @@ class _ExamScreenState extends ConsumerState<ExamScreen> {
     });
   }
 
+  void _startSyncTimer() {
+    _syncTimer?.cancel();
+    // Periodic background sync every 30 seconds
+    _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _triggerSync();
+    });
+  }
+
+  void _triggerSync() {
+    if (_activeAttemptId.isNotEmpty && _selectedAnswers.isNotEmpty) {
+      ref.read(examRepositoryProvider).syncExam(
+        attemptId: _activeAttemptId,
+        answers: Map<String, dynamic>.from(_selectedAnswers),
+        violationCount: _violationCount,
+      );
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _syncTimer?.cancel();
     super.dispose();
   }
 
@@ -58,6 +142,8 @@ class _ExamScreenState extends ConsumerState<ExamScreen> {
     setState(() {
       _selectedAnswers[questionId] = optionId;
     });
+    // Silent auto-sync on option selection
+    _triggerSync();
   }
 
   void _toggleMarkForReview(String questionId) {
@@ -252,9 +338,29 @@ class _ExamScreenState extends ConsumerState<ExamScreen> {
     );
   }
 
-  void _submitExam({bool autoSubmitted = false}) {
+  void _submitExam({bool autoSubmitted = false}) async {
     _timer?.cancel();
-    context.go('/exam/${widget.attemptId}/result');
+    _syncTimer?.cancel();
+
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    final timeTaken = _initialDurationSeconds - _remainingSeconds;
+
+    try {
+      await ref.read(examRepositoryProvider).submitExam(
+        attemptId: _activeAttemptId.isNotEmpty ? _activeAttemptId : widget.attemptId,
+        answers: _selectedAnswers,
+        timeTakenSeconds: timeTaken > 0 ? timeTaken : 1,
+        violationCount: _violationCount,
+      );
+    } catch (_) {
+      // Continue to result screen even if network submit encountered issue (result cached/offline resilient)
+    }
+
+    if (mounted) {
+      context.go('/exam/${_activeAttemptId.isNotEmpty ? _activeAttemptId : widget.attemptId}/result');
+    }
   }
 
   Future<bool> _onWillPop() async {
@@ -289,6 +395,39 @@ class _ExamScreenState extends ConsumerState<ExamScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(_testTitle, style: AppTextStyles.h3),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: AppColors.primaryGreen),
+        ),
+      );
+    }
+
+    if (_questions.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(_testTitle, style: AppTextStyles.h3),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('No questions found for this test.', style: AppTextStyles.bodyLg),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context.pop(),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen),
+                child: const Text('Go Back', style: TextStyle(color: Colors.black)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final currentQ = _questions[_currentIndex];
     final selectedOption = _selectedAnswers[currentQ.id];
     final isMarked = _markedForReview.contains(currentQ.id);
@@ -314,8 +453,14 @@ class _ExamScreenState extends ConsumerState<ExamScreen> {
                   if (shouldPop && context.mounted) context.pop();
                 },
               ),
-              Text('TCS - Reasoning Test', style: AppTextStyles.h3),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  _testTitle,
+                  style: AppTextStyles.h3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               CountdownTimerPill(remainingSeconds: _remainingSeconds),
             ],
           ),

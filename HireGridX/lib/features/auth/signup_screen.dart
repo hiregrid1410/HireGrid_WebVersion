@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/text_styles.dart';
-import '../../shared/widgets/brand_logo.dart';
 import '../../shared/widgets/app_buttons.dart';
 import '../../shared/widgets/app_text_field.dart';
+import '../../providers/app_providers.dart';
 
-class SignUpScreen extends StatefulWidget {
+class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
 
   @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
+  ConsumerState<SignUpScreen> createState() => _SignUpScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _nameController = TextEditingController(text: 'John Doe');
   final _emailController = TextEditingController(text: 'john@example.com');
   final _passwordController = TextEditingController(text: 'password123');
@@ -44,11 +45,47 @@ class _SignUpScreenState extends State<SignUpScreen> {
   ];
 
   void _handleSignUp() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please fill all required fields.', style: AppTextStyles.bodySm),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) {
-      setState(() => _isLoading = false);
-      context.push('/otp-verify?email=${_emailController.text}');
+
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      final user = await authRepo.signup(
+        name: name,
+        email: email,
+        password: password,
+        branch: _selectedBranch,
+        semester: _selectedSemester,
+      );
+      ref.read(currentUserProvider.notifier).setUser(user);
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        context.push('/otp-verify?email=$email');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString(), style: AppTextStyles.bodySm),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
     }
   }
 

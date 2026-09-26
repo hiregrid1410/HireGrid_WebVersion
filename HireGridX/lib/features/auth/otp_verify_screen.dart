@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/app_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/text_styles.dart';
 import '../../shared/widgets/app_buttons.dart';
 
-class OtpVerifyScreen extends StatefulWidget {
+class OtpVerifyScreen extends ConsumerStatefulWidget {
   final String email;
 
   const OtpVerifyScreen({super.key, required this.email});
 
   @override
-  State<OtpVerifyScreen> createState() => _OtpVerifyScreenState();
+  ConsumerState<OtpVerifyScreen> createState() => _OtpVerifyScreenState();
 }
 
-class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
+class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
   final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
+  bool _isResending = false;
 
   @override
   void initState() {
@@ -32,11 +35,58 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
   }
 
   void _verifyOtp() async {
+    final otpCode = _controllers.map((c) => c.text.trim()).join();
+    if (otpCode.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter all 6 digits of the OTP.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) {
-      setState(() => _isLoading = false);
-      context.go('/branch-selection');
+    try {
+      final email = widget.email.isNotEmpty ? widget.email : 'student@hiregrid.in';
+      final success = await ref.read(authRepositoryProvider).verifyOtp(email, otpCode);
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        if (success) {
+          context.go('/branch-selection');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid or expired OTP code.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
+  void _resendOtp() async {
+    setState(() => _isResending = true);
+    try {
+      final success = await ref.read(authRepositoryProvider).sendOtp(
+        widget.email.isNotEmpty ? widget.email : 'student@hiregrid.in',
+      );
+      if (mounted) {
+        setState(() => _isResending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(success ? 'OTP sent successfully!' : 'Failed to resend OTP')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isResending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
     }
   }
 
@@ -119,11 +169,15 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('Didn\'t receive code? ', style: AppTextStyles.bodySm),
-                    Text(
-                      'Resend in 00:30',
-                      style: AppTextStyles.bodySm.copyWith(
-                        color: AppColors.accentYellow,
-                        fontWeight: FontWeight.w600,
+                    InkWell(
+                      onTap: _isResending ? null : _resendOtp,
+                      child: Text(
+                        _isResending ? 'Resending...' : 'Resend OTP',
+                        style: AppTextStyles.bodySm.copyWith(
+                          color: AppColors.accentYellow,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
                   ],

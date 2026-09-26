@@ -247,26 +247,8 @@ const createTablesQuery = `
 
 async function initDb() {
   try {
-    const tableCheck = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_name = 'users'
-      )
-    `);
-
-    if (!tableCheck.rows[0].exists) {
-      console.log("Creating database tables...");
-      await pool.query(createTablesQuery);
-
-      await pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_questions_module_id ON questions(module_id);
-        CREATE INDEX IF NOT EXISTS idx_modules_module_type ON modules(module_type);
-        CREATE INDEX IF NOT EXISTS idx_modules_parent_id ON modules(parent_id);
-        CREATE INDEX IF NOT EXISTS idx_hierarchy_nodes_parent_id ON hierarchy_nodes(parent_id);
-        CREATE INDEX IF NOT EXISTS idx_hierarchy_nodes_type ON hierarchy_nodes(type);
-        CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-      `);
-    }
+    // Ensure all base tables exist with IF NOT EXISTS
+    await pool.query(createTablesQuery);
 
     try {
       await pool.query(`

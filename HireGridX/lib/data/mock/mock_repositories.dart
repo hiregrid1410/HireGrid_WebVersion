@@ -34,6 +34,18 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<bool> sendOtp(String email) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return true;
+  }
+
+  @override
+  Future<bool> resendOtp(String email) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return true;
+  }
+
+  @override
   Future<bool> verifyOtp(String email, String otp) async {
     await Future.delayed(const Duration(milliseconds: 500));
     return otp.length == 6;
@@ -140,10 +152,21 @@ class MockExamRepository implements ExamRepository {
   }
 
   @override
+  Future<bool> syncExam({
+    required String attemptId,
+    required Map<String, dynamic> answers,
+    int? violationCount,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    return true;
+  }
+
+  @override
   Future<ExamResultModel> submitExam({
     required String attemptId,
     required Map<String, String?> answers,
     required int timeTakenSeconds,
+    int? violationCount,
   }) async {
     await Future.delayed(const Duration(milliseconds: 800));
     int correct = 0;
@@ -296,5 +319,13 @@ class MockProfileRepository implements ProfileRepository {
   }) async {
     await Future.delayed(const Duration(milliseconds: 600));
     return true;
+  }
+}
+
+class MockStorageRepository implements StorageRepository {
+  @override
+  Future<String> uploadMedia(String filePath, {String purpose = 'payment-proof'}) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    return 'https://hiregridx.storage.local/uploads/$filePath';
   }
 }

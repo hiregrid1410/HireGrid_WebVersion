@@ -6,22 +6,35 @@ import '../../core/theme/text_styles.dart';
 import '../../core/constants/dummy_assets.dart';
 import '../../shared/widgets/brand_logo.dart';
 
-class SplashScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/app_providers.dart';
+
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 2200), () {
-      if (mounted) {
-        context.go('/login');
-      }
-    });
+    _navigateNext();
+  }
+
+  Future<void> _navigateNext() async {
+    await Future.delayed(const Duration(milliseconds: 1800));
+    if (!mounted) return;
+
+    final token = await ref.read(tokenStorageProvider).readToken();
+    if (token != null && token.isNotEmpty) {
+      // Warm up user in background
+      ref.read(currentUserProvider.notifier).loadUser();
+      if (mounted) context.go('/home');
+    } else {
+      if (mounted) context.go('/login');
+    }
   }
 
   @override

@@ -1,5 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/storage/token_storage.dart';
+import '../core/device/device_info_service.dart';
+import '../core/network/dio_client.dart';
 import '../data/repositories/app_repositories.dart';
+import '../data/network/http_repositories.dart';
 import '../data/mock/mock_repositories.dart';
 import '../data/models/user_model.dart';
 import '../data/models/company_model.dart';
@@ -9,42 +13,94 @@ import '../data/models/plan_model.dart';
 import '../data/models/device_model.dart';
 
 // ==========================================
-// REPOSITORY PROVIDERS (SWAPPABLE TO REAL HTTP)
+// CORE INFRASTRUCTURE PROVIDERS
 // ==========================================
 
-// TODO(api): replace MockAuthRepository with HttpAuthRepository hitting /api/auth/*
+final tokenStorageProvider = Provider<TokenStorage>((ref) {
+  return TokenStorage();
+});
+
+final deviceInfoServiceProvider = Provider<DeviceInfoService>((ref) {
+  final tokenStorage = ref.watch(tokenStorageProvider);
+  return DeviceInfoService(tokenStorage);
+});
+
+final dioClientProvider = Provider<DioClient>((ref) {
+  final tokenStorage = ref.watch(tokenStorageProvider);
+  return DioClient(
+    tokenStorage,
+    onUnauthorized: () {
+      // Clear token and session
+      tokenStorage.clearSession();
+    },
+  );
+});
+
+// Toggle between Real HTTP and Mock Repositories (Defaults to Real HTTP)
+final useMockRepositoriesProvider = StateProvider<bool>((ref) => false);
+
+// ==========================================
+// REPOSITORY PROVIDERS (WIRED TO REAL BACKEND)
+// ==========================================
+
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return MockAuthRepository();
+  final useMock = ref.watch(useMockRepositoriesProvider);
+  if (useMock) return MockAuthRepository();
+
+  final client = ref.watch(dioClientProvider);
+  final tokenStorage = ref.watch(tokenStorageProvider);
+  final deviceService = ref.watch(deviceInfoServiceProvider);
+  return HttpAuthRepository(client, tokenStorage, deviceService);
 });
 
-// TODO(api): replace MockCompanyRepository with HttpCompanyRepository hitting /api/companies
 final companyRepositoryProvider = Provider<CompanyRepository>((ref) {
-  return MockCompanyRepository();
+  final useMock = ref.watch(useMockRepositoriesProvider);
+  if (useMock) return MockCompanyRepository();
+
+  final client = ref.watch(dioClientProvider);
+  return HttpCompanyRepository(client);
 });
 
-// TODO(api): replace MockModuleRepository with HttpModuleRepository hitting /api/modules
 final moduleRepositoryProvider = Provider<ModuleRepository>((ref) {
-  return MockModuleRepository();
+  final useMock = ref.watch(useMockRepositoriesProvider);
+  if (useMock) return MockModuleRepository();
+
+  final client = ref.watch(dioClientProvider);
+  return HttpModuleRepository(client);
 });
 
-// TODO(api): replace MockExamRepository with HttpExamRepository hitting /api/attempts/*
 final examRepositoryProvider = Provider<ExamRepository>((ref) {
-  return MockExamRepository();
+  final useMock = ref.watch(useMockRepositoriesProvider);
+  if (useMock) return MockExamRepository();
+
+  final client = ref.watch(dioClientProvider);
+  return HttpExamRepository(client);
 });
 
-// TODO(api): replace MockMissionRepository with HttpMissionRepository hitting /api/placement-mission/*
 final missionRepositoryProvider = Provider<MissionRepository>((ref) {
-  return MockMissionRepository();
+  final useMock = ref.watch(useMockRepositoriesProvider);
+  if (useMock) return MockMissionRepository();
+
+  final client = ref.watch(dioClientProvider);
+  return HttpMissionRepository(client);
 });
 
-// TODO(api): replace MockPlanRepository with HttpPlanRepository hitting /api/plans & /api/payment-requests
 final planRepositoryProvider = Provider<PlanRepository>((ref) {
-  return MockPlanRepository();
+  final useMock = ref.watch(useMockRepositoriesProvider);
+  if (useMock) return MockPlanRepository();
+
+  final client = ref.watch(dioClientProvider);
+  return HttpPlanRepository(client);
 });
 
-// TODO(api): replace MockProfileRepository with HttpProfileRepository hitting /api/users, /api/devices, /api/feedback
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
-  return MockProfileRepository();
+  final useMock = ref.watch(useMockRepositoriesProvider);
+  if (useMock) return MockProfileRepository();
+
+  final client = ref.watch(dioClientProvider);
+  final deviceService = ref.watch(deviceInfoServiceProvider);
+  final tokenStorage = ref.watch(tokenStorageProvider);
+  return HttpProfileRepository(client, deviceService, tokenStorage);
 });
 
 // ==========================================
@@ -85,6 +141,10 @@ class CurrentUserNotifier extends StateNotifier<AsyncValue<UserModel?>> {
 
   void setUser(UserModel user) {
     state = AsyncValue.data(user);
+  }
+
+  void clearUser() {
+    state = const AsyncValue.data(null);
   }
 }
 

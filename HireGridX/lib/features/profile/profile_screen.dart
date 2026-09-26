@@ -11,7 +11,7 @@ import '../../providers/app_providers.dart';
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -25,9 +25,13 @@ class ProfileScreen extends ConsumerWidget {
             child: Text('Cancel', style: AppTextStyles.bodyMd.copyWith(color: AppColors.textMuted)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              context.go('/login');
+              await ref.read(authRepositoryProvider).logout();
+              ref.read(currentUserProvider.notifier).clearUser();
+              if (context.mounted) {
+                context.go('/login');
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.danger,
@@ -215,7 +219,7 @@ class ProfileScreen extends ConsumerWidget {
                 iconColor: AppColors.danger,
                 textColor: AppColors.danger,
                 trailing: const SizedBox(),
-                onTap: () => _showLogoutDialog(context),
+                onTap: () => _showLogoutDialog(context, ref),
               ),
               const SizedBox(height: 20),
             ],

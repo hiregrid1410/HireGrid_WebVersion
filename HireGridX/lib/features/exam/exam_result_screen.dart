@@ -1,31 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:confetti/confetti.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../providers/app_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/text_styles.dart';
+import '../../data/models/question_model.dart';
 import '../../shared/widgets/app_buttons.dart';
 import '../../shared/widgets/exam_widgets.dart';
 import '../../data/mock/mock_data.dart';
 
-class ExamResultScreen extends StatefulWidget {
+class ExamResultScreen extends ConsumerStatefulWidget {
   final String attemptId;
 
   const ExamResultScreen({super.key, required this.attemptId});
 
   @override
-  State<ExamResultScreen> createState() => _ExamResultScreenState();
+  ConsumerState<ExamResultScreen> createState() => _ExamResultScreenState();
 }
 
-class _ExamResultScreenState extends State<ExamResultScreen> {
+class _ExamResultScreenState extends ConsumerState<ExamResultScreen> {
   late ConfettiController _confettiController;
   bool _showDetailedReport = false;
+  ExamResultModel? _result;
 
   @override
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _confettiController.play();
+    _loadResult();
+  }
+
+  void _loadResult() async {
+    final result = await ref.read(examRepositoryProvider).getExamResult(widget.attemptId);
+    if (mounted && result != null) {
+      setState(() {
+        _result = result;
+      });
+    }
   }
 
   @override
@@ -59,12 +73,22 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                   ).animate().scale(curve: Curves.easeOutBack),
                   const SizedBox(height: 16),
 
-                  Text('Exam Completed!', style: AppTextStyles.h1),
-                  const SizedBox(height: 4),
                   Text(
-                    'Great job, Jevin! Here\'s your performance breakdown.',
+                    _result?.testTitle ?? 'Exam Completed!',
+                    style: AppTextStyles.h1,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 4),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final user = ref.watch(currentUserProvider).valueOrNull;
+                      final userName = user?.name.split(' ').first ?? 'Student';
+                      return Text(
+                        'Great job, $userName! Here\'s your performance breakdown.',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
 
@@ -74,7 +98,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       Expanded(
                         child: _buildScoreStatCard(
                           label: 'Score',
-                          value: '85.5',
+                          value: _result != null ? _result!.scorePercentage.toStringAsFixed(1) : '85.5',
                           subvalue: '/ 100',
                           valueColor: AppColors.primaryGreen,
                         ),
@@ -83,7 +107,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       Expanded(
                         child: _buildScoreStatCard(
                           label: 'Accuracy',
-                          value: '90%',
+                          value: _result != null ? '${_result!.accuracyPercentage}%' : '90%',
                           subvalue: '',
                           valueColor: AppColors.info,
                         ),
@@ -97,7 +121,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       Expanded(
                         child: _buildScoreStatCard(
                           label: 'Correct',
-                          value: '18',
+                          value: _result != null ? '${_result!.correctCount}' : '18',
                           subvalue: '',
                           valueColor: AppColors.primaryGreen,
                         ),
@@ -106,7 +130,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       Expanded(
                         child: _buildScoreStatCard(
                           label: 'Wrong',
-                          value: '2',
+                          value: _result != null ? '${_result!.wrongCount}' : '2',
                           subvalue: '',
                           valueColor: AppColors.danger,
                         ),
@@ -120,7 +144,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       Expanded(
                         child: _buildScoreStatCard(
                           label: 'Unattempted',
-                          value: '0',
+                          value: _result != null ? '${_result!.unattemptedCount}' : '0',
                           subvalue: '',
                           valueColor: AppColors.textMuted,
                         ),
@@ -129,7 +153,9 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       Expanded(
                         child: _buildScoreStatCard(
                           label: 'Time Taken',
-                          value: '22m 30s',
+                          value: _result != null
+                              ? '${_result!.timeTakenSeconds ~/ 60}m ${_result!.timeTakenSeconds % 60}s'
+                              : '22m 30s',
                           subvalue: '',
                           valueColor: AppColors.textPrimary,
                         ),
@@ -153,7 +179,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                         const SizedBox(width: 8),
                         Text('XP Earned: ', style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600)),
                         Text(
-                          '+150 XP',
+                          _result != null ? '+${_result!.xpEarned} XP' : '+150 XP',
                           style: AppTextStyles.h3.copyWith(
                             color: AppColors.accentYellow,
                             fontWeight: FontWeight.w800,

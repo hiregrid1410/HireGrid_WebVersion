@@ -43,27 +43,58 @@ A high-performance Flutter mobile application for **HireGridX** — the placemen
 
 ---
 
-## 🔌 API Swapping Guide (Plugging In Real Backend)
+# 🚀 HireGridX Student Mobile App
 
-All Riverpod providers are located in [`lib/providers/app_providers.dart`](file:///run/media/jevin/Box%20A/HireGrid%20web%20and%20app/HireGrid_WebVersion/HireGridX/lib/providers/app_providers.dart).
-Each repository provider has a clearly labeled `// TODO(api): ...` comment indicating which endpoint to connect:
-
-| Provider | Repository Interface | Backend Endpoint | File to Edit |
-|---|---|---|---|
-| `authRepositoryProvider` | `AuthRepository` | `POST /api/auth/login`, `POST /api/auth/register`, `POST /api/auth/verify-otp` | `lib/data/repositories/` |
-| `companyRepositoryProvider` | `CompanyRepository` | `GET /api/companies`, `GET /api/companies/:id` | `lib/data/repositories/` |
-| `moduleRepositoryProvider` | `ModuleRepository` | `GET /api/modules`, `GET /api/subjects`, `GET /api/branches` | `lib/data/repositories/` |
-| `examRepositoryProvider` | `ExamRepository` | `POST /api/attempts/start`, `POST /api/attempts/:id/submit`, `GET /api/attempts/:id` | `lib/data/repositories/` |
-| `missionRepositoryProvider` | `MissionRepository` | `GET /api/placement-mission/current`, `GET /api/placement-mission/leaderboard` | `lib/data/repositories/` |
-| `planRepositoryProvider` | `PlanRepository` | `GET /api/plans`, `POST /api/payment-requests`, `GET /api/payment-requests/my` | `lib/data/repositories/` |
-| `profileRepositoryProvider` | `ProfileRepository` | `PUT /api/users/profile`, `GET /api/devices`, `GET /api/notifications` | `lib/data/repositories/` |
+A high-performance Flutter mobile application for **HireGridX** — the placement-preparation platform, wired directly to the real Node.js + Express backend.
 
 ---
 
-## 🛠️ Running the App
+## 🔌 Backend Integration & Endpoints
 
+The Flutter app is connected directly to the production Node + Express backend via `Dio` with automatic JWT header injection, 3-step retry backoff (300ms → 700ms → 1500ms) for Neon database cold-starts, 18s server timeout guard, stable hardware-backed device ID generation, single-device lock enforcement, and 401 session clearing.
+
+### Configured Endpoint Contracts (Inspected from Express routes)
+
+| Category | Method | Endpoint | Request / Response Details |
+|---|---|---|---|
+| **Auth** | `POST` | `/api/auth/signup` | Body: `{ name, email, password, branch, semester, role: "student" }` |
+| **Auth** | `POST` | `/api/auth/login` | Body: `{ email, password, isAdminLogin: false, deviceId, deviceName }`. Handles device-switch limit status (HTTP 403 `deviceLimitReached`). |
+| **Auth** | `GET` | `/api/auth/me` | Fetches active student profile & subscription state. Cached locally for instant cold start. |
+| **Auth (OTP)** | `POST` | `/api/auth/send-otp` | Body: `{ email }`. Used for password reset and OTP verification. |
+| **Auth (OTP)** | `POST` | `/api/auth/verify-otp` | Body: `{ email, otp }`. Confirmed against `authRoutes.js`. |
+| **Auth (OTP)** | `POST` | `/api/auth/resend-otp` | Body: `{ email }`. Confirmed against `authRoutes.js`. |
+| **Companies** | `GET` | `/api/companies` | List of company tiers, hiring tests, and logos. Offline cached. |
+| **Modules** | `GET` | `/api/branches/active` | Active branch listing. Offline cached. |
+| **Modules** | `GET` | `/api/modules` | Module listings by discipline/subject (`where_parentId`). |
+| **Exam Engine** | `POST` | `/api/attempts/start` | Body: `{ moduleId }` → returns shuffled questions, remaining timer, and previous answers if resuming an attempt. |
+| **Exam Engine** | `POST` | `/api/attempts/:id/sync` | Periodic 30s + on-change answer sync. Anti-cheat `violationCount` sent on app backgrounding. |
+| **Exam Engine** | `POST` | `/api/attempts/:id/submit` | Body: `{ answers, timeTaken, violationCount }` → computes score, accuracy, XP, and result breakdown. |
+| **Placement Missions** | `GET` | `/api/placement-mission/missions` | Active placement mission details & test syllabus. |
+| **Placement Missions** | `GET` | `/api/placement-mission/leaderboard` | Global ranking board in `Asia/Kolkata` daily cycles. |
+| **Plans & Payments** | `GET` | `/api/plans` | Pricing tiers and feature access lists. Offline cached. |
+| **Plans & Payments** | `POST` | `/api/payment-requests` | Body: `{ itemId, itemType, itemName, transactionId, amount, duration }`. |
+| **Storage / Media** | `POST` | `/api/storage/local-upload` & S3 presigned URL | Upload profile photos, feedback screenshots, and payment proof. |
+
+---
+
+## 🛠️ Running the App with Backend
+
+### 1. Default (Localhost API / Dev)
 ```bash
 cd HireGridX
-flutter pub get
 flutter run
+```
+
+### 2. Specifying a Custom LAN IP / Ngrok / Production URL
+```bash
+flutter run --dart-define=API_BASE_URL=http://192.168.1.100:5000/api
+```
+Or for production:
+```bash
+flutter run --dart-define=API_BASE_URL=https://api.hiregrid.in/api
+```
+
+### 3. Running Widget and Integration Tests
+```bash
+flutter test
 ```

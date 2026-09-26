@@ -15,6 +15,8 @@ abstract class AuthRepository {
     required String branch,
     required String semester,
   });
+  Future<bool> sendOtp(String email);
+  Future<bool> resendOtp(String email);
   Future<bool> verifyOtp(String email, String otp);
   Future<bool> sendPasswordReset(String email);
   Future<UserModel?> getCurrentUser();
@@ -37,10 +39,16 @@ abstract class ModuleRepository {
 
 abstract class ExamRepository {
   Future<AttemptModel> startExam(String testId);
+  Future<bool> syncExam({
+    required String attemptId,
+    required Map<String, dynamic> answers,
+    int? violationCount,
+  });
   Future<ExamResultModel> submitExam({
     required String attemptId,
     required Map<String, String?> answers,
     required int timeTakenSeconds,
+    int? violationCount,
   });
   Future<ExamResultModel?> getExamResult(String attemptId);
 }
@@ -76,4 +84,8 @@ abstract class ProfileRepository {
     required String message,
     String? screenshotPath,
   });
+}
+
+abstract class StorageRepository {
+  Future<String> uploadMedia(String filePath, {String purpose = 'payment-proof'});
 }

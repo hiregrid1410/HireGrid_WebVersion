@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
@@ -6,25 +7,87 @@ import '../../core/theme/text_styles.dart';
 import '../../shared/widgets/brand_logo.dart';
 import '../../shared/widgets/app_buttons.dart';
 import '../../shared/widgets/app_text_field.dart';
+import '../../providers/app_providers.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController(text: 'jevin@example.com');
   final _passwordController = TextEditingController(text: 'password123');
   bool _isLoading = false;
 
+  void _showDeviceApprovalDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceCardElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            const Icon(Icons.devices_other_rounded, color: AppColors.warning, size: 24),
+            const SizedBox(width: 10),
+            Text('Device Limit Reached', style: AppTextStyles.h2),
+          ],
+        ),
+        content: Text(
+          '$message\n\nA device approval request has been submitted. Please contact your Super Admin or login on your verified primary device.',
+          style: AppTextStyles.bodyMd.copyWith(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Understood', style: AppTextStyles.bodyMd.copyWith(color: AppColors.primaryGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter your email and password.', style: AppTextStyles.bodySm),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) {
-      setState(() => _isLoading = false);
-      context.go('/home');
+
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      final user = await authRepo.login(email, password);
+      ref.read(currentUserProvider.notifier).setUser(user);
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        context.go('/home');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        final errStr = e.toString();
+        if (errStr.contains('Device limit reached') || errStr.contains('multi-device')) {
+          _showDeviceApprovalDialog(errStr);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errStr, style: AppTextStyles.bodySm),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -61,6 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 label: 'Email or Mobile Number',
                 hintText: 'john@example.com',
                 controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 prefixIcon: const Icon(Icons.email_outlined, color: AppColors.textMuted, size: 20),
               ).animate().fadeIn(delay: 200.ms),
               const SizedBox(height: 18),
