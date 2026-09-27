@@ -67,22 +67,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      final result = await authRepo.login(email, password);
+      final user = await authRepo.login(email, password);
 
       if (mounted) {
         setState(() => _isLoading = false);
-        switch (result) {
-          case LoginOtpRequired(:final email, :final maskedEmail, :final expiresInSeconds):
-            context.push(
-              '/login-otp-verify?email=${Uri.encodeComponent(email)}&maskedEmail=${Uri.encodeComponent(maskedEmail)}&expiresIn=$expiresInSeconds',
-            );
-          case LoginSuccess(:final user):
-            ref.read(currentUserProvider.notifier).setUser(user);
-            if (user.branch == null || user.branch!.isEmpty) {
-              context.go('/branch-selection');
-            } else {
-              context.go('/home');
-            }
+        ref.read(currentUserProvider.notifier).setUser(user);
+        if (user.branch == null || user.branch!.isEmpty) {
+          context.go('/branch-selection');
+        } else {
+          context.go('/home');
         }
       }
     } catch (e) {

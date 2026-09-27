@@ -19,15 +19,6 @@ class AuthController {
   async login(req, res, next) {
     try {
       const result = await authService.login(req.body);
-      if (result.otpRequired) {
-        return res.json({
-          success: true,
-          otpRequired: true,
-          email: result.email,
-          rawEmail: result.rawEmail,
-          expiresInSeconds: result.expiresInSeconds || 900
-        });
-      }
       return res.json({
         success: true,
         message: result.message,
@@ -42,40 +33,6 @@ class AuthController {
           maxDevices: err.maxDevices
         });
       }
-      next(err);
-    }
-  }
-
-  async verifyLoginOtp(req, res, next) {
-    try {
-      const result = await authService.verifyLoginOtp(req.body);
-      return res.json({
-        success: true,
-        message: result.message,
-        token: result.token,
-        user: result.user
-      });
-    } catch (err) {
-      if (err.deviceLimitReached) {
-        return res.status(403).json({
-          error: err.message,
-          deviceLimitReached: true,
-          maxDevices: err.maxDevices
-        });
-      }
-      next(err);
-    }
-  }
-
-  async resendLoginOtp(req, res, next) {
-    try {
-      const result = await authService.resendLoginOtp(req.body);
-      return res.json({
-        success: true,
-        message: result.message,
-        expiresInSeconds: result.expiresInSeconds || 900
-      });
-    } catch (err) {
       next(err);
     }
   }

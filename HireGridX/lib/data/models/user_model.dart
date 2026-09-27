@@ -36,7 +36,11 @@ class UserModel {
       semester: json['semester']?.toString() ?? json['student_semester']?.toString() ?? '6th Semester',
       totalXp: (json['xp'] is num) ? (json['xp'] as num).toInt() : (json['totalXp'] is num ? (json['totalXp'] as num).toInt() : 0),
       currentStreak: (json['streak'] is num) ? (json['streak'] as num).toInt() : (json['currentStreak'] is num ? (json['currentStreak'] as num).toInt() : 1),
-      currentRank: (json['rank'] is num) ? (json['rank'] as num).toInt() : (json['currentRank'] is num ? (json['currentRank'] as num).toInt() : 1),
+      currentRank: (json['rank'] is num)
+          ? (json['rank'] as num).toInt()
+          : (json['currentRank'] is num
+              ? (json['currentRank'] as num).toInt()
+              : (int.tryParse(json['rank']?.toString() ?? '') ?? 1)),
       avatarUrl: json['profilePicture']?.toString() ?? json['profile_picture']?.toString() ?? json['avatarUrl']?.toString(),
       hasFullPremium: json['hasFullPremium'] == true || json['has_full_premium'] == true,
       activePlanId: json['activePlanId']?.toString() ?? json['active_plan_id']?.toString(),
