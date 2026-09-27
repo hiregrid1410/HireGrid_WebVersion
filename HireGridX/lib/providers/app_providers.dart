@@ -162,12 +162,24 @@ final companyDetailProvider = FutureProvider.family<CompanyModel?, String>((ref,
   return repo.getCompanyById(id);
 });
 
+final companyAssessmentsProvider = FutureProvider.family<List<ModuleTestModel>, String>((ref, companyId) async {
+  final repo = ref.watch(companyRepositoryProvider);
+  return repo.getCompanyAssessments(companyId);
+});
+
 // Learning & Modules provider
 final branchesProvider = FutureProvider<List<BranchModel>>((ref) async {
   return ref.watch(moduleRepositoryProvider).getBranches();
 });
 
-final selectedBranchIdProvider = StateProvider<String>((ref) => 'ce');
+final selectedBranchIdProvider = StateProvider<String>((ref) {
+  final branchesAsync = ref.watch(branchesProvider);
+  return branchesAsync.when(
+    data: (branches) => branches.isNotEmpty ? branches.first.id : 'branch_general',
+    loading: () => 'branch_general',
+    error: (_, __) => 'branch_general',
+  );
+});
 
 final subjectsProvider = FutureProvider<List<SubjectModel>>((ref) async {
   final branchId = ref.watch(selectedBranchIdProvider);

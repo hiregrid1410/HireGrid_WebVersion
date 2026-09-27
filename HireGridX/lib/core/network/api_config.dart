@@ -4,16 +4,17 @@ class ApiConfig {
   // Can be overridden at build/runtime via --dart-define=API_BASE_URL=http://.../api
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
 
-  // Default dev / local server URL (Port 5000)
-  static const String baseUrlDev = 'http://10.0.2.2:5000/api'; // 10.0.2.2 for Android Emulator, localhost for Web/Desktop
+  // Production backend URL (Live Render + Neon PostgreSQL)
+  static const String baseUrlProd = 'https://hiregrid-webversion.onrender.com/api';
+  static const String baseUrlDev = 'http://10.0.2.2:5000/api';
   static const String baseUrlLocal = 'http://localhost:5000/api';
-  static const String baseUrlProd = 'https://hiregrid-backend.onrender.com/api'; // Set via --dart-define=API_BASE_URL=... in prod
 
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl.endsWith('/') ? _envBaseUrl.substring(0, _envBaseUrl.length - 1) : _envBaseUrl;
     }
-    return baseUrlLocal;
+    // Default to Production Live Backend for real database data
+    return baseUrlProd;
   }
 
   static const int connectTimeoutMs = 18000;

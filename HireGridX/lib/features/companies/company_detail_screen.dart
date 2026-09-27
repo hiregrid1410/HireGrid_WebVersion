@@ -148,40 +148,52 @@ class CompanyDetailScreen extends ConsumerWidget {
                   Text('Company Assessments', style: AppTextStyles.h2).animate().fadeIn(delay: 200.ms),
                   const SizedBox(height: 12),
 
-                  _buildAssessmentCard(
-                    context: context,
-                    title: '${company.name} - Cognitive & Reasoning',
-                    subtitle: 'Aptitude • 20 Qs • 30 mins',
-                    statusText: 'Passed 85%',
-                    statusColor: AppColors.primaryGreen,
-                    buttonText: 'Retake Exam',
-                    isLocked: false,
-                    onTap: () => context.push('/exam/att_demo_1'),
-                  ).animate().fadeIn(delay: 250.ms),
-                  const SizedBox(height: 12),
+                  ref.watch(companyAssessmentsProvider(company.id)).when(
+                    loading: () => const ShimmerCard(height: 120),
+                    error: (_, __) => const SizedBox(),
+                    data: (assessments) {
+                      if (assessments.isEmpty) {
+                        return Column(
+                          children: [
+                            _buildAssessmentCard(
+                              context: context,
+                              title: '${company.name} - Cognitive & Reasoning Mock',
+                              subtitle: 'Aptitude • 20 Qs • 30 mins',
+                              statusText: 'Active Practice',
+                              statusColor: AppColors.primaryGreen,
+                              buttonText: 'Start Assessment',
+                              isLocked: false,
+                              onTap: () => context.push('/exam/att_demo_1'),
+                            ),
+                          ],
+                        );
+                      }
 
-                  _buildAssessmentCard(
-                    context: context,
-                    title: '${company.name} - Technical Assessment',
-                    subtitle: 'Core CS • 25 Qs • 40 mins',
-                    statusText: 'Not Started',
-                    statusColor: AppColors.textMuted,
-                    buttonText: 'Start Exam',
-                    isLocked: false,
-                    onTap: () => context.push('/exam/att_demo_2'),
-                  ).animate().fadeIn(delay: 300.ms),
-                  const SizedBox(height: 12),
-
-                  _buildAssessmentCard(
-                    context: context,
-                    title: '${company.name} - Advanced Coding Mock',
-                    subtitle: 'Algorithms • 15 Qs • 45 mins',
-                    statusText: 'Locked (Premium)',
-                    statusColor: AppColors.accentYellow,
-                    buttonText: 'Upgrade to Unlock',
-                    isLocked: true,
-                    onTap: () => context.push('/plans'),
-                  ).animate().fadeIn(delay: 350.ms),
+                      return Column(
+                        children: assessments.map((assessment) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildAssessmentCard(
+                              context: context,
+                              title: '${company.name} - ${assessment.title}',
+                              subtitle: '${assessment.difficulty.name.toUpperCase()} • ${assessment.questionCount} Qs • ${assessment.durationMinutes} mins',
+                              statusText: assessment.isLocked ? 'Locked (Premium)' : 'Available',
+                              statusColor: assessment.isLocked ? AppColors.accentYellow : AppColors.primaryGreen,
+                              buttonText: assessment.isLocked ? 'Upgrade to Unlock' : 'Start Exam',
+                              isLocked: assessment.isLocked,
+                              onTap: () {
+                                if (assessment.isLocked) {
+                                  context.push('/plans');
+                                } else {
+                                  context.push('/exam/att_${assessment.id}');
+                                }
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 24),
                 ],
               ),

@@ -30,26 +30,49 @@ class PlanModel {
     PlanTierType tier = PlanTierType.basic;
     bool popular = false;
 
-    if (lowerTitle.contains('ultimate') || lowerTitle.contains('pro')) {
+    if (lowerTitle.contains('ultimate') || lowerTitle.contains('+') || lowerTitle.contains('pro')) {
       tier = PlanTierType.ultimate;
-    } else if (lowerTitle.contains('premium') || lowerTitle.contains('popular')) {
-      tier = PlanTierType.premium;
       popular = true;
+    } else if (lowerTitle.contains('premium') || lowerTitle.contains('popular') || lowerTitle.contains('hiregridx')) {
+      tier = PlanTierType.premium;
     }
 
-    final price = (json['price'] is num) ? (json['price'] as num).toInt() : 999;
-    final dur = json['durationMonths'] ?? json['duration_months'] ?? json['duration'] ?? 3;
+    int parseNum(dynamic val, int defaultVal) {
+      if (val is num) return val.toInt();
+      if (val is String) {
+        final d = double.tryParse(val);
+        if (d != null) return d.toInt();
+      }
+      return defaultVal;
+    }
+
+    final price = parseNum(json['price'], 199);
+    
+    String billing = '/ 3 Months';
+    final rawDuration = json['duration']?.toString() ?? '';
+    final durationDays = json['durationDays'] ?? json['duration_days'];
+    if (durationDays != null) {
+      billing = '/ $durationDays Days';
+    } else if (rawDuration.contains('month')) {
+      final m = RegExp(r'\d+').firstMatch(rawDuration)?.group(0);
+      billing = m != null ? '/ $m Months' : '/ 3 Months';
+    } else if (json['durationMonths'] != null) {
+      billing = '/ ${json['durationMonths']} Months';
+    }
 
     List<String> feats = [];
     if (json['features'] is List) {
       feats = (json['features'] as List).map((f) => f.toString()).toList();
     }
     if (feats.isEmpty) {
+      final companyCount = (json['companyModules'] is List) ? (json['companyModules'] as List).length : 10;
+      final topicCount = (json['learningContent'] is List) ? (json['learningContent'] as List).length : 25;
       feats = [
-        'Full Access to Company Assessments',
+        'Full Access to $companyCount+ Top Company Assessments',
+        '$topicCount+ Core Technical & Aptitude Modules',
         'Detailed Performance Diagnostic Reports',
         'Weekly Placement Mission Entry',
-        'Unlimited Retakes & Solutions',
+        'Unlimited Retakes & Complete Solutions',
       ];
     }
 
@@ -59,8 +82,8 @@ class PlanModel {
       tierType: tier,
       category: PlanCategory.company,
       priceInr: price,
-      billingPeriod: '/ $dur Months',
-      subtitle: json['description']?.toString() ?? 'Access to Placement Company Series',
+      billingPeriod: billing,
+      subtitle: json['description']?.toString() ?? 'Full Access to Placement Series & Tests',
       features: feats,
       isPopular: popular || json['isPopular'] == true,
     );

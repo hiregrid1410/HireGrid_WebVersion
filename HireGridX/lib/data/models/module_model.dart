@@ -30,15 +30,29 @@ class ModuleTestModel {
     if (diffStr.contains('med')) diff = ModuleDifficulty.medium;
     if (diffStr.contains('hard')) diff = ModuleDifficulty.hard;
 
+    int parseNum(dynamic val, int defaultVal) {
+      if (val is num) return val.toInt();
+      if (val is String) {
+        final d = double.tryParse(val);
+        if (d != null) return d.toInt();
+      }
+      return defaultVal;
+    }
+
+    final qCount = parseNum(json['questionCount'], 20);
+    final duration = parseNum(json['timeLimit'] ?? json['durationMinutes'], 30);
+    final passPct = parseNum(json['passPercentage'], 60);
+    final bestSc = json['bestScore'] != null ? parseNum(json['bestScore'], 0) : null;
+
     return ModuleTestModel(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? 'Test Assessment',
       difficulty: diff,
-      questionCount: (json['questionCount'] is num) ? (json['questionCount'] as num).toInt() : 20,
-      durationMinutes: (json['timeLimit'] is num) ? (json['timeLimit'] as num).toInt() : ((json['durationMinutes'] is num) ? (json['durationMinutes'] as num).toInt() : 30),
-      passPercentage: (json['passPercentage'] is num) ? (json['passPercentage'] as num).toInt() : 60,
+      questionCount: qCount,
+      durationMinutes: duration,
+      passPercentage: passPct,
       isLocked: json['isLocked'] == true || json['isPremium'] == true,
-      bestScore: (json['bestScore'] is num) ? (json['bestScore'] as num).toInt() : null,
+      bestScore: bestSc,
       status: json['isLocked'] == true ? ModuleStatus.locked : ModuleStatus.notStarted,
     );
   }
@@ -70,8 +84,20 @@ class ModuleModel {
   });
 
   factory ModuleModel.fromJson(Map<String, dynamic> json) {
-    final isPrem = json['isPremium'] == true || json['is_premium'] == true || json['accessType'] == 'paid';
-    final questionCnt = (json['questionCount'] is num) ? (json['questionCount'] as num).toInt() : 20;
+    final isPrem = json['isPremium'] == true || json['is_premium'] == true || json['accessType'] == 'paid' || json['accessType'] == 'premium_purchasable';
+    
+    int parseNum(dynamic val, int defaultVal) {
+      if (val is num) return val.toInt();
+      if (val is String) {
+        final d = double.tryParse(val);
+        if (d != null) return d.toInt();
+      }
+      return defaultVal;
+    }
+
+    final rawQCnt = parseNum(json['questionCount'], 0);
+    final duration = parseNum(json['timeLimit'], 30);
+    final questionCnt = rawQCnt > 0 ? rawQCnt : 20;
 
     // Generate tests or parse subTests if available
     List<ModuleTestModel> parsedTests = [];
@@ -84,7 +110,7 @@ class ModuleModel {
           title: 'Test 1 - Easy',
           difficulty: ModuleDifficulty.easy,
           questionCount: questionCnt,
-          durationMinutes: (json['timeLimit'] is num) ? (json['timeLimit'] as num).toInt() : 30,
+          durationMinutes: duration,
           passPercentage: 60,
           status: ModuleStatus.passed,
         ),
@@ -93,7 +119,7 @@ class ModuleModel {
           title: 'Test 2 - Medium',
           difficulty: ModuleDifficulty.medium,
           questionCount: questionCnt,
-          durationMinutes: (json['timeLimit'] is num) ? (json['timeLimit'] as num).toInt() : 30,
+          durationMinutes: duration,
           passPercentage: 70,
           status: ModuleStatus.notStarted,
         ),
@@ -102,12 +128,21 @@ class ModuleModel {
           title: 'Test 3 - Hard',
           difficulty: ModuleDifficulty.hard,
           questionCount: questionCnt,
-          durationMinutes: (json['timeLimit'] is num) ? (json['timeLimit'] as num).toInt() : 30,
+          durationMinutes: duration,
           passPercentage: 75,
           isLocked: isPrem,
           status: isPrem ? ModuleStatus.locked : ModuleStatus.notStarted,
         ),
       ];
+    }
+
+    double parseProg(dynamic val) {
+      if (val is num) return val.toDouble();
+      if (val is String) {
+        final d = double.tryParse(val);
+        if (d != null) return d;
+      }
+      return 0.25;
     }
 
     return ModuleModel(
@@ -117,7 +152,7 @@ class ModuleModel {
       subjectName: json['subjectName']?.toString() ?? json['category']?.toString() ?? 'General',
       totalQuestions: questionCnt,
       totalTests: parsedTests.length,
-      progress: (json['progress'] is num) ? (json['progress'] as num).toDouble() : 0.25,
+      progress: parseProg(json['progress']),
       isPremium: isPrem,
       description: json['description']?.toString() ?? 'Comprehensive placement module with speed tests.',
       tests: parsedTests,
@@ -144,13 +179,23 @@ class SubjectModel {
 
   factory SubjectModel.fromJson(Map<String, dynamic> json) {
     final name = json['name']?.toString() ?? 'Subject';
+    
+    int parseNum(dynamic val, int defaultVal) {
+      if (val is num) return val.toInt();
+      if (val is String) {
+        final d = double.tryParse(val);
+        if (d != null) return d.toInt();
+      }
+      return defaultVal;
+    }
+
     return SubjectModel(
       id: json['id']?.toString() ?? '',
       name: name,
-      branchId: json['parentId']?.toString() ?? json['branch_id']?.toString() ?? 'ce',
+      branchId: json['parentId']?.toString() ?? json['branch_id']?.toString() ?? 'branch_general',
       initial: name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'S',
-      totalModules: (json['moduleCount'] is num) ? (json['moduleCount'] as num).toInt() : 10,
-      completedModules: (json['completedCount'] is num) ? (json['completedCount'] as num).toInt() : 4,
+      totalModules: parseNum(json['moduleCount'] ?? json['totalModules'], 10),
+      completedModules: parseNum(json['completedCount'] ?? json['completedModules'], 4),
     );
   }
 }
