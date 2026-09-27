@@ -8,6 +8,7 @@ import '../../shared/widgets/brand_logo.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/app_providers.dart';
+import '../../core/network/api_config.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -90,6 +91,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                         ),
                       ).animate().fadeIn(delay: 500.ms, duration: 600.ms),
                       const Spacer(),
+                      // Active Backend Host Banner (debug indicator)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.borderSubtle),
+                        ),
+                        child: Text(
+                          'Backend: ${ApiConfig.baseUrl}',
+                          style: AppTextStyles.label.copyWith(color: AppColors.textMuted, fontSize: 10),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       // Subtle loader / indicator dots
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
