@@ -59,11 +59,15 @@ class CompanyCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            company.name,
-                            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w700),
+                          Expanded(
+                            child: Text(
+                              company.name,
+                              style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w700),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 8),
                           TierBadge(isPremium: company.tier == CompanyTier.premium),
                         ],
                       ),

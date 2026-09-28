@@ -196,41 +196,72 @@ class HttpAuthRepository implements AuthRepository {
 }
 
 // =========================================================
-// 2. COMPANY REPOSITORY (HTTP with Cache-First)
+// 2. COMPANY REPOSITORY (HTTP with In-Memory + Disk Cache)
 // =========================================================
 class HttpCompanyRepository implements CompanyRepository {
   final DioClient _client;
   static const String _cacheKey = 'cached_companies_json';
 
+  List<CompanyModel>? _memoryCache;
+  DateTime? _lastFetchTime;
+  static const Duration _cacheTtl = Duration(minutes: 5);
+
   HttpCompanyRepository(this._client);
 
   @override
-  Future<List<CompanyModel>> getCompanies({String? filter}) async {
+  Future<List<CompanyModel>> getCompanies({String? filter, bool forceRefresh = false}) async {
+    // 1. Fast in-memory cache return (< 0.1ms)
+    if (!forceRefresh && _memoryCache != null && _lastFetchTime != null) {
+      if (DateTime.now().difference(_lastFetchTime!) < _cacheTtl) {
+        var cached = _memoryCache!;
+        if (filter == 'premium') {
+          return cached.where((c) => c.tier == CompanyTier.premium).toList();
+        } else if (filter == 'free') {
+          return cached.where((c) => c.tier == CompanyTier.free).toList();
+        }
+        return cached;
+      }
+    }
+
     final prefs = await SharedPreferences.getInstance();
 
     try {
-      final res = await _client.dio.get('/companies');
+      final res = await _client.deduplicatedGet('/companies');
       if (res.data['companies'] is List) {
         final list = res.data['companies'] as List;
         await prefs.setString(_cacheKey, jsonEncode(list));
 
         var companies = list.map((c) => CompanyModel.fromJson(c as Map<String, dynamic>)).toList();
+        _memoryCache = companies;
+        _lastFetchTime = DateTime.now();
+
         if (filter == 'premium') {
-          companies = companies.where((c) => c.tier == CompanyTier.premium).toList();
+          return companies.where((c) => c.tier == CompanyTier.premium).toList();
         } else if (filter == 'free') {
-          companies = companies.where((c) => c.tier == CompanyTier.free).toList();
+          return companies.where((c) => c.tier == CompanyTier.free).toList();
         }
         return companies;
       }
     } catch (e) {
+      if (_memoryCache != null) {
+        var companies = _memoryCache!;
+        if (filter == 'premium') {
+          return companies.where((c) => c.tier == CompanyTier.premium).toList();
+        } else if (filter == 'free') {
+          return companies.where((c) => c.tier == CompanyTier.free).toList();
+        }
+        return companies;
+      }
+
       final cachedStr = prefs.getString(_cacheKey);
       if (cachedStr != null) {
         final list = jsonDecode(cachedStr) as List;
         var companies = list.map((c) => CompanyModel.fromJson(c as Map<String, dynamic>)).toList();
+        _memoryCache = companies;
         if (filter == 'premium') {
-          companies = companies.where((c) => c.tier == CompanyTier.premium).toList();
+          return companies.where((c) => c.tier == CompanyTier.premium).toList();
         } else if (filter == 'free') {
-          companies = companies.where((c) => c.tier == CompanyTier.free).toList();
+          return companies.where((c) => c.tier == CompanyTier.free).toList();
         }
         return companies;
       }
@@ -256,7 +287,7 @@ class HttpCompanyRepository implements CompanyRepository {
   @override
   Future<List<ModuleTestModel>> getCompanyAssessments(String companyId) async {
     try {
-      final res = await _client.dio.get('/modules', queryParameters: {'where_parentId': '==$companyId'});
+      final res = await _client.dio.get('/modules', queryParameters: {'where_parentId': '==:$companyId'});
       if (res.data['modules'] is List) {
         final list = res.data['modules'] as List;
         return list.map((m) => ModuleTestModel.fromJson(m as Map<String, dynamic>)).toList();
@@ -269,30 +300,60 @@ class HttpCompanyRepository implements CompanyRepository {
 }
 
 // =========================================================
-// 3. MODULE REPOSITORY (HTTP with Cache-First)
+// 3. MODULE REPOSITORY (HTTP with In-Memory + Disk Cache)
 // =========================================================
 class HttpModuleRepository implements ModuleRepository {
   final DioClient _client;
   static const String _branchesCacheKey = 'cached_branches_json';
 
+  List<BranchModel>? _branchesMemoryCache;
+  final Map<String, List<SubjectModel>> _subjectsMemoryCache = {};
+  final Map<String, List<ModuleModel>> _modulesMemoryCache = {};
+  DateTime? _branchesLastFetch;
+  static const Duration _cacheTtl = Duration(minutes: 5);
+
   HttpModuleRepository(this._client);
 
   @override
-  Future<List<BranchModel>> getBranches() async {
+  Future<List<BranchModel>> getBranches({bool forceRefresh = false}) async {
+    if (!forceRefresh && _branchesMemoryCache != null && _branchesLastFetch != null) {
+      if (DateTime.now().difference(_branchesLastFetch!) < _cacheTtl) {
+        return _branchesMemoryCache!;
+      }
+    }
+
     final prefs = await SharedPreferences.getInstance();
 
     try {
-      final res = await _client.dio.get('/branches/active');
-      if (res.data['branches'] is List) {
-        final list = res.data['branches'] as List;
+      final res = await _client.deduplicatedGet('/hierarchy-nodes', queryParameters: {'where_type': '==:general_branch'});
+      if (res.data['nodes'] is List && (res.data['nodes'] as List).isNotEmpty) {
+        final list = res.data['nodes'] as List;
         await prefs.setString(_branchesCacheKey, jsonEncode(list));
-        return list.map((b) => BranchModel.fromJson(b as Map<String, dynamic>)).toList();
+        final branches = list.map((b) => BranchModel.fromJson(b as Map<String, dynamic>)).toList();
+        _branchesMemoryCache = branches;
+        _branchesLastFetch = DateTime.now();
+        return branches;
+      }
+
+      // Fallback to null parentId if where_type returns empty
+      final fallbackRes = await _client.deduplicatedGet('/hierarchy-nodes', queryParameters: {'where_parentId': '==:null'});
+      if (fallbackRes.data['nodes'] is List && (fallbackRes.data['nodes'] as List).isNotEmpty) {
+        final list = fallbackRes.data['nodes'] as List;
+        await prefs.setString(_branchesCacheKey, jsonEncode(list));
+        final branches = list.map((b) => BranchModel.fromJson(b as Map<String, dynamic>)).toList();
+        _branchesMemoryCache = branches;
+        _branchesLastFetch = DateTime.now();
+        return branches;
       }
     } catch (e) {
+      if (_branchesMemoryCache != null) return _branchesMemoryCache!;
+
       final cachedStr = prefs.getString(_branchesCacheKey);
       if (cachedStr != null) {
         final list = jsonDecode(cachedStr) as List;
-        return list.map((b) => BranchModel.fromJson(b as Map<String, dynamic>)).toList();
+        final branches = list.map((b) => BranchModel.fromJson(b as Map<String, dynamic>)).toList();
+        _branchesMemoryCache = branches;
+        return branches;
       }
       throw _client.mapDioException(e).message;
     }
@@ -300,57 +361,55 @@ class HttpModuleRepository implements ModuleRepository {
   }
 
   @override
-  Future<List<SubjectModel>> getSubjectsByBranch(String branchId) async {
+  Future<List<SubjectModel>> getSubjectsByBranch(String branchId, {bool forceRefresh = false}) async {
+    if (!forceRefresh && _subjectsMemoryCache.containsKey(branchId)) {
+      return _subjectsMemoryCache[branchId]!;
+    }
+
     try {
-      final res = await _client.dio.get('/hierarchy-nodes', queryParameters: {'where_parentId': '==$branchId'});
-      if (res.data['nodes'] is List && (res.data['nodes'] as List).isNotEmpty) {
+      final res = await _client.deduplicatedGet('/hierarchy-nodes', queryParameters: {'where_parentId': '==:$branchId'});
+      if (res.data['nodes'] is List) {
         final list = res.data['nodes'] as List;
-        return list.map((s) => SubjectModel.fromJson(s as Map<String, dynamic>)).toList();
+        final subjects = list.map((s) => SubjectModel.fromJson(s as Map<String, dynamic>)).toList();
+        _subjectsMemoryCache[branchId] = subjects;
+        return subjects;
       }
-
-      // If no child nodes for specific branch, fetch general hierarchy nodes
-      final allNodesRes = await _client.dio.get('/hierarchy-nodes');
-      if (allNodesRes.data['nodes'] is List && (allNodesRes.data['nodes'] as List).isNotEmpty) {
-        final list = allNodesRes.data['nodes'] as List;
-        return list.map((s) => SubjectModel.fromJson(s as Map<String, dynamic>)).toList();
+    } catch (e) {
+      if (_subjectsMemoryCache.containsKey(branchId)) {
+        return _subjectsMemoryCache[branchId]!;
       }
-    } catch (_) {}
-
-    // Fallback standard subjects
-    return [
-      SubjectModel(id: 'sub_apt', name: 'Quantitative Aptitude', branchId: branchId, initial: 'A', totalModules: 12, completedModules: 4),
-      SubjectModel(id: 'sub_rea', name: 'Logical Reasoning', branchId: branchId, initial: 'R', totalModules: 10, completedModules: 3),
-      SubjectModel(id: 'sub_ver', name: 'Verbal & Soft Skills', branchId: branchId, initial: 'V', totalModules: 8, completedModules: 2),
-      SubjectModel(id: 'sub_core', name: 'Core Technical Engineering', branchId: branchId, initial: 'T', totalModules: 15, completedModules: 5),
-    ];
+      throw _client.mapDioException(e).message;
+    }
+    return [];
   }
 
   @override
-  Future<List<ModuleModel>> getModules({String? category, String? subjectId}) async {
+  Future<List<ModuleModel>> getModules({String? category, String? subjectId, bool forceRefresh = false}) async {
+    final cacheKey = '${category ?? "all"}_${subjectId ?? "all"}';
+    if (!forceRefresh && _modulesMemoryCache.containsKey(cacheKey)) {
+      return _modulesMemoryCache[cacheKey]!;
+    }
+
     try {
       final params = <String, dynamic>{};
       if (category != null && category != 'All') {
-        params['where_category'] = '==$category';
+        params['where_category'] = '==:$category';
       }
       if (subjectId != null) {
-        params['where_parentId'] = '==$subjectId';
+        params['where_parentId'] = '==:$subjectId';
       }
 
-      final res = await _client.dio.get('/modules', queryParameters: params);
-      if (res.data['modules'] is List && (res.data['modules'] as List).isNotEmpty) {
+      final res = await _client.deduplicatedGet('/modules', queryParameters: params);
+      if (res.data['modules'] is List) {
         final list = res.data['modules'] as List;
-        return list.map((m) => ModuleModel.fromJson(m as Map<String, dynamic>)).toList();
-      }
-
-      // If filtered query was empty, fetch all available modules
-      if (params.isNotEmpty) {
-        final fallbackRes = await _client.dio.get('/modules');
-        if (fallbackRes.data['modules'] is List && (fallbackRes.data['modules'] as List).isNotEmpty) {
-          final list = fallbackRes.data['modules'] as List;
-          return list.map((m) => ModuleModel.fromJson(m as Map<String, dynamic>)).toList();
-        }
+        final modules = list.map((m) => ModuleModel.fromJson(m as Map<String, dynamic>)).toList();
+        _modulesMemoryCache[cacheKey] = modules;
+        return modules;
       }
     } catch (e) {
+      if (_modulesMemoryCache.containsKey(cacheKey)) {
+        return _modulesMemoryCache[cacheKey]!;
+      }
       throw _client.mapDioException(e).message;
     }
     return [];
@@ -359,7 +418,7 @@ class HttpModuleRepository implements ModuleRepository {
   @override
   Future<ModuleModel?> getModuleById(String id) async {
     try {
-      final res = await _client.dio.get('/modules', queryParameters: {'where_id': '==$id'});
+      final res = await _client.dio.get('/modules', queryParameters: {'where_id': '==:$id'});
       if (res.data['modules'] is List && (res.data['modules'] as List).isNotEmpty) {
         return ModuleModel.fromJson((res.data['modules'] as List).first as Map<String, dynamic>);
       }
@@ -508,23 +567,35 @@ class HttpExamRepository implements ExamRepository {
 }
 
 // =========================================================
-// 5. MISSION REPOSITORY (HTTP)
+// 5. MISSION REPOSITORY (HTTP with In-Memory Cache)
 // =========================================================
 class HttpMissionRepository implements MissionRepository {
   final DioClient _client;
 
+  MissionModel? _missionMemoryCache;
+  List<LeaderboardEntryModel>? _leaderboardMemoryCache;
+  DateTime? _lastLeaderboardFetch;
+  static const Duration _cacheTtl = Duration(minutes: 3);
+
   HttpMissionRepository(this._client);
 
   @override
-  Future<MissionModel> getCurrentMission() async {
+  Future<MissionModel> getCurrentMission({bool forceRefresh = false}) async {
+    if (!forceRefresh && _missionMemoryCache != null) {
+      return _missionMemoryCache!;
+    }
+
     try {
-      final res = await _client.dio.get('/placement-mission/missions');
+      final res = await _client.deduplicatedGet('/placement-mission/missions');
       final data = res.data;
       final cycle = data['cycle'] as Map<String, dynamic>? ?? {'id': 'cycle_1', 'name': 'Weekly Challenge'};
       final missions = data['missions'] as List? ?? [];
 
-      return MissionModel.fromBackendJson(cycleJson: cycle, missionsList: missions);
+      final model = MissionModel.fromBackendJson(cycleJson: cycle, missionsList: missions);
+      _missionMemoryCache = model;
+      return model;
     } catch (_) {
+      if (_missionMemoryCache != null) return _missionMemoryCache!;
       return MissionModel.fromBackendJson(
         cycleJson: {'id': 'cycle_1', 'name': 'Weekly Placement Challenge'},
         missionsList: [
@@ -541,14 +612,25 @@ class HttpMissionRepository implements MissionRepository {
   }
 
   @override
-  Future<List<LeaderboardEntryModel>> getLeaderboard({String tab = 'weekly'}) async {
+  Future<List<LeaderboardEntryModel>> getLeaderboard({String tab = 'weekly', bool forceRefresh = false}) async {
+    if (!forceRefresh && _leaderboardMemoryCache != null && _lastLeaderboardFetch != null) {
+      if (DateTime.now().difference(_lastLeaderboardFetch!) < _cacheTtl) {
+        return _leaderboardMemoryCache!;
+      }
+    }
+
     try {
-      final res = await _client.dio.get('/placement-mission/leaderboard');
+      final res = await _client.deduplicatedGet('/placement-mission/leaderboard');
       if (res.data['leaderboard'] is List && (res.data['leaderboard'] as List).isNotEmpty) {
         final list = res.data['leaderboard'] as List;
-        return list.map((l) => LeaderboardEntryModel.fromJson(l as Map<String, dynamic>)).toList();
+        final leaderboard = list.map((l) => LeaderboardEntryModel.fromJson(l as Map<String, dynamic>)).toList();
+        _leaderboardMemoryCache = leaderboard;
+        _lastLeaderboardFetch = DateTime.now();
+        return leaderboard;
       }
     } catch (_) {}
+
+    if (_leaderboardMemoryCache != null) return _leaderboardMemoryCache!;
 
     // Clean leaderboard fallback for active cycle
     return [
@@ -562,24 +644,37 @@ class HttpMissionRepository implements MissionRepository {
 }
 
 // =========================================================
-// 6. PLAN REPOSITORY (HTTP with Cache-First)
+// 6. PLAN REPOSITORY (HTTP with In-Memory + Disk Cache)
 // =========================================================
 class HttpPlanRepository implements PlanRepository {
   final DioClient _client;
   static const String _plansCacheKey = 'cached_plans_json';
 
+  List<PlanModel>? _plansMemoryCache;
+  DateTime? _plansLastFetch;
+  static const Duration _cacheTtl = Duration(minutes: 10);
+
   HttpPlanRepository(this._client);
 
   @override
-  Future<List<PlanModel>> getPlans({PlanCategory category = PlanCategory.company}) async {
+  Future<List<PlanModel>> getPlans({PlanCategory category = PlanCategory.company, bool forceRefresh = false}) async {
+    if (!forceRefresh && _plansMemoryCache != null && _plansLastFetch != null) {
+      if (DateTime.now().difference(_plansLastFetch!) < _cacheTtl) {
+        return _plansMemoryCache!;
+      }
+    }
+
     final prefs = await SharedPreferences.getInstance();
 
     try {
-      final res = await _client.dio.get('/plans');
+      final res = await _client.deduplicatedGet('/plans');
       if (res.data['plans'] is List && (res.data['plans'] as List).isNotEmpty) {
         final list = res.data['plans'] as List;
         await prefs.setString(_plansCacheKey, jsonEncode(list));
-        return list.map((p) => PlanModel.fromJson(p as Map<String, dynamic>)).toList();
+        final plans = list.map((p) => PlanModel.fromJson(p as Map<String, dynamic>)).toList();
+        _plansMemoryCache = plans;
+        _plansLastFetch = DateTime.now();
+        return plans;
       }
     } catch (_) {}
 

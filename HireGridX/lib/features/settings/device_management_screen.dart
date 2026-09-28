@@ -20,7 +20,7 @@ class DeviceManagementScreen extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text('Approve Device?', style: AppTextStyles.h2),
         content: Text(
-          'Request an admin verification token for "${device.deviceName}". Once approved, you can take tests on this device.',
+          'Request a verification approval for "${device.deviceName}". Once approved, you can take tests on this device.',
           style: AppTextStyles.bodyMd,
         ),
         actions: [

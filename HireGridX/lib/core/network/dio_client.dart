@@ -12,6 +12,9 @@ class DioClient {
   final TokenStorage _tokenStorage;
   OnUnauthorizedCallback? onUnauthorized;
 
+  // In-flight request deduplication map (prevents firing duplicate simultaneous requests)
+  final Map<String, Future<Response<dynamic>>> _inFlightRequests = {};
+
   DioClient(this._tokenStorage, {this.onUnauthorized}) {
     dio = Dio(
       BaseOptions(
@@ -22,26 +25,32 @@ class DioClient {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'X-Client-Platform': 'android',
+          'X-App-Version': '1.0.0',
+          'X-Requested-With': 'com.hiregridx.app',
         },
       ),
     );
 
-    dio.interceptors.add(
-      LogInterceptor(
-        request: true,
-        requestHeader: true,
-        requestBody: true,
-        responseHeader: false,
-        responseBody: true,
-        error: true,
-        logPrint: (obj) => debugPrint('[DIO] $obj'),
-      ),
-    );
+    // Only log in debug mode to prevent any credential/token leak in release logcat
+    if (kDebugMode) {
+      dio.interceptors.add(
+        LogInterceptor(
+          request: true,
+          requestHeader: true,
+          requestBody: false, // Never print sensitive bodies in console
+          responseHeader: false,
+          responseBody: false,
+          error: true,
+          logPrint: (obj) => debugPrint('[DIO] $obj'),
+        ),
+      );
+    }
 
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Public routes that don't need token
+          // Public routes that don't require token
           final publicPaths = [
             '/auth/signup',
             '/auth/login',
@@ -68,7 +77,7 @@ class DioClient {
             return handler.next(error);
           }
 
-          // Retry logic for network / serverless cold starts (300ms -> 700ms -> 1500ms)
+          // Retry logic with exponential backoff for network glitches & Render cold starts
           final requestOptions = error.requestOptions;
           final retryCount = requestOptions.extra['retryCount'] ?? 0;
 
@@ -80,9 +89,6 @@ class DioClient {
           if (isRetryable && retryCount < 3) {
             final backoffs = [300, 700, 1500];
             final delayMs = backoffs[retryCount];
-            if (kDebugMode) {
-              print('[DioClient] Retrying ${requestOptions.path} (attempt ${retryCount + 1}/3) after ${delayMs}ms');
-            }
 
             await Future.delayed(Duration(milliseconds: delayMs));
             requestOptions.extra['retryCount'] = retryCount + 1;
@@ -101,6 +107,34 @@ class DioClient {
         },
       ),
     );
+  }
+
+  // Deduplicated GET Request helper
+  Future<Response<T>> deduplicatedGet<T>(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final key = '$path?${queryParameters?.toString()}';
+    if (_inFlightRequests.containsKey(key)) {
+      return (await _inFlightRequests[key]!) as Response<T>;
+    }
+
+    final future = dio.get<T>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+
+    _inFlightRequests[key] = future;
+    try {
+      final res = await future;
+      return res;
+    } finally {
+      _inFlightRequests.remove(key);
+    }
   }
 
   // Centralized Error Mapper

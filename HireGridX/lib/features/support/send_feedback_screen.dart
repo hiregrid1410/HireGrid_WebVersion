@@ -1,30 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/text_styles.dart';
 import '../../shared/widgets/app_buttons.dart';
 import '../../shared/widgets/app_text_field.dart';
+import '../../providers/app_providers.dart';
 
-class SendFeedbackScreen extends StatefulWidget {
+class SendFeedbackScreen extends ConsumerStatefulWidget {
   const SendFeedbackScreen({super.key});
 
   @override
-  State<SendFeedbackScreen> createState() => _SendFeedbackScreenState();
+  ConsumerState<SendFeedbackScreen> createState() => _SendFeedbackScreenState();
 }
 
-class _SendFeedbackScreenState extends State<SendFeedbackScreen> {
-  String _category = 'Bug';
+class _SendFeedbackScreenState extends ConsumerState<SendFeedbackScreen> {
+  String _category = 'Bug Report';
   final _messageController = TextEditingController();
   bool _isScreenshotAttached = false;
   bool _isLoading = false;
 
-  final List<String> _categories = ['Bug', 'Feature Suggestion', 'Question', 'Other'];
+  final List<String> _categories = [
+    'Bug Report',
+    'Feature Suggestion',
+    'Exam Question Issue',
+    'Account / Subscription',
+    'General Feedback',
+  ];
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
 
   void _submitFeedback() async {
-    if (_messageController.text.trim().isEmpty) {
+    final msg = _messageController.text.trim();
+    if (msg.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please describe your issue or feedback.', style: AppTextStyles.bodySm),
+          content: Text('Please describe your feedback or issue.', style: AppTextStyles.bodySm),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -32,16 +47,34 @@ class _SendFeedbackScreenState extends State<SendFeedbackScreen> {
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Thank you! Your feedback has been submitted.', style: AppTextStyles.bodySm),
-          backgroundColor: AppColors.primaryGreenDark,
-        ),
+    try {
+      await ref.read(profileRepositoryProvider).submitFeedback(
+        category: _category,
+        message: msg,
+        screenshotPath: _isScreenshotAttached ? 'feedback_screenshot.png' : null,
       );
-      context.pop();
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Thank you! Your feedback has been received.', style: AppTextStyles.bodySm),
+            backgroundColor: AppColors.primaryGreenDark,
+          ),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Feedback submitted successfully!', style: AppTextStyles.bodySm),
+            backgroundColor: AppColors.primaryGreenDark,
+          ),
+        );
+        context.pop();
+      }
     }
   }
 

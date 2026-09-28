@@ -252,12 +252,20 @@ class PlansScreen extends ConsumerWidget {
   }
 
   Widget _buildTrustItem(IconData icon, String text) {
-    return Column(
-      children: [
-        Icon(icon, color: AppColors.primaryGreen, size: 20),
-        const SizedBox(height: 4),
-        Text(text, style: AppTextStyles.label.copyWith(fontSize: 9, color: AppColors.textSecondary)),
-      ],
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: AppColors.primaryGreen, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.label.copyWith(fontSize: 9, color: AppColors.textSecondary),
+          ),
+        ],
+      ),
     );
   }
 }

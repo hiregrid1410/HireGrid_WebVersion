@@ -19,27 +19,37 @@ class AppShellScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentIndex = navigationShell.currentIndex;
 
-    return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceCard,
-          border: Border(
-            top: BorderSide(color: AppColors.borderSubtle, width: 1),
+    return PopScope(
+      canPop: currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // If not on Home (tab 0), pressing back returns to Home tab
+        if (currentIndex != 0) {
+          navigationShell.goBranch(0);
+        }
+      },
+      child: Scaffold(
+        body: navigationShell,
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceCard,
+            border: Border(
+              top: BorderSide(color: AppColors.borderSubtle, width: 1),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home', currentIndex),
-                _buildNavItem(1, Icons.menu_book_rounded, Icons.menu_book_outlined, 'Learn', currentIndex),
-                _buildNavItem(2, Icons.flag_rounded, Icons.flag_outlined, 'Missions', currentIndex),
-                _buildNavItem(3, Icons.workspace_premium_rounded, Icons.workspace_premium_outlined, 'Plans', currentIndex),
-                _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Profile', currentIndex),
-              ],
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home', currentIndex),
+                  _buildNavItem(1, Icons.menu_book_rounded, Icons.menu_book_outlined, 'Learn', currentIndex),
+                  _buildNavItem(2, Icons.flag_rounded, Icons.flag_outlined, 'Missions', currentIndex),
+                  _buildNavItem(3, Icons.workspace_premium_rounded, Icons.workspace_premium_outlined, 'Plans', currentIndex),
+                  _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Profile', currentIndex),
+                ],
+              ),
             ),
           ),
         ),

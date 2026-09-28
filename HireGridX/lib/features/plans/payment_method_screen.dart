@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
@@ -6,28 +7,64 @@ import '../../core/theme/text_styles.dart';
 import '../../shared/widgets/app_buttons.dart';
 import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/utility_widgets.dart';
+import '../../providers/app_providers.dart';
 
-class PaymentMethodScreen extends StatefulWidget {
+class PaymentMethodScreen extends ConsumerStatefulWidget {
   final String planId;
 
   const PaymentMethodScreen({super.key, required this.planId});
 
   @override
-  State<PaymentMethodScreen> createState() => _PaymentMethodScreenState();
+  ConsumerState<PaymentMethodScreen> createState() => _PaymentMethodScreenState();
 }
 
-class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
+class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
   int _selectedMethod = 0; // 0: UPI, 1: Card, 2: NetBanking
   final _utrController = TextEditingController();
   bool _isProofUploaded = false;
   bool _isLoading = false;
 
+  @override
+  void dispose() {
+    _utrController.dispose();
+    super.dispose();
+  }
+
   void _submitPaymentProof() async {
+    final utr = _utrController.text.trim();
+    if (utr.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter your UTR / Transaction ID', style: AppTextStyles.bodySm),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    if (mounted) {
-      setState(() => _isLoading = false);
-      context.push('/plans/status?planId=${widget.planId}');
+    try {
+      await ref.read(planRepositoryProvider).submitPaymentProof(
+        planId: widget.planId,
+        transactionId: utr,
+        screenshotPath: _isProofUploaded ? 'payment_proof.jpg' : '',
+        paymentMethod: _selectedMethod == 0 ? 'UPI' : 'Card',
+      );
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        context.push('/plans/status?planId=${widget.planId}');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error submitting payment: $e', style: AppTextStyles.bodySm),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
     }
   }
 
@@ -61,12 +98,12 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Premium Plan (3 Months)', style: AppTextStyles.h3),
+                        Text('Premium Membership Access', style: AppTextStyles.h3),
                         const SizedBox(height: 2),
-                        Text('Access to 20+ Companies & Tests', style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary)),
+                        Text('Full Company Exams & Placement Missions', style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary)),
                       ],
                     ),
-                    Text('₹1,499', style: AppTextStyles.h2.copyWith(color: AppColors.primaryGreen, fontWeight: FontWeight.w800)),
+                    Text('₹199', style: AppTextStyles.h2.copyWith(color: AppColors.primaryGreen, fontWeight: FontWeight.w800)),
                   ],
                 ),
               ).animate().fadeIn(duration: 400.ms),
@@ -158,7 +195,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                 ),
                 const SizedBox(height: 14),
 
-                // Screenshot Picker UI Mock
+                // Screenshot Picker UI
                 InkWell(
                   borderRadius: BorderRadius.circular(14),
                   onTap: () {

@@ -7,7 +7,6 @@ import '../../core/theme/text_styles.dart';
 import '../../shared/widgets/brand_logo.dart';
 import '../../shared/widgets/app_buttons.dart';
 import '../../shared/widgets/app_text_field.dart';
-import '../../data/repositories/app_repositories.dart';
 import '../../providers/app_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -18,8 +17,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailController = TextEditingController(text: 'jevin@example.com');
-  final _passwordController = TextEditingController(text: 'password123');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
 
   void _showDeviceApprovalDialog(String message) {
@@ -36,7 +35,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ],
         ),
         content: Text(
-          '$message\n\nA device approval request has been submitted. Please contact your Super Admin or login on your verified primary device.',
+          '$message\n\nA device approval request has been submitted. Please contact platform support or login on your verified primary device.',
           style: AppTextStyles.bodyMd.copyWith(height: 1.5),
         ),
         actions: [
@@ -72,7 +71,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ref.read(currentUserProvider.notifier).setUser(user);
-        if (user.branch == null || user.branch!.isEmpty) {
+        if (user.branch.isEmpty) {
           context.go('/branch-selection');
         } else {
           context.go('/home');
@@ -170,27 +169,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 isLoading: _isLoading,
                 onPressed: _handleLogin,
               ).animate().fadeIn(delay: 350.ms),
-              const SizedBox(height: 20),
-
-              // Divider
-              Row(
-                children: [
-                  const Expanded(child: Divider()),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('or', style: AppTextStyles.bodySm.copyWith(color: AppColors.textMuted)),
-                  ),
-                  const Expanded(child: Divider()),
-                ],
-              ).animate().fadeIn(delay: 400.ms),
-              const SizedBox(height: 20),
-
-              // Google Button
-              SocialButton(
-                text: 'Continue with Google',
-                onPressed: _handleLogin,
-              ).animate().fadeIn(delay: 450.ms),
-              const SizedBox(height: 36),
+              const SizedBox(height: 32),
 
               // Footer Sign Up Link
               Center(

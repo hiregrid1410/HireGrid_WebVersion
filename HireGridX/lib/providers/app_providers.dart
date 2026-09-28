@@ -186,6 +186,14 @@ final subjectsProvider = FutureProvider<List<SubjectModel>>((ref) async {
   return ref.watch(moduleRepositoryProvider).getSubjectsByBranch(branchId);
 });
 
+final subjectsByBranchProvider = FutureProvider.family<List<SubjectModel>, String>((ref, branchId) async {
+  return ref.watch(moduleRepositoryProvider).getSubjectsByBranch(branchId);
+});
+
+final modulesBySubjectProvider = FutureProvider.family<List<ModuleModel>, String>((ref, subjectId) async {
+  return ref.watch(moduleRepositoryProvider).getModules(subjectId: subjectId);
+});
+
 final modulesListProvider = FutureProvider.family<List<ModuleModel>, String?>((ref, category) async {
   return ref.watch(moduleRepositoryProvider).getModules(category: category);
 });

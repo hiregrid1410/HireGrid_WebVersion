@@ -1,14 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/text_styles.dart';
-import '../../core/constants/dummy_assets.dart';
-import '../../shared/widgets/brand_logo.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/app_colors.dart';
+import '../../shared/widgets/brand_logo.dart';
 import '../../providers/app_providers.dart';
 import '../../core/network/api_config.dart';
+import 'package:dio/dio.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -21,112 +19,54 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _navigateNext();
+    _triggerWarmUp();
+    _checkSessionAndNavigate();
   }
 
-  Future<void> _navigateNext() async {
-    await Future.delayed(const Duration(milliseconds: 1800));
+  /// Fire-and-forget lightweight request to wake up Render + Neon compute in parallel
+  void _triggerWarmUp() {
+    unawaited(
+      Dio(
+        BaseOptions(
+          baseUrl: ApiConfig.baseUrl,
+          connectTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+        ),
+      ).get('/branches/active').catchError((_) {
+        // Silent catch: just a warm-up ping
+        return Response(requestOptions: RequestOptions(path: '/branches/active'));
+      }),
+    );
+  }
+
+  Future<void> _checkSessionAndNavigate() async {
+    // Parallelize local token read and short minimum splash time
+    final results = await Future.wait([
+      ref.read(tokenStorageProvider).readToken(),
+      Future.delayed(const Duration(milliseconds: 1200)),
+    ]);
+
     if (!mounted) return;
 
-    final token = await ref.read(tokenStorageProvider).readToken();
+    final token = results[0] as String?;
     if (token != null && token.isNotEmpty) {
-      // Warm up user in background
+      // Warm up user profile in background
       ref.read(currentUserProvider.notifier).loadUser();
-      if (mounted) context.go('/home');
+      context.go('/home');
     } else {
-      if (mounted) context.go('/login');
+      context.go('/login');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: AppColors.heroBlueGreenGradient,
-        ),
-        child: Stack(
-          children: [
-            // Mountain Background Silhouette
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 220,
-              child: CustomPaint(
-                painter: MountainSilhouettePainter(
-                  primaryColor: AppColors.primaryGreenDark,
-                  secondaryColor: AppColors.deepBlueSlate,
-                  opacity: 0.6,
-                ),
-              ),
-            ),
-            SafeArea(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Spacer(),
-                      // Brand Logo & Animation
-                      const HireGridLogo(
-                        size: 72,
-                        subtitle: 'Learn · Practice · Get Placed',
-                      )
-                          .animate()
-                          .fadeIn(duration: 800.ms)
-                          .scale(begin: const Offset(0.85, 0.85), end: const Offset(1, 1), curve: Curves.easeOutBack),
-                      const SizedBox(height: 32),
-                      // Tagline Banner
-                      Text(
-                        'Better Skills, Bigger Opportunities\nYour Future, Our Mission',
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMd.copyWith(
-                          color: AppColors.textSecondary,
-                          height: 1.6,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ).animate().fadeIn(delay: 500.ms, duration: 600.ms),
-                      const Spacer(),
-                      // Active Backend Host Banner (debug indicator)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black45,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.borderSubtle),
-                        ),
-                        child: Text(
-                          'Backend: ${ApiConfig.baseUrl}',
-                          style: AppTextStyles.label.copyWith(color: AppColors.textMuted, fontSize: 10),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Subtle loader / indicator dots
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(3, (index) {
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            width: index == 0 ? 20 : 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: index == 0 ? AppColors.primaryGreen : AppColors.borderSubtle,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          );
-                        }),
-                      ).animate().fadeIn(delay: 800.ms),
-                      const SizedBox(height: 48),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+    return const Scaffold(
+      backgroundColor: AppColors.bgBase,
+      body: Center(
+        child: HireGridLogo(
+          size: 72,
+          showText: true,
+          subtitle: null,
         ),
       ),
     );

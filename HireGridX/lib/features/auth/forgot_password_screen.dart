@@ -16,7 +16,7 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
-  final _emailController = TextEditingController(text: 'student@hiregrid.in');
+  final _emailController = TextEditingController();
   bool _isSent = false;
   bool _isLoading = false;
 
