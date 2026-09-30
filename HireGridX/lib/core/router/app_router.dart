@@ -36,6 +36,11 @@ import '../../features/exam/exam_screen.dart';
 import '../../features/exam/exam_result_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+final GlobalKey<NavigatorState> _homeNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'homeBranch');
+final GlobalKey<NavigatorState> _learnNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'learnBranch');
+final GlobalKey<NavigatorState> _missionsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'missionsBranch');
+final GlobalKey<NavigatorState> _plansNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'plansBranch');
+final GlobalKey<NavigatorState> _profileNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'profileBranch');
 
 final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
@@ -77,6 +82,7 @@ final appRouter = GoRouter(
       branches: [
         // Tab 0: Home / Dashboard
         StatefulShellBranch(
+          navigatorKey: _homeNavigatorKey,
           routes: [
             GoRoute(
               path: '/home',
@@ -87,6 +93,7 @@ final appRouter = GoRouter(
 
         // Tab 1: Learn
         StatefulShellBranch(
+          navigatorKey: _learnNavigatorKey,
           routes: [
             GoRoute(
               path: '/learn',
@@ -107,6 +114,7 @@ final appRouter = GoRouter(
 
         // Tab 2: Missions & Leaderboard
         StatefulShellBranch(
+          navigatorKey: _missionsNavigatorKey,
           routes: [
             GoRoute(
               path: '/missions',
@@ -127,6 +135,7 @@ final appRouter = GoRouter(
 
         // Tab 3: Plans & Pricing
         StatefulShellBranch(
+          navigatorKey: _plansNavigatorKey,
           routes: [
             GoRoute(
               path: '/plans',
@@ -155,6 +164,7 @@ final appRouter = GoRouter(
 
         // Tab 4: Profile
         StatefulShellBranch(
+          navigatorKey: _profileNavigatorKey,
           routes: [
             GoRoute(
               path: '/profile',
@@ -180,12 +190,10 @@ final appRouter = GoRouter(
     // Companies Sub-stack
     GoRoute(
       path: '/companies',
-      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const CompaniesScreen(),
       routes: [
         GoRoute(
           path: ':id',
-          parentNavigatorKey: _rootNavigatorKey,
           builder: (context, state) {
             final id = state.pathParameters['id'] ?? 'tcs';
             return CompanyDetailScreen(companyId: id);
@@ -197,17 +205,14 @@ final appRouter = GoRouter(
     // Settings Sub-stack
     GoRoute(
       path: '/settings',
-      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const SettingsScreen(),
       routes: [
         GoRoute(
           path: 'devices',
-          parentNavigatorKey: _rootNavigatorKey,
           builder: (context, state) => const DeviceManagementScreen(),
         ),
         GoRoute(
           path: 'branch',
-          parentNavigatorKey: _rootNavigatorKey,
           builder: (context, state) => const BranchSelectionScreen(isFromSettings: true),
         ),
       ],
@@ -216,12 +221,10 @@ final appRouter = GoRouter(
     // Support Sub-stack
     GoRoute(
       path: '/support',
-      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const HelpSupportScreen(),
       routes: [
         GoRoute(
           path: 'feedback',
-          parentNavigatorKey: _rootNavigatorKey,
           builder: (context, state) => const SendFeedbackScreen(),
         ),
       ],
@@ -230,19 +233,16 @@ final appRouter = GoRouter(
     // Notifications & Motivation
     GoRoute(
       path: '/notifications',
-      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const NotificationsScreen(),
     ),
     GoRoute(
       path: '/motivation',
-      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const MotivationEndScreen(),
     ),
 
     // Full Screen Exam Engine
     GoRoute(
       path: '/exam/:attemptId',
-      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final attemptId = state.pathParameters['attemptId'] ?? 'att_1';
         return ExamScreen(attemptId: attemptId);
@@ -250,7 +250,6 @@ final appRouter = GoRouter(
       routes: [
         GoRoute(
           path: 'result',
-          parentNavigatorKey: _rootNavigatorKey,
           builder: (context, state) {
             final attemptId = state.pathParameters['attemptId'] ?? 'att_1';
             return ExamResultScreen(attemptId: attemptId);
