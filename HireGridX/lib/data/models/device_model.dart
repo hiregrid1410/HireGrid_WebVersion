@@ -41,7 +41,9 @@ class NotificationModel {
   final String message;
   final String timeAgo;
   final bool isRead;
-  final String type; // mission, xp, payment, system
+  final String type; // revision_day1, revision_day3, revision_day7, revision_monthend, mission, xp, payment, system
+  final String? topicId;
+  final String? moduleId;
 
   const NotificationModel({
     required this.id,
@@ -50,7 +52,11 @@ class NotificationModel {
     required this.timeAgo,
     this.isRead = false,
     required this.type,
+    this.topicId,
+    this.moduleId,
   });
+
+  bool get isRevision => type.startsWith('revision');
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
@@ -58,8 +64,10 @@ class NotificationModel {
       title: json['title']?.toString() ?? 'Notification',
       message: json['message']?.toString() ?? '',
       timeAgo: 'Recently',
-      isRead: json['isRead'] == true,
+      isRead: json['isRead'] == true || json['is_read'] == true,
       type: json['type']?.toString() ?? 'system',
+      topicId: json['topicId']?.toString() ?? json['topic_id']?.toString(),
+      moduleId: json['moduleId']?.toString() ?? json['module_id']?.toString(),
     );
   }
 }

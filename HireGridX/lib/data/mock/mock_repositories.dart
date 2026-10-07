@@ -112,7 +112,16 @@ class MockModuleRepository implements ModuleRepository {
   }
 
   @override
-  Future<List<ModuleModel>> getModules({String? category, String? subjectId}) async {
+  Future<List<TopicModel>> getTopicsBySubject(String subjectId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return [
+      TopicModel(id: 'top_1', name: 'Fundamentals', parentId: subjectId, type: 'general_topic', totalModules: 3),
+      TopicModel(id: 'top_2', name: 'Advanced Concepts', parentId: subjectId, type: 'general_topic', totalModules: 2),
+    ];
+  }
+
+  @override
+  Future<List<ModuleModel>> getModules({String? category, String? subjectId, String? topicId}) async {
     await Future.delayed(const Duration(milliseconds: 500));
     if (category != null && category != 'All') {
       return MockData.modules.where((m) => m.category.toLowerCase() == category.toLowerCase()).toList();
@@ -167,13 +176,17 @@ class MockExamRepository implements ExamRepository {
     required Map<String, String?> answers,
     required int timeTakenSeconds,
     int? violationCount,
+    List<QuestionModel>? questions,
+    String? testTitle,
   }) async {
     await Future.delayed(const Duration(milliseconds: 800));
     int correct = 0;
     int wrong = 0;
     int unattempted = 0;
 
-    for (final q in MockData.sampleQuestions) {
+    final qList = (questions != null && questions.isNotEmpty) ? questions : MockData.sampleQuestions;
+
+    for (final q in qList) {
       final ans = answers[q.id];
       if (ans == null) {
         unattempted++;
@@ -184,13 +197,13 @@ class MockExamRepository implements ExamRepository {
       }
     }
 
-    final total = MockData.sampleQuestions.length;
+    final total = qList.length;
     final score = total > 0 ? (correct / total) * 100 : 0.0;
     final accuracy = (correct + wrong) > 0 ? ((correct / (correct + wrong)) * 100).round() : 0;
 
     return ExamResultModel(
       attemptId: attemptId,
-      testTitle: 'TCS - Reasoning Test',
+      testTitle: testTitle ?? 'Assessment Test',
       scorePercentage: score,
       accuracyPercentage: accuracy,
       correctCount: correct,
@@ -200,7 +213,7 @@ class MockExamRepository implements ExamRepository {
       xpEarned: (correct * 20) + (score >= 60 ? 50 : 0),
       isPassed: score >= 60,
       userAnswers: answers,
-      questions: MockData.sampleQuestions,
+      questions: qList,
     );
   }
 

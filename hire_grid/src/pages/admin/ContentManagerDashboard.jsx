@@ -22,7 +22,8 @@ import {
   SlidersHorizontal,
   Info,
   CheckCircle,
-  FileText
+  FileText,
+  RotateCcw
 } from "lucide-react";
 import { AdminCompaniesTab } from "../../components/admin/AdminCompaniesTab";
 import { HierarchyBuilder } from "../../components/admin/HierarchyBuilder";
@@ -723,9 +724,6 @@ export default function ContentManagerDashboard() {
                 <AdminBranchesTab isContentManager={true} userName={userName} />
               </div>
             )}
-
-
-
             {activeTab === "profile" && (
               <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-6 animate-in fade-in duration-300 shadow-lg">
                 <div className="flex flex-col items-center text-center space-y-4">

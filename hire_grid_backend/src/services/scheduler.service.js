@@ -80,16 +80,20 @@ const cleanupExpiredOtps = async () => {
   }
 };
 
+const { processDueRevisions } = require("../../controllers/revisionController");
+
 const startScheduler = () => {
-  console.log("[SCHEDULER] Initializing Daily Leaderboard Job Scheduler (Asia/Kolkata timezone).");
+  console.log("[SCHEDULER] Initializing Daily Leaderboard and Spaced-Repetition Revision Scheduler (Asia/Kolkata timezone).");
   
   setTimeout(() => {
     runLeaderboardJob();
     cleanupExpiredOtps();
+    processDueRevisions();
   }, 5000);
 
   setInterval(() => {
     runLeaderboardJob();
+    processDueRevisions();
   }, 5 * 60 * 1000);
 
   // Run OTP cleanup once every hour
@@ -101,5 +105,6 @@ const startScheduler = () => {
 module.exports = {
   startScheduler,
   runLeaderboardJob,
-  cleanupExpiredOtps
+  cleanupExpiredOtps,
+  processDueRevisions
 };

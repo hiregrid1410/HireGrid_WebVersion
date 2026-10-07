@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const dataController = require("../controllers/dataController");
 const parseController = require("../controllers/parseController");
+const revisionController = require("../controllers/revisionController");
 const authMiddleware = require("../middlewares/authMiddleware");
 const { apiRateLimiter, sensitiveActionRateLimiter } = require("../middlewares/securityMiddleware");
 
@@ -26,6 +27,8 @@ router.post("/parse-mcq", parseController.parseMcq);
 router.post("/attempts/start", sensitiveActionRateLimiter, dataController.startExamAttempt);
 router.post("/attempts/:id/sync", dataController.syncExamAttempt);
 router.post("/attempts/:id/submit", sensitiveActionRateLimiter, dataController.submitExamAttempt);
+router.get("/attempts/:id/review", dataController.getExamAttemptReview);
+router.get("/attempts/:id", dataController.getExamAttemptReview);
 
 // Security Logs
 router.post("/security-logs", dataController.logSecurityEvent);
@@ -127,9 +130,17 @@ router.post("/feedbacks", dataController.createFeedback);
 router.delete("/feedbacks/:id", dataController.deleteFeedback);
 
 // Notifications, Purchases, Audit Logs
-router.get("/notifications", dataController.getNotifications);
+router.get("/notifications", revisionController.getStudentNotifications);
+router.patch("/notifications/:id/read", revisionController.markNotificationRead);
 router.get("/purchases", dataController.getPurchases);
 router.get("/audit-logs", dataController.getAuditLogs);
 router.get("/audit_logs", dataController.getAuditLogs);
+
+// Revision Module System
+router.get("/admin/revision-questions", revisionController.getAdminRevisionQuestions);
+router.post("/admin/revision-questions", revisionController.saveAdminRevisionQuestion);
+router.delete("/admin/revision-questions/:id", revisionController.deleteAdminRevisionQuestion);
+router.post("/revisions/complete-topic", revisionController.completeTopic);
+router.post("/revisions/start/:topicId", revisionController.startRevisionTest);
 
 module.exports = router;

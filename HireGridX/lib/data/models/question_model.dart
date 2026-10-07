@@ -1,11 +1,13 @@
 class QuestionOption {
   final String id;
+  final String label;
   final String text;
 
   const QuestionOption({
     required this.id,
+    String? label,
     required this.text,
-  });
+  }) : label = label ?? id;
 }
 
 class QuestionModel {
@@ -25,36 +27,54 @@ class QuestionModel {
     required this.explanation,
   });
 
+  QuestionModel copyWith({
+    String? id,
+    int? index,
+    String? questionText,
+    List<QuestionOption>? options,
+    String? correctOptionId,
+    String? explanation,
+  }) {
+    return QuestionModel(
+      id: id ?? this.id,
+      index: index ?? this.index,
+      questionText: questionText ?? this.questionText,
+      options: options ?? this.options,
+      correctOptionId: correctOptionId ?? this.correctOptionId,
+      explanation: explanation ?? this.explanation,
+    );
+  }
+
   factory QuestionModel.fromBackendJson(Map<String, dynamic> json, int idx, {String? correctKey}) {
     final opts = json['options'];
     List<QuestionOption> parsedOptions = [];
+    final labels = ['A', 'B', 'C', 'D', 'E', 'F'];
 
     if (opts is List) {
-      final labels = ['A', 'B', 'C', 'D', 'E', 'F'];
       for (int i = 0; i < opts.length; i++) {
         final optLabel = (i < labels.length) ? labels[i] : '$i';
         parsedOptions.add(QuestionOption(
-          id: optLabel,
+          id: '$i',
+          label: optLabel,
           text: opts[i]?.toString() ?? '',
         ));
       }
     } else if (opts is Map) {
+      int i = 0;
       opts.forEach((k, v) {
+        final optLabel = (i < labels.length) ? labels[i] : k.toString();
         parsedOptions.add(QuestionOption(
           id: k.toString(),
+          label: optLabel,
           text: v.toString(),
         ));
+        i++;
       });
     }
 
     String correctId = correctKey ?? '';
     if (correctId.isEmpty && json['correctAnswerIndex'] != null) {
-      final idxVal = json['correctAnswerIndex'];
-      if (idxVal is int && idxVal >= 0 && idxVal < parsedOptions.length) {
-        correctId = parsedOptions[idxVal].id;
-      } else {
-        correctId = idxVal.toString();
-      }
+      correctId = json['correctAnswerIndex'].toString();
     }
 
     return QuestionModel(
@@ -63,7 +83,7 @@ class QuestionModel {
       questionText: json['question']?.toString() ?? 'Question $idx',
       options: parsedOptions,
       correctOptionId: correctId,
-      explanation: json['explanation']?.toString() ?? 'Official step-by-step solution.',
+      explanation: json['explanation']?.toString() ?? 'Official step-by-step solution provided for this problem.',
     );
   }
 }

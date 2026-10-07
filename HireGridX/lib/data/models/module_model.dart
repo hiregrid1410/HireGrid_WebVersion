@@ -199,3 +199,30 @@ class SubjectModel {
     );
   }
 }
+
+class TopicModel {
+  final String id;
+  final String name;
+  final String parentId;
+  final String type;
+  final int totalModules;
+
+  const TopicModel({
+    required this.id,
+    required this.name,
+    required this.parentId,
+    required this.type,
+    this.totalModules = 0,
+  });
+
+  factory TopicModel.fromJson(Map<String, dynamic> json) {
+    return TopicModel(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? json['title']?.toString() ?? 'Topic',
+      parentId: json['parentId']?.toString() ?? json['parent_id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'general_topic',
+      totalModules: (json['moduleCount'] is num) ? (json['moduleCount'] as num).toInt() : 0,
+    );
+  }
+}
+

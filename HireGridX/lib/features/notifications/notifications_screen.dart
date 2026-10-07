@@ -66,7 +66,10 @@ class NotificationsScreen extends ConsumerWidget {
                 IconData icon = Icons.notifications_outlined;
                 Color iconCol = AppColors.primaryGreen;
 
-                if (notif.type == 'mission') {
+                if (notif.isRevision || notif.type.startsWith('revision')) {
+                  icon = Icons.auto_stories_rounded;
+                  iconCol = const Color(0xFF10B981); // Emerald
+                } else if (notif.type == 'mission') {
                   icon = Icons.military_tech_rounded;
                   iconCol = AppColors.accentYellow;
                 } else if (notif.type == 'xp') {
@@ -77,57 +80,95 @@ class NotificationsScreen extends ConsumerWidget {
                   iconCol = AppColors.primaryGreen;
                 }
 
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: notif.isRead ? AppColors.surfaceCard : AppColors.surfaceCardElevated,
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: notif.isRead ? AppColors.borderSubtle : AppColors.primaryGreen.withOpacity(0.4),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: iconCol.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
+                    onTap: () {
+                      if (notif.topicId != null && notif.topicId!.isNotEmpty) {
+                        context.push('/exam/rev_${notif.topicId}');
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: notif.isRead ? AppColors.surfaceCard : AppColors.surfaceCardElevated,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: notif.isRead ? AppColors.borderSubtle : AppColors.primaryGreen.withOpacity(0.4),
                         ),
-                        child: Icon(icon, color: iconCol, size: 20),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: iconCol.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(icon, color: iconCol, size: 20),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        notif.title,
+                                        style: AppTextStyles.bodyMd.copyWith(
+                                          fontWeight: notif.isRead ? FontWeight.w600 : FontWeight.w700,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      notif.timeAgo,
+                                      style: AppTextStyles.bodySm.copyWith(color: AppColors.textMuted, fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
                                 Text(
-                                  notif.title,
-                                  style: AppTextStyles.bodyMd.copyWith(
-                                    fontWeight: notif.isRead ? FontWeight.w600 : FontWeight.w700,
-                                    color: AppColors.textPrimary,
+                                  notif.message,
+                                  style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                                ),
+                                if (notif.topicId != null && notif.topicId!.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryGreen.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.play_arrow_rounded, color: AppColors.primaryGreen, size: 14),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Start Revision Test',
+                                          style: AppTextStyles.label.copyWith(
+                                            color: AppColors.primaryGreen,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  notif.timeAgo,
-                                  style: AppTextStyles.bodySm.copyWith(color: AppColors.textMuted, fontSize: 11),
-                                ),
+                                ],
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              notif.message,
-                              style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ).animate().fadeIn(delay: (index * 50).ms);
               },

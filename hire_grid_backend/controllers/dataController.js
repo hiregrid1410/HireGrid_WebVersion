@@ -2339,10 +2339,18 @@ exports.submitExamAttempt = async (req, res) => {
       }
     }
 
-    // 6. Update attempt status
+    // 6. Update attempt status and store answers
+    const answersToStore = {
+      ...(attempt.answers || {}),
+      ...(answers || {}),
+      _score: scorePercentage,
+      _correctCount: correctCount,
+      _totalQuestions: dbQuestions.length,
+      _xpEarned: xpEarned
+    };
     await client.query(
-      "UPDATE exam_attempts SET status = 'submitted', last_activity = $1 WHERE id = $2",
-      [Date.now(), id]
+      "UPDATE exam_attempts SET status = 'submitted', last_activity = $1, answers = $2 WHERE id = $3",
+      [Date.now(), JSON.stringify(answersToStore), id]
     );
 
     await client.query("COMMIT");
@@ -2367,6 +2375,85 @@ exports.submitExamAttempt = async (req, res) => {
     client.release();
     console.error("Submit exam attempt error:", err);
     res.status(500).json({ error: "Failed to submit and grade exam." });
+  }
+};
+
+// Review an existing exam attempt
+exports.getExamAttemptReview = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user ? req.user.id : null;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Authentication required." });
+  }
+
+  try {
+    const attemptRes = await pool.query(
+      "SELECT * FROM exam_attempts WHERE id = $1 AND user_id = $2",
+      [id, userId]
+    );
+
+    if (attemptRes.rows.length === 0) {
+      return res.status(404).json({ error: "Exam session not found." });
+    }
+
+    const attempt = attemptRes.rows[0];
+    const moduleId = attempt.module_id;
+
+    // Fetch module info
+    const modRes = await pool.query("SELECT * FROM modules WHERE id = $1", [moduleId]);
+    const moduleTitle = modRes.rows.length > 0 ? modRes.rows[0].title : "Assessment Test";
+
+    // Fetch questions with correct answers and explanations
+    let questionsRes = await pool.query(
+      `SELECT q.id, q.question, q.options, q.correct_answer_index AS "correctAnswerIndex", q.svg_code AS "svgCode", q.explanation, eq.question_order AS "displayOrder"
+       FROM questions q
+       INNER JOIN exam_questions eq ON q.id = eq.question_id
+       WHERE eq.exam_id = $1`,
+      [moduleId]
+    );
+    if (questionsRes.rows.length === 0) {
+      questionsRes = await pool.query(
+        `SELECT id, question, options, correct_answer_index AS "correctAnswerIndex", svg_code AS "svgCode", explanation, display_order AS "displayOrder"
+         FROM questions
+         WHERE module_id = $1`,
+        [moduleId]
+      );
+    }
+
+    let questionsList = questionsRes.rows;
+    const answers = attempt.answers || {};
+    const shuffledQuestionIds = answers._question_order || [];
+
+    if (shuffledQuestionIds.length > 0) {
+      const qMap = new Map(questionsList.map(q => [q.id, q]));
+      questionsList = shuffledQuestionIds
+        .map(qid => qMap.get(qid))
+        .filter(q => q !== undefined);
+    }
+
+    const correctAnswersMap = {};
+    questionsList.forEach(q => {
+      correctAnswersMap[q.id] = q.correctAnswerIndex;
+    });
+
+    res.json({
+      success: true,
+      attemptId: attempt.id,
+      moduleId,
+      testTitle: moduleTitle,
+      status: attempt.status,
+      score: answers._score !== undefined ? answers._score : 0,
+      correctCount: answers._correctCount !== undefined ? answers._correctCount : 0,
+      totalQuestions: questionsList.length,
+      xpEarned: answers._xpEarned !== undefined ? answers._xpEarned : 0,
+      userAnswers: answers,
+      correctAnswers: correctAnswersMap,
+      questions: questionsList
+    });
+  } catch (err) {
+    console.error("getExamAttemptReview error:", err);
+    res.status(500).json({ error: "Failed to fetch exam review." });
   }
 };
 

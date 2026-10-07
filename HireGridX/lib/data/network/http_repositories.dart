@@ -314,6 +314,8 @@ class HttpModuleRepository implements ModuleRepository {
 
   HttpModuleRepository(this._client);
 
+  final Map<String, List<TopicModel>> _topicsMemoryCache = {};
+
   @override
   Future<List<BranchModel>> getBranches({bool forceRefresh = false}) async {
     if (!forceRefresh && _branchesMemoryCache != null && _branchesLastFetch != null) {
@@ -325,25 +327,51 @@ class HttpModuleRepository implements ModuleRepository {
     final prefs = await SharedPreferences.getInstance();
 
     try {
-      final res = await _client.deduplicatedGet('/hierarchy-nodes', queryParameters: {'where_type': '==:general_branch'});
-      if (res.data['nodes'] is List && (res.data['nodes'] as List).isNotEmpty) {
-        final list = res.data['nodes'] as List;
-        await prefs.setString(_branchesCacheKey, jsonEncode(list));
-        final branches = list.map((b) => BranchModel.fromJson(b as Map<String, dynamic>)).toList();
-        _branchesMemoryCache = branches;
-        _branchesLastFetch = DateTime.now();
-        return branches;
+      final List<BranchModel> combinedBranches = [];
+      final Set<String> seenKeys = {};
+
+      // 1. Fetch root hierarchy branch nodes matching website's StudentHierarchyView
+      try {
+        final res = await _client.deduplicatedGet('/hierarchy-nodes');
+        if (res.data['nodes'] is List) {
+          final nodes = res.data['nodes'] as List;
+          for (final b in nodes) {
+            final map = b as Map<String, dynamic>;
+            final parentId = map['parentId'] ?? map['parent_id'];
+            final type = map['type']?.toString();
+            final isRoot = parentId == null || parentId.toString().isEmpty || parentId == 'null';
+            if (isRoot && (type == 'general_branch' || type == null || type.isEmpty)) {
+              final bm = BranchModel.fromJson(map);
+              final key = bm.name.trim().toUpperCase();
+              if (seenKeys.add(key)) {
+                combinedBranches.add(bm);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+
+      // 2. Fallback to /branches/active only if hierarchy nodes are empty
+      if (combinedBranches.isEmpty) {
+        try {
+          final bRes = await _client.deduplicatedGet('/branches/active');
+          if (bRes.data['branches'] is List) {
+            for (final b in bRes.data['branches'] as List) {
+              final bm = BranchModel.fromJson(b as Map<String, dynamic>);
+              final key = bm.name.trim().toUpperCase();
+              if (seenKeys.add(key)) {
+                combinedBranches.add(bm);
+              }
+            }
+          }
+        } catch (_) {}
       }
 
-      // Fallback to null parentId if where_type returns empty
-      final fallbackRes = await _client.deduplicatedGet('/hierarchy-nodes', queryParameters: {'where_parentId': '==:null'});
-      if (fallbackRes.data['nodes'] is List && (fallbackRes.data['nodes'] as List).isNotEmpty) {
-        final list = fallbackRes.data['nodes'] as List;
-        await prefs.setString(_branchesCacheKey, jsonEncode(list));
-        final branches = list.map((b) => BranchModel.fromJson(b as Map<String, dynamic>)).toList();
-        _branchesMemoryCache = branches;
+      if (combinedBranches.isNotEmpty) {
+        await prefs.setString(_branchesCacheKey, jsonEncode(combinedBranches.map((b) => b.toJson()).toList()));
+        _branchesMemoryCache = combinedBranches;
         _branchesLastFetch = DateTime.now();
-        return branches;
+        return combinedBranches;
       }
     } catch (e) {
       if (_branchesMemoryCache != null) return _branchesMemoryCache!;
@@ -384,8 +412,32 @@ class HttpModuleRepository implements ModuleRepository {
   }
 
   @override
-  Future<List<ModuleModel>> getModules({String? category, String? subjectId, bool forceRefresh = false}) async {
-    final cacheKey = '${category ?? "all"}_${subjectId ?? "all"}';
+  Future<List<TopicModel>> getTopicsBySubject(String subjectId, {bool forceRefresh = false}) async {
+    if (!forceRefresh && _topicsMemoryCache.containsKey(subjectId)) {
+      return _topicsMemoryCache[subjectId]!;
+    }
+
+    try {
+      final res = await _client.deduplicatedGet('/hierarchy-nodes', queryParameters: {'where_parentId': '==:$subjectId'});
+      if (res.data['nodes'] is List) {
+        final list = res.data['nodes'] as List;
+        final topics = list.map((t) => TopicModel.fromJson(t as Map<String, dynamic>)).toList();
+        _topicsMemoryCache[subjectId] = topics;
+        return topics;
+      }
+    } catch (e) {
+      if (_topicsMemoryCache.containsKey(subjectId)) {
+        return _topicsMemoryCache[subjectId]!;
+      }
+      throw _client.mapDioException(e).message;
+    }
+    return [];
+  }
+
+  @override
+  Future<List<ModuleModel>> getModules({String? category, String? subjectId, String? topicId, bool forceRefresh = false}) async {
+    final parentFilter = topicId ?? subjectId;
+    final cacheKey = '${category ?? "all"}_${parentFilter ?? "all"}';
     if (!forceRefresh && _modulesMemoryCache.containsKey(cacheKey)) {
       return _modulesMemoryCache[cacheKey]!;
     }
@@ -395,14 +447,31 @@ class HttpModuleRepository implements ModuleRepository {
       if (category != null && category != 'All') {
         params['where_category'] = '==:$category';
       }
-      if (subjectId != null) {
-        params['where_parentId'] = '==:$subjectId';
+      if (parentFilter != null) {
+        params['where_parentId'] = '==:$parentFilter';
       }
 
       final res = await _client.deduplicatedGet('/modules', queryParameters: params);
       if (res.data['modules'] is List) {
         final list = res.data['modules'] as List;
         final modules = list.map((m) => ModuleModel.fromJson(m as Map<String, dynamic>)).toList();
+
+        // If direct modules were empty for a subject, try checking child topics to fetch modules under them
+        if (modules.isEmpty && subjectId != null && topicId == null) {
+          final topics = await getTopicsBySubject(subjectId);
+          if (topics.isNotEmpty) {
+            final List<ModuleModel> childModules = [];
+            for (final t in topics.take(5)) {
+              final tMods = await getModules(topicId: t.id);
+              childModules.addAll(tMods);
+            }
+            if (childModules.isNotEmpty) {
+              _modulesMemoryCache[cacheKey] = childModules;
+              return childModules;
+            }
+          }
+        }
+
         _modulesMemoryCache[cacheKey] = modules;
         return modules;
       }
@@ -459,6 +528,28 @@ class HttpExamRepository implements ExamRepository {
   @override
   Future<AttemptModel> startExam(String testId) async {
     try {
+      if (testId.startsWith('rev_') || testId.startsWith('revision_')) {
+        final topicId = testId.replaceFirst('rev_', '').replaceFirst('revision_', '');
+        final res = await _client.dio.post('/revisions/start/$topicId');
+        final data = res.data;
+        final attemptId = data['attemptId']?.toString() ?? 'rev_${DateTime.now().millisecondsSinceEpoch}';
+        final timeLeft = (data['timeLeft'] is num) ? (data['timeLeft'] as num).toInt() : 1800;
+        final rawQuestions = data['questions'] as List? ?? [];
+        final questions = <QuestionModel>[];
+        for (int i = 0; i < rawQuestions.length; i++) {
+          questions.add(QuestionModel.fromBackendJson(rawQuestions[i] as Map<String, dynamic>, i + 1));
+        }
+        return AttemptModel(
+          attemptId: attemptId,
+          testTitle: data['topicTitle'] != null ? '${data['topicTitle']} Revision' : 'Topic Revision Test',
+          moduleTitle: 'Spaced Repetition Revision',
+          totalQuestions: questions.length,
+          durationSeconds: timeLeft,
+          questions: questions,
+          savedAnswers: const {},
+        );
+      }
+
       final cleanModuleId = testId.replaceAll('att_', '').replaceAll('_easy', '').replaceAll('_med', '').replaceAll('_hard', '');
 
       final res = await _client.dio.post(
@@ -519,6 +610,8 @@ class HttpExamRepository implements ExamRepository {
     required Map<String, String?> answers,
     required int timeTakenSeconds,
     int? violationCount,
+    List<QuestionModel>? questions,
+    String? testTitle,
   }) async {
     try {
       final res = await _client.dio.post(
@@ -533,24 +626,48 @@ class HttpExamRepository implements ExamRepository {
       final data = res.data;
       final score = (data['score'] is num) ? (data['score'] as num).toDouble() : 0.0;
       final correctCount = (data['correctCount'] is num) ? (data['correctCount'] as num).toInt() : 0;
-      final totalQuestions = (data['totalQuestions'] is num) ? (data['totalQuestions'] as num).toInt() : answers.length;
+      final totalQuestions = (data['totalQuestions'] is num) ? (data['totalQuestions'] as num).toInt() : (questions?.length ?? answers.length);
       final xp = (data['xpEarned'] is num) ? (data['xpEarned'] as num).toInt() : (correctCount * 10);
 
-      final wrongCount = totalQuestions - correctCount;
+      final correctAnswersMap = (data['correctAnswers'] is Map) ? (data['correctAnswers'] as Map) : {};
+
+      // Enrich questions with correct answers from backend response
+      final List<QuestionModel> enrichedQuestions = [];
+      if (questions != null && questions.isNotEmpty) {
+        for (int i = 0; i < questions.length; i++) {
+          final q = questions[i];
+          final correctKey = correctAnswersMap[q.id]?.toString() ?? q.correctOptionId;
+          enrichedQuestions.add(q.copyWith(correctOptionId: correctKey));
+        }
+      }
+
+      int unattempted = 0;
+      int wrong = 0;
+      for (final q in enrichedQuestions) {
+        final userAns = answers[q.id];
+        if (userAns == null || userAns.isEmpty) {
+          unattempted++;
+        } else if (userAns != q.correctOptionId) {
+          wrong++;
+        }
+      }
+      if (wrong == 0 && enrichedQuestions.isEmpty) {
+        wrong = (totalQuestions - correctCount).clamp(0, totalQuestions);
+      }
 
       final result = ExamResultModel(
         attemptId: attemptId,
-        testTitle: 'Assessment Test',
+        testTitle: testTitle ?? 'Assessment Test',
         scorePercentage: score,
         accuracyPercentage: totalQuestions > 0 ? ((correctCount / totalQuestions) * 100).round() : 0,
         correctCount: correctCount,
-        wrongCount: wrongCount >= 0 ? wrongCount : 0,
-        unattemptedCount: 0,
+        wrongCount: wrong,
+        unattemptedCount: unattempted,
         timeTakenSeconds: timeTakenSeconds,
         xpEarned: xp,
         isPassed: score >= 60,
         userAnswers: answers,
-        questions: [],
+        questions: enrichedQuestions,
       );
 
       _resultsCache[attemptId] = result;
@@ -562,7 +679,57 @@ class HttpExamRepository implements ExamRepository {
 
   @override
   Future<ExamResultModel?> getExamResult(String attemptId) async {
-    return _resultsCache[attemptId];
+    if (_resultsCache.containsKey(attemptId)) {
+      return _resultsCache[attemptId];
+    }
+
+    try {
+      final res = await _client.dio.get('/attempts/$attemptId/review');
+      final data = res.data;
+      if (data != null && data['success'] == true) {
+        final rawQuestions = data['questions'] as List? ?? [];
+        final rawAnswers = data['userAnswers'] as Map<String, dynamic>? ?? {};
+        final cleanAnswers = <String, String?>{};
+        rawAnswers.forEach((k, v) {
+          if (!k.startsWith('_')) cleanAnswers[k] = v?.toString();
+        });
+
+        final questions = <QuestionModel>[];
+        for (int i = 0; i < rawQuestions.length; i++) {
+          final qJson = rawQuestions[i] as Map<String, dynamic>;
+          questions.add(QuestionModel.fromBackendJson(
+            qJson,
+            i + 1,
+            correctKey: qJson['correctAnswerIndex']?.toString(),
+          ));
+        }
+
+        final score = (data['score'] is num) ? (data['score'] as num).toDouble() : 0.0;
+        final correctCount = (data['correctCount'] is num) ? (data['correctCount'] as num).toInt() : 0;
+        final totalQuestions = (data['totalQuestions'] is num) ? (data['totalQuestions'] as num).toInt() : questions.length;
+        final xp = (data['xpEarned'] is num) ? (data['xpEarned'] as num).toInt() : 0;
+
+        final result = ExamResultModel(
+          attemptId: attemptId,
+          testTitle: data['testTitle']?.toString() ?? 'Assessment Test',
+          scorePercentage: score,
+          accuracyPercentage: totalQuestions > 0 ? ((correctCount / totalQuestions) * 100).round() : 0,
+          correctCount: correctCount,
+          wrongCount: (totalQuestions - correctCount).clamp(0, totalQuestions),
+          unattemptedCount: 0,
+          timeTakenSeconds: 0,
+          xpEarned: xp,
+          isPassed: score >= 60,
+          userAnswers: cleanAnswers,
+          questions: questions,
+        );
+
+        _resultsCache[attemptId] = result;
+        return result;
+      }
+    } catch (_) {}
+
+    return null;
   }
 }
 
@@ -886,7 +1053,11 @@ class HttpProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<void> markNotificationsAsRead() async {}
+  Future<void> markNotificationsAsRead() async {
+    try {
+      await _client.dio.put('/notifications/read-all');
+    } catch (_) {}
+  }
 
   @override
   Future<bool> submitFeedback({

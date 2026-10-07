@@ -190,6 +190,14 @@ final subjectsByBranchProvider = FutureProvider.family<List<SubjectModel>, Strin
   return ref.watch(moduleRepositoryProvider).getSubjectsByBranch(branchId);
 });
 
+final topicsBySubjectProvider = FutureProvider.family<List<TopicModel>, String>((ref, subjectId) async {
+  return ref.watch(moduleRepositoryProvider).getTopicsBySubject(subjectId);
+});
+
+final modulesByTopicProvider = FutureProvider.family<List<ModuleModel>, String>((ref, topicId) async {
+  return ref.watch(moduleRepositoryProvider).getModules(topicId: topicId);
+});
+
 final modulesBySubjectProvider = FutureProvider.family<List<ModuleModel>, String>((ref, subjectId) async {
   return ref.watch(moduleRepositoryProvider).getModules(subjectId: subjectId);
 });
@@ -222,8 +230,7 @@ final leaderboardProvider = FutureProvider<List<LeaderboardEntryModel>>((ref) as
 final selectedPlanCategoryProvider = StateProvider<PlanCategory>((ref) => PlanCategory.company);
 
 final plansListProvider = FutureProvider<List<PlanModel>>((ref) async {
-  final category = ref.watch(selectedPlanCategoryProvider);
-  return ref.watch(planRepositoryProvider).getPlans(category: category);
+  return ref.watch(planRepositoryProvider).getPlans();
 });
 
 final paymentHistoryProvider = FutureProvider<List<PaymentRequestModel>>((ref) async {

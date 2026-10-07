@@ -20,6 +20,7 @@ import {
   Search,
   Database,
   Calendar,
+  RotateCcw,
 } from "lucide-react";
 import { AdminUsersTab } from "../../components/admin/AdminUsersTab";
 import { AdminSettingsTab } from "../../components/admin/AdminSettingsTab";

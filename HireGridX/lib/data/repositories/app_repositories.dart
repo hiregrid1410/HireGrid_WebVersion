@@ -32,7 +32,8 @@ abstract class CompanyRepository {
 abstract class ModuleRepository {
   Future<List<BranchModel>> getBranches();
   Future<List<SubjectModel>> getSubjectsByBranch(String branchId);
-  Future<List<ModuleModel>> getModules({String? category, String? subjectId});
+  Future<List<TopicModel>> getTopicsBySubject(String subjectId);
+  Future<List<ModuleModel>> getModules({String? category, String? subjectId, String? topicId});
   Future<ModuleModel?> getModuleById(String id);
   Future<ModuleModel?> getContinueLearningModule();
 }
@@ -49,6 +50,8 @@ abstract class ExamRepository {
     required Map<String, String?> answers,
     required int timeTakenSeconds,
     int? violationCount,
+    List<QuestionModel>? questions,
+    String? testTitle,
   });
   Future<ExamResultModel?> getExamResult(String attemptId);
 }

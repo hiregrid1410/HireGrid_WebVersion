@@ -38,76 +38,55 @@ class DashboardScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Top Bar: Greeting + Streak Pill + Medal Pill + Notification
+                // 1. Top Bar: Compact Avatar (taps to Profile) + Streak & Medal Pills + Notification Bell
                 userAsync.when(
-                  loading: () => const ShimmerCard(height: 60, borderRadius: 16),
+                  loading: () => const ShimmerCard(height: 50, borderRadius: 16),
                   error: (_, __) => const SizedBox(),
                   data: (user) {
                     final name = user?.name ?? 'Student';
                     final streak = user?.currentStreak ?? 0;
                     final medal = user?.medalTier ?? 'Bronze V';
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    return Row(
                       children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: AppColors.surfaceCardElevated,
-                              child: Text(
-                                name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'S',
-                                style: AppTextStyles.h3.copyWith(color: AppColors.primaryGreen),
-                              ),
+                        // Compact User Avatar Button (Tapping pushes to Profile)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => context.push('/profile'),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AppColors.surfaceCardElevated,
+                            child: Text(
+                              name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'S',
+                              style: AppTextStyles.h3.copyWith(color: AppColors.primaryGreen, fontWeight: FontWeight.w700),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Welcome back, $name! 👋',
-                                    style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w700),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    user?.branch ?? 'Select a branch in profile',
-                                    style: AppTextStyles.bodySm.copyWith(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 11,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.notifications_outlined, size: 24, color: AppColors.textPrimary),
-                              onPressed: () => context.push('/notifications'),
-                            ),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        // Streak Pill & Medal Pill Row (Web Header Parity)
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            StreakPill(streakDays: streak),
-                            MedalRankPill(
-                              medalTier: medal,
-                              onTap: () => context.go('/missions'),
-                            ),
-                          ],
+                        const SizedBox(width: 12),
+                        // Streak & Medal Pills Row
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              StreakPill(streakDays: streak),
+                              MedalRankPill(
+                                medalTier: medal,
+                                onTap: () => context.go('/missions'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.notifications_outlined, size: 24, color: AppColors.textPrimary),
+                          onPressed: () => context.push('/notifications'),
                         ),
                       ],
                     );
                   },
                 ).animate().fadeIn(duration: 400.ms),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
                 // 2. Telemetry 5 Stat Cards (Enrolled Courses, Tests Attempted, Avg Score, XP Earned, Platform Rank)
                 userAsync.when(
@@ -208,27 +187,6 @@ class DashboardScreen extends ConsumerWidget {
                   },
                 ).animate().fadeIn(delay: 100.ms),
                 const SizedBox(height: 20),
-
-                // 3. Your Progress Card (Overall Completion % + XP Bar)
-                userAsync.when(
-                  loading: () => const ShimmerCard(height: 160),
-                  error: (_, __) => const SizedBox(),
-                  data: (user) {
-                    final xp = user?.totalXp ?? 0;
-                    final completed = user?.moduleScores.length ?? 0;
-                    const totalModules = 27; // Total standard modules per branch
-                    final medal = user?.medalTier ?? 'Bronze V';
-
-                    return YourProgressCard(
-                      completedModules: completed,
-                      totalModules: totalModules,
-                      currentXp: xp,
-                      medalTier: medal,
-                      nextMedalTier: _getNextTierName(medal),
-                    );
-                  },
-                ).animate().fadeIn(delay: 150.ms),
-                const SizedBox(height: 24),
 
                 // 4. Upgrade Banner for Free Accounts
                 userAsync.when(

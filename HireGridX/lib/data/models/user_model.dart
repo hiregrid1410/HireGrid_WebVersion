@@ -276,4 +276,14 @@ class BranchModel {
       status: json['status']?.toString() ?? 'ACTIVE',
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'iconName': iconName,
+      'isGeneral': isGeneral,
+      'status': status,
+    };
+  }
 }

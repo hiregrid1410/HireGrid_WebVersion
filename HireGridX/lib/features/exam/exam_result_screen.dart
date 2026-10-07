@@ -218,86 +218,112 @@ class _ExamResultScreenState extends ConsumerState<ExamResultScreen> {
                       child: Text('Questions Review', style: AppTextStyles.h2),
                     ),
                     const SizedBox(height: 12),
-                    ...MockData.sampleQuestions.map((q) {
-                      final isCorrect = q.id != 'q2'; // Mock: q2 marked wrong
-                      final userAns = isCorrect ? q.correctOptionId : 'A';
+                    if (_result != null && _result!.questions.isNotEmpty)
+                      ..._result!.questions.map((q) {
+                        final userAns = _result!.userAnswers[q.id]?.toString();
+                        final correctAns = q.correctOptionId;
+                        final isAnswered = userAns != null && userAns.isNotEmpty;
+                        final isCorrect = isAnswered && (userAns == correctAns || userAns == q.correctOptionId);
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceCard,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isCorrect ? AppColors.primaryGreen.withOpacity(0.4) : AppColors.danger.withOpacity(0.4),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text('Q.${q.index}', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w700)),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: isCorrect ? AppColors.primaryGreen.withOpacity(0.15) : AppColors.danger.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    isCorrect ? 'Correct (+5)' : 'Incorrect (0)',
-                                    style: AppTextStyles.label.copyWith(
-                                      color: isCorrect ? AppColors.primaryGreen : AppColors.danger,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        Color badgeColor = AppColors.danger;
+                        String badgeText = 'Incorrect';
+                        if (isCorrect) {
+                          badgeColor = AppColors.primaryGreen;
+                          badgeText = 'Correct';
+                        } else if (!isAnswered) {
+                          badgeColor = AppColors.textMuted;
+                          badgeText = 'Unattempted';
+                        }
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceCard,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isCorrect
+                                  ? AppColors.primaryGreen.withOpacity(0.4)
+                                  : (isAnswered ? AppColors.danger.withOpacity(0.4) : AppColors.borderSubtle),
                             ),
-                            const SizedBox(height: 8),
-                            Text(q.questionText, style: AppTextStyles.bodyMd),
-                            const SizedBox(height: 12),
-                            ...q.options.map((opt) {
-                              MCQState state = MCQState.defaultState;
-                              if (opt.id == q.correctOptionId) {
-                                state = MCQState.correct;
-                              } else if (opt.id == userAns && !isCorrect) {
-                                state = MCQState.incorrect;
-                              }
-
-                              return MCQOptionTile(
-                                optionLabel: opt.id,
-                                text: opt.text,
-                                state: state,
-                                onTap: () {},
-                              );
-                            }),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceInput,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  const Icon(Icons.info_outline_rounded, color: AppColors.textMuted, size: 16),
-                                  const SizedBox(width: 8),
-                                  Expanded(
+                                  Text('Q.${q.index}', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w700)),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: badgeColor.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
                                     child: Text(
-                                      'Explanation: ${q.explanation}',
-                                      style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                                      badgeText,
+                                      style: AppTextStyles.label.copyWith(
+                                        color: badgeColor,
+                                        fontSize: 10,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 8),
+                              Text(q.questionText, style: AppTextStyles.bodyMd),
+                              const SizedBox(height: 12),
+                              ...q.options.map((opt) {
+                                MCQState state = MCQState.defaultState;
+                                final isOptCorrect = opt.id == correctAns || opt.label == correctAns;
+                                final isOptUserAns = userAns != null && (opt.id == userAns || opt.label == userAns);
+
+                                if (isOptCorrect) {
+                                  state = MCQState.correct;
+                                } else if (isOptUserAns && !isCorrect) {
+                                  state = MCQState.incorrect;
+                                }
+
+                                return MCQOptionTile(
+                                  optionLabel: opt.label,
+                                  text: opt.text,
+                                  state: state,
+                                  onTap: () {},
+                                );
+                              }),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceInput,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(Icons.info_outline_rounded, color: AppColors.textMuted, size: 16),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Explanation: ${q.explanation}',
+                                        style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      })
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          'No detailed questions breakdown available for this attempt.',
+                          style: AppTextStyles.bodySm.copyWith(color: AppColors.textMuted),
                         ),
-                      );
-                    }),
+                      ),
                   ],
                 ],
               ),

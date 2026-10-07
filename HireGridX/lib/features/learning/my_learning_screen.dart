@@ -21,11 +21,13 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
   late TabController _tabController;
 
   // Hierarchy Navigation State:
-  // Level 0: selectedBranch == null, selectedSubject == null  (Shows Branches list)
-  // Level 1: selectedBranch != null, selectedSubject == null  (Shows Branch's Subjects)
-  // Level 2: selectedBranch != null, selectedSubject != null  (Shows Subject's Modules)
+  // Level 0: _selectedBranch == null (Shows Branches list)
+  // Level 1: _selectedBranch != null, _selectedSubject == null (Shows Branch's Subjects)
+  // Level 2: _selectedSubject != null, _selectedTopic == null (Shows Subject's Topics & direct modules)
+  // Level 3: _selectedTopic != null (Shows Topic's Modules)
   BranchModel? _selectedBranch;
   SubjectModel? _selectedSubject;
+  TopicModel? _selectedTopic;
 
   @override
   void initState() {
@@ -40,12 +42,14 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
   }
 
   bool _canPopInner() {
-    return _selectedSubject != null || _selectedBranch != null;
+    return _selectedTopic != null || _selectedSubject != null || _selectedBranch != null;
   }
 
   void _popInner() {
     setState(() {
-      if (_selectedSubject != null) {
+      if (_selectedTopic != null) {
+        _selectedTopic = null;
+      } else if (_selectedSubject != null) {
         _selectedSubject = null;
       } else if (_selectedBranch != null) {
         _selectedBranch = null;
@@ -57,16 +61,27 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
     setState(() {
       _selectedBranch = null;
       _selectedSubject = null;
+      _selectedTopic = null;
     });
   }
 
   void _jumpToBranch() {
     setState(() {
       _selectedSubject = null;
+      _selectedTopic = null;
+    });
+  }
+
+  void _jumpToSubject() {
+    setState(() {
+      _selectedTopic = null;
     });
   }
 
   String _currentTitle() {
+    if (_selectedTopic != null) {
+      return _selectedTopic!.name;
+    }
     if (_selectedSubject != null) {
       return _selectedSubject!.name;
     }
@@ -109,7 +124,7 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
             unselectedLabelStyle: AppTextStyles.bodyMd,
             tabs: const [
               Tab(text: 'Branches'),
-              Tab(text: 'My Progress'),
+              Tab(text: 'Revision'),
             ],
           ),
         ),
@@ -119,8 +134,8 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
             // TAB 1: BRANCHES & HIERARCHY
             _buildHierarchyView(),
 
-            // TAB 2: MY PROGRESS
-            _buildProgressTab(),
+            // TAB 2: SPACED-REPETITION REVISION
+            _buildRevisionTab(),
           ],
         ),
       ),
@@ -136,11 +151,13 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
 
         // Dynamic Hierarchy Content Area
         Expanded(
-          child: _selectedSubject != null
-              ? _buildSubjectModulesView(_selectedSubject!)
-              : _selectedBranch != null
-                  ? _buildBranchSubjectsView(_selectedBranch!)
-                  : _buildBranchesListView(),
+          child: _selectedTopic != null
+              ? _buildTopicModulesView(_selectedTopic!)
+              : _selectedSubject != null
+                  ? _buildSubjectTopicsView(_selectedSubject!)
+                  : _selectedBranch != null
+                      ? _buildBranchSubjectsView(_selectedBranch!)
+                      : _buildBranchesListView(),
         ),
       ],
     );
@@ -209,10 +226,30 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
             // Subject Level
             if (_selectedSubject != null) ...[
               const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 18),
+              InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: _selectedTopic != null ? _jumpToSubject : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Text(
+                    _selectedSubject!.name.toUpperCase(),
+                    style: AppTextStyles.label.copyWith(
+                      color: _selectedTopic == null ? AppColors.primaryGreen : AppColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
+            // Topic Level
+            if (_selectedTopic != null) ...[
+              const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 18),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 child: Text(
-                  _selectedSubject!.name.toUpperCase(),
+                  _selectedTopic!.name.toUpperCase(),
                   style: AppTextStyles.label.copyWith(
                     color: AppColors.primaryGreen,
                     fontWeight: FontWeight.w700,
@@ -282,6 +319,7 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                     setState(() {
                       _selectedBranch = branch;
                       _selectedSubject = null;
+                      _selectedTopic = null;
                     });
                   },
                   child: Padding(
@@ -429,6 +467,7 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                     onTap: () {
                       setState(() {
                         _selectedSubject = subject;
+                        _selectedTopic = null;
                       });
                     },
                     child: Container(
@@ -470,7 +509,7 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${subject.completedModules}/${subject.totalModules} Done',
+                            'Explore Topics & Tests',
                             style: AppTextStyles.bodySm.copyWith(color: AppColors.textMuted, fontSize: 11),
                           ),
                         ],
@@ -487,10 +526,103 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
   }
 
   // ==========================================
-  // LEVEL 2: SUBJECT MODULES (LIST)
+  // LEVEL 2: SUBJECT TOPICS & DIRECT MODULES
   // ==========================================
-  Widget _buildSubjectModulesView(SubjectModel subject) {
-    final modulesAsync = ref.watch(modulesBySubjectProvider(subject.id));
+  Widget _buildSubjectTopicsView(SubjectModel subject) {
+    final topicsAsync = ref.watch(topicsBySubjectProvider(subject.id));
+
+    return topicsAsync.when(
+      loading: () => ListView.separated(
+        padding: const EdgeInsets.all(20),
+        itemCount: 4,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, __) => const ShimmerCard(height: 80, borderRadius: 16),
+      ),
+      error: (err, _) => _buildTopicModulesView(
+        TopicModel(id: subject.id, name: subject.name, parentId: subject.branchId, type: 'general_subject'),
+      ),
+      data: (topics) {
+        if (topics.isEmpty) {
+          // If no sub-topics, directly show modules for this subject node
+          return _buildTopicModulesView(
+            TopicModel(id: subject.id, name: subject.name, parentId: subject.branchId, type: 'general_subject'),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(20),
+          itemCount: topics.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final topic = topics[index];
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderSubtle),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    setState(() {
+                      _selectedTopic = topic;
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGreen.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.folder_open_rounded, color: AppColors.primaryGreen, size: 22),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                topic.name,
+                                style: AppTextStyles.bodyLg.copyWith(fontWeight: FontWeight.w700),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tap to open modules & tests',
+                                style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ).animate().fadeIn(delay: (index * 40).ms).slideY(begin: 0.05, end: 0);
+          },
+        );
+      },
+    );
+  }
+
+  // ==========================================
+  // LEVEL 3: TOPIC MODULES (LIST)
+  // ==========================================
+  Widget _buildTopicModulesView(TopicModel topic) {
+    final modulesAsync = ref.watch(modulesByTopicProvider(topic.id));
 
     return modulesAsync.when(
       loading: () => ListView.separated(
@@ -503,14 +635,14 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
         title: 'Failed to load modules',
         message: err.toString(),
         actionText: 'Retry',
-        onAction: () => ref.refresh(modulesBySubjectProvider(subject.id)),
+        onAction: () => ref.refresh(modulesByTopicProvider(topic.id)),
       ),
       data: (modules) {
         if (modules.isEmpty) {
           return EmptyStateWidget(
-            title: 'No Modules in this Subject',
-            message: 'There are no active assessment modules created under ${subject.name} yet.',
-            actionText: 'Back to Subjects',
+            title: 'No Modules in this Topic',
+            message: 'There are no active assessment modules created under ${topic.name} yet.',
+            actionText: 'Back',
             onAction: _popInner,
           );
         }
@@ -532,56 +664,57 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
   }
 
   // ==========================================
-  // TAB 2: MY PROGRESS
+  // TAB 2: SPACED-REPETITION REVISION
   // ==========================================
-  Widget _buildProgressTab() {
+  Widget _buildRevisionTab() {
+    final notifsAsync = ref.watch(notificationsListProvider);
+    final branchesAsync = ref.watch(branchesProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Overall Progress Ring Card
+          // Hero Revision Info Card
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: AppColors.cardGradient,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.borderSubtle),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      const CircularProgressIndicator(
-                        value: 0.48,
-                        strokeWidth: 8,
-                        backgroundColor: AppColors.surfaceInput,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
-                      ),
-                      Text(
-                        '48%',
-                        style: AppTextStyles.h2.copyWith(
-                          color: AppColors.primaryGreen,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.auto_stories_rounded, color: Color(0xFF10B981), size: 26),
                   ),
                 ),
-                const SizedBox(width: 20),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Overall Mastery', style: AppTextStyles.h2),
-                      const SizedBox(height: 4),
                       Text(
-                        'Track completion across your enrolled branches and modules.',
-                        style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                        'Revision Engine',
+                        style: AppTextStyles.h2.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Automated spaced repetition at Day 1, Day 3, Day 7, and 30 Days to maximize memory retention.',
+                        style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary, height: 1.4),
                       ),
                     ],
                   ),
@@ -589,48 +722,226 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
               ],
             ),
           ).animate().fadeIn(),
+          const SizedBox(height: 20),
+
+          // Spaced Intervals Milestone Grid
+          Text('Revision Schedule', style: AppTextStyles.h3),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _buildIntervalCard('Day 1', 'Topic Recall', Icons.flash_on_rounded, const Color(0xFF10B981))),
+              const SizedBox(width: 8),
+              Expanded(child: _buildIntervalCard('Day 3', 'Module Check', Icons.track_changes_rounded, const Color(0xFF38BDF8))),
+              const SizedBox(width: 8),
+              Expanded(child: _buildIntervalCard('Day 7', 'Weekly Review', Icons.calendar_month_rounded, const Color(0xFFF59E0B))),
+              const SizedBox(width: 8),
+              Expanded(child: _buildIntervalCard('30 Days', 'Full Mastery', Icons.military_tech_rounded, const Color(0xFFA855F7))),
+            ],
+          ),
           const SizedBox(height: 24),
 
-          Text('Category Breakdown', style: AppTextStyles.h3),
+          // Pending Revision Sessions
+          Text('Due Revision Tests', style: AppTextStyles.h3),
           const SizedBox(height: 12),
-          _buildProgressCategoryRow('Electrical Engineering', 0.65, AppColors.primaryGreen),
-          const SizedBox(height: 10),
-          _buildProgressCategoryRow('Quantitative Aptitude', 0.50, AppColors.accentYellow),
-          const SizedBox(height: 10),
-          _buildProgressCategoryRow('Reasoning & Soft Skills', 0.35, const Color(0xFF38BDF8)),
+          notifsAsync.when(
+            loading: () => const ShimmerCard(height: 100, borderRadius: 16),
+            error: (_, __) => _buildEmptyRevisionState(),
+            data: (notifs) {
+              final revisionNotifs = notifs.where((n) => n.isRevision || n.type.startsWith('revision')).toList();
+              if (revisionNotifs.isEmpty) {
+                return _buildEmptyRevisionState();
+              }
+
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: revisionNotifs.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final notif = revisionNotifs[index];
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceCard,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                notif.title,
+                                style: AppTextStyles.label.copyWith(color: const Color(0xFF10B981), fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Text(
+                              notif.timeAgo,
+                              style: AppTextStyles.bodySm.copyWith(color: AppColors.textMuted, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          notif.message,
+                          style: AppTextStyles.bodyMd.copyWith(color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryGreen,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                            label: Text(
+                              'Start Revision Assessment',
+                              style: AppTextStyles.button.copyWith(color: Colors.black, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () {
+                              if (notif.topicId != null && notif.topicId!.isNotEmpty) {
+                                context.push('/exam/rev_${notif.topicId}');
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ).animate().fadeIn(delay: (index * 60).ms);
+                },
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // Quick Revision Launcher from Enrolled Branches
+          Text('Instant Topic Revision', style: AppTextStyles.h3),
+          const SizedBox(height: 6),
+          Text(
+            'Launch a 50-MCQ random revision test from any enrolled branch topic bank.',
+            style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          branchesAsync.when(
+            loading: () => const ShimmerCard(height: 70, borderRadius: 14),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (branches) {
+              if (branches.isEmpty) return const SizedBox.shrink();
+              return Column(
+                children: branches.map((b) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceCard,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.borderSubtle),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      leading: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(_getBranchIcon(b.name), color: AppColors.primaryGreen, size: 20),
+                      ),
+                      title: Text(
+                        b.name,
+                        style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Text(
+                        'Tap to select a topic for revision test',
+                        style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                      onTap: () {
+                        setState(() {
+                          _selectedBranch = b;
+                          _tabController.animateTo(0);
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildProgressCategoryRow(String label, double progress, Color color) {
-    final pct = (progress * 100).toInt();
+  Widget _buildIntervalCard(String day, String title, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            day,
+            style: AppTextStyles.bodySm.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: AppTextStyles.label.copyWith(color: AppColors.textMuted, fontSize: 9),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyRevisionState() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderSubtle),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label, style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600)),
-              Text('$pct%', style: AppTextStyles.bodySm.copyWith(color: color, fontWeight: FontWeight.w700)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: AppColors.surfaceInput,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 6,
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.primaryGreen.withOpacity(0.1),
+              shape: BoxShape.circle,
             ),
+            child: const Icon(Icons.check_circle_outline_rounded, color: AppColors.primaryGreen, size: 24),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'All Revisions Up-to-Date',
+            style: AppTextStyles.bodyLg.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Complete topics in the Branches tab to automatically schedule Day 1, Day 3, and Day 7 revision check-ins here.',
+            style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

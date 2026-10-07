@@ -15,7 +15,6 @@ class PlansScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plansAsync = ref.watch(plansListProvider);
-    final activeCategory = ref.watch(selectedPlanCategoryProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -27,19 +26,31 @@ class PlansScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Segmented Category Control (Company / GATE / Full Access)
+              // Header Intro Banner
               Container(
-                padding: const EdgeInsets.all(4),
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceCard,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.borderSubtle),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSegmentButton(ref, 'Company', PlanCategory.company, activeCategory == PlanCategory.company),
-                    _buildSegmentButton(ref, 'GATE', PlanCategory.gate, activeCategory == PlanCategory.gate),
-                    _buildSegmentButton(ref, 'Full Access', PlanCategory.fullAccess, activeCategory == PlanCategory.fullAccess),
+                    Text(
+                      'Choose Your Plan',
+                      style: AppTextStyles.h2.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Get unlimited access to all company exams, speed tests, and revision modules.',
+                      style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                    ),
                   ],
                 ),
               ).animate().fadeIn(duration: 400.ms),
@@ -89,30 +100,6 @@ class PlansScreen extends ConsumerWidget {
               ).animate().fadeIn(delay: 300.ms),
               const SizedBox(height: 20),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSegmentButton(WidgetRef ref, String label, PlanCategory category, bool isSelected) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => ref.read(selectedPlanCategoryProvider.notifier).state = category,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryGreen : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: AppTextStyles.bodySm.copyWith(
-                color: isSelected ? Colors.black : AppColors.textSecondary,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              ),
-            ),
           ),
         ),
       ),

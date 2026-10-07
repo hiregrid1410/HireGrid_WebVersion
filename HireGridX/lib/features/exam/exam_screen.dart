@@ -353,6 +353,8 @@ class _ExamScreenState extends ConsumerState<ExamScreen> with WidgetsBindingObse
         answers: _selectedAnswers,
         timeTakenSeconds: timeTaken > 0 ? timeTaken : 1,
         violationCount: _violationCount,
+        questions: _questions,
+        testTitle: _testTitle,
       );
     } catch (_) {
       // Continue to result screen even if network submit encountered issue (result cached/offline resilient)
