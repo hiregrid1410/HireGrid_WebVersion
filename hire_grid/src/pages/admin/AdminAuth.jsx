@@ -111,15 +111,15 @@ export default function AdminAuth() {
           style={{ display: "flex", flexDirection: "column", gap: "18px" }}
           noValidate
         >
-          {/* Email — maps to `email` field in API payload */}
+          {/* Email — optional for Super Admin */}
           <AuthInput
-            label="Email Address"
+            label="Email Address (Optional for Super Admin)"
             icon={<Mail size={16} strokeWidth={2} />}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-            placeholder="Enter operator email"
+            placeholder="Optional for Super Admin — leave blank"
             variant="operator"
           />
 

@@ -9,6 +9,8 @@ router.post("/signup", authRateLimiter, authController.signup);
 
 // Login
 router.post("/login", authRateLimiter, authController.login);
+router.post("/login/verify-otp", otpRateLimiter, authController.verifyLoginOtp);
+router.post("/login/resend-otp", otpRateLimiter, authController.resendLoginOtp);
 
 // Google Sign-In
 router.post("/google", authRateLimiter, authController.googleLogin);

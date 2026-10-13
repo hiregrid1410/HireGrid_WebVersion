@@ -29,11 +29,18 @@ export function StudentDashboardView({
   onStartModule,
 }) {
   // 1. Calculate stats metrics
-  const enrolledLearning = modules.filter(
-    (m) =>
-      m.moduleType === "general" &&
-      (m.branchId === user?.branchId || m.branch_id === user?.branchId)
-  ).length;
+  const userBranchName = (user?.branch || "").toLowerCase();
+  const userBranchId = user?.branchId || user?.branch_id;
+
+  const enrolledModulesList = modules.filter((m) => {
+    if (m.moduleType !== "general") return false;
+    if (userBranchId && (m.branchId === userBranchId || m.branch_id === userBranchId)) return true;
+    if (userBranchName && (m.branch || m.branch_name || "").toLowerCase() === userBranchName) return true;
+    return !userBranchId && !userBranchName;
+  });
+
+  const generalCount = modules.filter((m) => m.moduleType === "general").length;
+  const enrolledLearning = enrolledModulesList.length || generalCount || 0;
 
   const testsAttempted = Object.keys(moduleScores).length;
 
@@ -53,22 +60,17 @@ export function StudentDashboardView({
   const userRankPercent = userRankEntry ? "Top 12%" : "Not ranked yet";
 
   // 2. Filter branch modules for "Continue Learning"
-  const branchModules = modules
-    .filter(
-      (m) =>
-        m.moduleType === "general" &&
-        (m.branchId === user?.branchId || m.branch_id === user?.branchId)
-    )
-    .slice(0, 5);
+  const branchModules = (enrolledModulesList.length > 0
+    ? enrolledModulesList
+    : modules.filter((m) => m.moduleType === "general")
+  ).slice(0, 5);
 
   // 3. Recommended modules based on incomplete general modules
-  const recommendedModules = modules
-    .filter(
-      (m) =>
-        m.moduleType === "general" &&
-        (m.branchId === user?.branchId || m.branch_id === user?.branchId) &&
-        moduleScores[m.id] === undefined
-    )
+  const recommendedModules = (enrolledModulesList.length > 0
+    ? enrolledModulesList
+    : modules.filter((m) => m.moduleType === "general")
+  )
+    .filter((m) => moduleScores[m.id] === undefined)
     .slice(0, 4);
 
   // 4. Generate achievements dynamically based on student stats

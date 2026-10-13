@@ -10,6 +10,13 @@ class AuthRepository {
     return result.rows[0] || null;
   }
 
+  async findAllAdmins() {
+    const result = await pool.query(
+      `SELECT id, email, password, role, name, created_at FROM admin_users WHERE role = 'admin' ORDER BY created_at ASC`
+    );
+    return result.rows || [];
+  }
+
   async findFirstAdmin(targetEmail) {
     let result = await pool.query(
       `SELECT * FROM admin_users WHERE email = $1 LIMIT 1`,

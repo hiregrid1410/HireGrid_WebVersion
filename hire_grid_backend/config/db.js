@@ -960,6 +960,85 @@ async function initDb() {
         console.error("Failed to run Branch-Based Access System migration v6:", errV6.message);
       }
     }
+
+    // --- Module Revision (Spaced Repetition) v7 Migrations ---
+    const migrationCheckV7 = await pool.query(`SELECT 1 FROM schema_migrations WHERE version = 'v7'`);
+    if (migrationCheckV7.rows.length === 0) {
+      console.log("Running Module Revision (Spaced Repetition) schema migrations (v7)...");
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS revision_modules (
+            id VARCHAR(64) PRIMARY KEY,
+            branch_id VARCHAR(64),
+            subject_id VARCHAR(64),
+            topic_id VARCHAR(64),
+            title VARCHAR(255) NOT NULL,
+            source_topic_id VARCHAR(64),
+            source_module_ids JSONB DEFAULT '[]'::jsonb,
+            mcq_count INT DEFAULT 50,
+            selection_mode VARCHAR(32) DEFAULT 'random',
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE IF NOT EXISTS user_revision_schedules (
+            id VARCHAR(64) PRIMARY KEY,
+            user_id VARCHAR(64) NOT NULL,
+            topic_id VARCHAR(64) NOT NULL,
+            module_id VARCHAR(64),
+            completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            day1_due_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            day1_status VARCHAR(32) DEFAULT 'pending',
+            day3_due_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            day3_status VARCHAR(32) DEFAULT 'pending',
+            day7_due_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            day7_status VARCHAR(32) DEFAULT 'pending',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT unique_user_topic_schedule UNIQUE (user_id, topic_id)
+          );
+
+          CREATE TABLE IF NOT EXISTS user_revision_attempts (
+            id VARCHAR(64) PRIMARY KEY,
+            user_id VARCHAR(64) NOT NULL,
+            revision_module_id VARCHAR(64) NOT NULL,
+            topic_id VARCHAR(64),
+            mcq_ids JSONB NOT NULL,
+            answers JSONB DEFAULT '{}'::jsonb,
+            score NUMERIC(5,2) DEFAULT 0,
+            total_questions INT DEFAULT 50,
+            time_taken INT DEFAULT 0,
+            attempted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE IF NOT EXISTS notifications (
+            id VARCHAR(64) PRIMARY KEY,
+            user_id VARCHAR(64) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            type VARCHAR(64) NOT NULL,
+            topic_id VARCHAR(64),
+            module_id VARCHAR(64),
+            is_read BOOLEAN DEFAULT false,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_rev_mod_topic ON revision_modules(topic_id);
+          CREATE INDEX IF NOT EXISTS idx_rev_mod_active ON revision_modules(is_active);
+          CREATE INDEX IF NOT EXISTS idx_rev_sched_user ON user_revision_schedules(user_id);
+          CREATE INDEX IF NOT EXISTS idx_rev_sched_day1 ON user_revision_schedules(day1_status, day1_due_at);
+          CREATE INDEX IF NOT EXISTS idx_rev_sched_day3 ON user_revision_schedules(day3_status, day3_due_at);
+          CREATE INDEX IF NOT EXISTS idx_rev_sched_day7 ON user_revision_schedules(day7_status, day7_due_at);
+          CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id);
+        `);
+
+        await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v7') ON CONFLICT DO NOTHING`);
+        console.log("Module Revision (Spaced Repetition) migrations (v7) run successfully.");
+      } catch (errV7) {
+        console.error("Failed to run Module Revision migration v7:", errV7.message);
+      }
+    }
   } catch (err) {
     console.error("Database initialization failed:", err.message);
   }

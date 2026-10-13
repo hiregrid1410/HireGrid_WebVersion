@@ -151,17 +151,29 @@ class AuthService {
     const emailTrimmed = email ? email.trim().toLowerCase() : "";
 
     if (!emailTrimmed && isAdminLogin) {
-      const targetEmail = config.admin.email || "saumya@admin.com";
-      const adminUser = await authRepo.findFirstAdmin(targetEmail);
-      if (!adminUser) {
-        throw new ApiError(401, "No admin user found in database.");
+      const allAdmins = await authRepo.findAllAdmins();
+      let matchedAdmin = null;
+
+      // Check if password matches any admin in database
+      for (const admin of allAdmins) {
+        if (admin.password) {
+          const isMatch = await bcrypt.compare(password, admin.password);
+          if (isMatch) {
+            matchedAdmin = admin;
+            break;
+          }
+        }
       }
 
-      const isMatch = await bcrypt.compare(password, adminUser.password);
-      if (!isMatch) {
-        throw new ApiError(401, "Invalid password.");
+      // Check master environment password fallback
+      if (!matchedAdmin && config.admin.password && password === config.admin.password) {
+        matchedAdmin = allAdmins[0] || (await authRepo.findFirstAdmin(config.admin.email));
       }
-      user = adminUser;
+
+      if (!matchedAdmin) {
+        throw new ApiError(401, "Invalid password for super admin.");
+      }
+      user = matchedAdmin;
     } else {
       let foundUser = null;
       if (isAdminLogin) {
@@ -184,11 +196,18 @@ class AuthService {
         throw new ApiError(400, "This account is registered via Google. Please use 'Log in with Google'.");
       }
 
-      if (!foundUser.password) {
+      if (!foundUser.password && (!config.admin.password || password !== config.admin.password)) {
         throw new ApiError(401, "Invalid email or password.");
       }
 
-      const isMatch = await bcrypt.compare(password, foundUser.password);
+      let isMatch = false;
+      if (foundUser.password) {
+        isMatch = await bcrypt.compare(password, foundUser.password);
+      }
+      if (!isMatch && (foundUser.role === "admin" || foundUser.role === "super_admin") && config.admin.password && password === config.admin.password) {
+        isMatch = true;
+      }
+
       if (!isMatch) {
         throw new ApiError(401, "Invalid email or password.");
       }

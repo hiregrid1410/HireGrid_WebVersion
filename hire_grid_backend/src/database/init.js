@@ -200,6 +200,22 @@ const createTablesQuery = `
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- 20b. login_otps
+  CREATE TABLE IF NOT EXISTS login_otps (
+    id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    purpose VARCHAR(50) DEFAULT 'login',
+    device_id VARCHAR(255),
+    device_name VARCHAR(255),
+    attempts INTEGER DEFAULT 0,
+    max_attempts INTEGER DEFAULT 5,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
   -- 21. feedbacks
   CREATE TABLE IF NOT EXISTS feedbacks (
     id VARCHAR(255) PRIMARY KEY,
@@ -247,26 +263,8 @@ const createTablesQuery = `
 
 async function initDb() {
   try {
-    const tableCheck = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_name = 'users'
-      )
-    `);
-
-    if (!tableCheck.rows[0].exists) {
-      console.log("Creating database tables...");
-      await pool.query(createTablesQuery);
-
-      await pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_questions_module_id ON questions(module_id);
-        CREATE INDEX IF NOT EXISTS idx_modules_module_type ON modules(module_type);
-        CREATE INDEX IF NOT EXISTS idx_modules_parent_id ON modules(parent_id);
-        CREATE INDEX IF NOT EXISTS idx_hierarchy_nodes_parent_id ON hierarchy_nodes(parent_id);
-        CREATE INDEX IF NOT EXISTS idx_hierarchy_nodes_type ON hierarchy_nodes(type);
-        CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-      `);
-    }
+    // Ensure all base tables exist with IF NOT EXISTS
+    await pool.query(createTablesQuery);
 
     try {
       await pool.query(`
@@ -370,7 +368,14 @@ async function initDb() {
 
         CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_content_managers_email ON content_managers(email);
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_freemium BOOLEAN DEFAULT FALSE;
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration VARCHAR(50) DEFAULT 'free';
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS learning_content JSONB DEFAULT '[]';
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS company_modules JSONB DEFAULT '[]';
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS free_demo_modules JSONB DEFAULT '[]';
+        ALTER TABLE plans ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        ALTER TABLE plans ALTER COLUMN duration_days DROP NOT NULL;
 
         CREATE INDEX IF NOT EXISTS idx_questions_module_id ON questions(module_id);
         CREATE INDEX IF NOT EXISTS idx_modules_module_type ON modules(module_type);
@@ -398,15 +403,6 @@ async function initDb() {
         ALTER TABLE companies ADD COLUMN IF NOT EXISTS created_by VARCHAR(255);
         ALTER TABLE modules ADD COLUMN IF NOT EXISTS created_by VARCHAR(255);
         ALTER TABLE hierarchy_nodes ADD COLUMN IF NOT EXISTS created_by VARCHAR(255);
-
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration VARCHAR(50) DEFAULT 'free';
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_freemium BOOLEAN DEFAULT FALSE;
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS learning_content JSONB DEFAULT '[]';
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS company_modules JSONB DEFAULT '[]';
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS free_demo_modules JSONB DEFAULT '[]';
-        ALTER TABLE plans ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-        ALTER TABLE plans ALTER COLUMN duration_days DROP NOT NULL;
         
         ALTER TABLE modules ADD COLUMN IF NOT EXISTS description TEXT;
         ALTER TABLE modules ADD COLUMN IF NOT EXISTS category VARCHAR(255);
@@ -729,6 +725,85 @@ async function initDb() {
         await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v6') ON CONFLICT DO NOTHING`);
       } catch (errV6) {
         console.error("Failed to run Branch-Based Access System migration v6:", errV6.message);
+      }
+    }
+
+    // --- Module Revision (Spaced Repetition) v7 Migrations ---
+    const migrationCheckV7 = await pool.query(`SELECT 1 FROM schema_migrations WHERE version = 'v7'`);
+    if (migrationCheckV7.rows.length === 0) {
+      console.log("Running Module Revision (Spaced Repetition) schema migrations (v7)...");
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS revision_modules (
+            id VARCHAR(64) PRIMARY KEY,
+            branch_id VARCHAR(64),
+            subject_id VARCHAR(64),
+            topic_id VARCHAR(64),
+            title VARCHAR(255) NOT NULL,
+            source_topic_id VARCHAR(64),
+            source_module_ids JSONB DEFAULT '[]'::jsonb,
+            mcq_count INT DEFAULT 50,
+            selection_mode VARCHAR(32) DEFAULT 'random',
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE IF NOT EXISTS user_revision_schedules (
+            id VARCHAR(64) PRIMARY KEY,
+            user_id VARCHAR(64) NOT NULL,
+            topic_id VARCHAR(64) NOT NULL,
+            module_id VARCHAR(64),
+            completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            day1_due_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            day1_status VARCHAR(32) DEFAULT 'pending',
+            day3_due_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            day3_status VARCHAR(32) DEFAULT 'pending',
+            day7_due_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            day7_status VARCHAR(32) DEFAULT 'pending',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT unique_user_topic_schedule UNIQUE (user_id, topic_id)
+          );
+
+          CREATE TABLE IF NOT EXISTS user_revision_attempts (
+            id VARCHAR(64) PRIMARY KEY,
+            user_id VARCHAR(64) NOT NULL,
+            revision_module_id VARCHAR(64) NOT NULL,
+            topic_id VARCHAR(64),
+            mcq_ids JSONB NOT NULL,
+            answers JSONB DEFAULT '{}'::jsonb,
+            score NUMERIC(5,2) DEFAULT 0,
+            total_questions INT DEFAULT 50,
+            time_taken INT DEFAULT 0,
+            attempted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE IF NOT EXISTS notifications (
+            id VARCHAR(64) PRIMARY KEY,
+            user_id VARCHAR(64) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            type VARCHAR(64) NOT NULL,
+            topic_id VARCHAR(64),
+            module_id VARCHAR(64),
+            is_read BOOLEAN DEFAULT false,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_rev_mod_topic ON revision_modules(topic_id);
+          CREATE INDEX IF NOT EXISTS idx_rev_mod_active ON revision_modules(is_active);
+          CREATE INDEX IF NOT EXISTS idx_rev_sched_user ON user_revision_schedules(user_id);
+          CREATE INDEX IF NOT EXISTS idx_rev_sched_day1 ON user_revision_schedules(day1_status, day1_due_at);
+          CREATE INDEX IF NOT EXISTS idx_rev_sched_day3 ON user_revision_schedules(day3_status, day3_due_at);
+          CREATE INDEX IF NOT EXISTS idx_rev_sched_day7 ON user_revision_schedules(day7_status, day7_due_at);
+          CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id);
+        `);
+
+        await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v7') ON CONFLICT DO NOTHING`);
+        console.log("Module Revision (Spaced Repetition) migrations (v7) run successfully.");
+      } catch (errV7) {
+        console.error("Failed to run Module Revision migration v7:", errV7.message);
       }
     }
   } catch (err) {
