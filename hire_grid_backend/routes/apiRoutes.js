@@ -136,11 +136,21 @@ router.get("/purchases", dataController.getPurchases);
 router.get("/audit-logs", dataController.getAuditLogs);
 router.get("/audit_logs", dataController.getAuditLogs);
 
-// Revision Module System
+// Revision Module System (Admin & Student)
+router.get("/admin/revision-modules", revisionController.getAdminRevisionModules);
+router.post("/admin/revision-modules", revisionController.saveAdminRevisionModule);
+router.delete("/admin/revision-modules/:id", revisionController.deleteAdminRevisionModule);
+router.get("/admin/revision-modules/pool-size", revisionController.getPoolSize);
+
+// Spaced Repetition Student Routes
+router.get("/revisions/schedules", revisionController.getUserRevisionSchedules);
+router.post("/revisions/complete-topic", revisionController.completeTopic);
+router.post("/revisions/start/:topicId", sensitiveActionRateLimiter, revisionController.startRevisionTest);
+router.post("/revisions/submit", sensitiveActionRateLimiter, revisionController.submitRevisionTest);
+
+// Deprecated routes kept for safety
 router.get("/admin/revision-questions", revisionController.getAdminRevisionQuestions);
 router.post("/admin/revision-questions", revisionController.saveAdminRevisionQuestion);
 router.delete("/admin/revision-questions/:id", revisionController.deleteAdminRevisionQuestion);
-router.post("/revisions/complete-topic", revisionController.completeTopic);
-router.post("/revisions/start/:topicId", revisionController.startRevisionTest);
 
 module.exports = router;

@@ -263,6 +263,13 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(height: 10),
 
                 _buildActionTile(
+                  icon: Icons.history_edu_rounded,
+                  title: 'Module Revision (Spaced Repetition)',
+                  subtitle: 'Day 1, 3, 7 schedules & 50-MCQ random recap tests',
+                  badgeText: 'REVISION',
+                  onTap: () => context.push('/module-revision'),
+                ),
+                _buildActionTile(
                   icon: Icons.person_outline_rounded,
                   title: 'Operator Profile Settings',
                   subtitle: 'Branch, Semester, College & University',
@@ -345,6 +352,7 @@ class ProfileScreen extends ConsumerWidget {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    String? badgeText,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -374,7 +382,35 @@ class ProfileScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (badgeText != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreen.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              badgeText,
+                              style: AppTextStyles.label.copyWith(
+                                color: AppColors.primaryGreen,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 2),
                     Text(subtitle, style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary, fontSize: 11)),
                   ],

@@ -12,6 +12,7 @@ import '../models/question_model.dart';
 import '../models/mission_model.dart';
 import '../models/plan_model.dart';
 import '../models/device_model.dart';
+import '../models/revision_model.dart';
 import '../repositories/app_repositories.dart';
 
 // =========================================================
@@ -1080,3 +1081,127 @@ class HttpProfileRepository implements ProfileRepository {
     }
   }
 }
+
+// =========================================================
+// 8. REVISION REPOSITORY (Spaced Repetition & Unseen Random MCQ)
+// =========================================================
+class HttpRevisionRepository implements RevisionRepository {
+  final DioClient _client;
+
+  HttpRevisionRepository(this._client);
+
+  @override
+  Future<RevisionSchedulesResponse> getRevisionSchedules() async {
+    try {
+      final res = await _client.dio.get('/revisions/schedules');
+      if (res.data['success'] == true) {
+        return RevisionSchedulesResponse.fromJson(res.data as Map<String, dynamic>);
+      }
+      return RevisionSchedulesResponse(todayDue: [], upcoming: [], completed: [], allModules: []);
+    } catch (e) {
+      throw _client.mapDioException(e).message;
+    }
+  }
+
+  @override
+  Future<AttemptModel> startRevisionExam(String topicId, {String stage = 'day1'}) async {
+    try {
+      final res = await _client.dio.post(
+        '/revisions/start/$topicId',
+        data: {'stage': stage},
+      );
+      final data = res.data;
+      final attemptId = data['attemptId']?.toString() ?? 'rev_${DateTime.now().millisecondsSinceEpoch}';
+      final timeLeft = (data['timeLeft'] is num) ? (data['timeLeft'] as num).toInt() : 1800;
+      final rawQuestions = data['questions'] as List? ?? [];
+      final questions = <QuestionModel>[];
+      for (int i = 0; i < rawQuestions.length; i++) {
+        questions.add(QuestionModel.fromBackendJson(rawQuestions[i] as Map<String, dynamic>, i + 1));
+      }
+
+      return AttemptModel(
+        attemptId: attemptId,
+        testTitle: data['testTitle']?.toString() ?? 'Revision Assessment',
+        moduleTitle: 'Spaced Repetition Revision',
+        totalQuestions: questions.length,
+        durationSeconds: timeLeft,
+        questions: questions,
+        savedAnswers: const {},
+      );
+    } catch (e) {
+      throw _client.mapDioException(e).message;
+    }
+  }
+
+  @override
+  Future<ExamResultModel> submitRevisionExam({
+    required String attemptId,
+    required Map<String, String?> answers,
+    required int timeTakenSeconds,
+    List<QuestionModel>? questions,
+    String? testTitle,
+  }) async {
+    try {
+      final res = await _client.dio.post(
+        '/revisions/submit',
+        data: {
+          'attemptId': attemptId,
+          'answers': answers,
+          'timeTaken': timeTakenSeconds,
+        },
+      );
+
+      final data = res.data;
+      final score = (data['score'] is num) ? (data['score'] as num).toDouble() : 0.0;
+      final correctCount = (data['correctCount'] is num) ? (data['correctCount'] as num).toInt() : 0;
+      final totalQuestions = (data['totalQuestions'] is num) ? (data['totalQuestions'] as num).toInt() : (questions?.length ?? 0);
+      final xpEarned = (data['xpEarned'] is num) ? (data['xpEarned'] as num).toInt() : correctCount * 15;
+
+      final wrongCount = (totalQuestions - correctCount).clamp(0, totalQuestions);
+      final accuracy = totalQuestions > 0 ? ((correctCount / totalQuestions) * 100).round() : 0;
+
+      return ExamResultModel(
+        attemptId: attemptId,
+        testTitle: testTitle ?? 'Revision Assessment',
+        scorePercentage: score,
+        accuracyPercentage: accuracy,
+        correctCount: correctCount,
+        wrongCount: wrongCount,
+        unattemptedCount: 0,
+        timeTakenSeconds: timeTakenSeconds,
+        xpEarned: xpEarned,
+        isPassed: score >= 60.0,
+        userAnswers: answers,
+        questions: questions ?? [],
+      );
+    } catch (e) {
+      throw _client.mapDioException(e).message;
+    }
+  }
+
+  @override
+  Future<bool> completeTopicRevision({
+    required String topicId,
+    String? topicName,
+    String? subjectId,
+    String? moduleId,
+    int? score,
+  }) async {
+    try {
+      final res = await _client.dio.post(
+        '/revisions/complete-topic',
+        data: {
+          'topicId': topicId,
+          'topicName': topicName,
+          'subjectId': subjectId,
+          'moduleId': moduleId,
+          'score': score ?? 100,
+        },
+      );
+      return res.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+

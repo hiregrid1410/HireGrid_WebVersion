@@ -5,6 +5,7 @@ import '../models/question_model.dart';
 import '../models/mission_model.dart';
 import '../models/plan_model.dart';
 import '../models/device_model.dart';
+import '../models/revision_model.dart';
 
 abstract class AuthRepository {
   Future<UserModel> login(String emailOrMobile, String password);
@@ -56,6 +57,25 @@ abstract class ExamRepository {
   Future<ExamResultModel?> getExamResult(String attemptId);
 }
 
+abstract class RevisionRepository {
+  Future<RevisionSchedulesResponse> getRevisionSchedules();
+  Future<AttemptModel> startRevisionExam(String topicId, {String stage = 'day1'});
+  Future<ExamResultModel> submitRevisionExam({
+    required String attemptId,
+    required Map<String, String?> answers,
+    required int timeTakenSeconds,
+    List<QuestionModel>? questions,
+    String? testTitle,
+  });
+  Future<bool> completeTopicRevision({
+    required String topicId,
+    String? topicName,
+    String? subjectId,
+    String? moduleId,
+    int? score,
+  });
+}
+
 abstract class MissionRepository {
   Future<MissionModel> getCurrentMission();
   Future<List<LeaderboardEntryModel>> getLeaderboard({String tab = 'weekly'});
@@ -92,3 +112,4 @@ abstract class ProfileRepository {
 abstract class StorageRepository {
   Future<String> uploadMedia(String filePath, {String purpose = 'payment-proof'});
 }
+

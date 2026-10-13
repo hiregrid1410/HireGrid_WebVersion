@@ -29,6 +29,7 @@ import { AdminCompaniesTab } from "../../components/admin/AdminCompaniesTab";
 import { HierarchyBuilder } from "../../components/admin/HierarchyBuilder";
 import { AdminPlacementMissionTab } from "../../components/admin/AdminPlacementMissionTab";
 import { AdminBranchesTab } from "../../components/admin/AdminBranchesTab";
+import { AdminRevisionModulesTab } from "../../components/admin/AdminRevisionModulesTab";
 import { ThemeToggle } from "../../components/common/ThemeToggle";
 import DataTable from "../../components/common/DataTable";
 import { useTheme } from "../../ThemeContext";
@@ -312,6 +313,13 @@ export default function ContentManagerDashboard() {
               label="Branches & Mappings"
               active={activeTab === "branches-mappings"}
               onClick={() => setActiveTab("branches-mappings")}
+              isOpen={sidebarOpen}
+            />
+            <SidebarItem
+              icon={<RotateCcw />}
+              label="Revision Modules"
+              active={activeTab === "revision-modules"}
+              onClick={() => setActiveTab("revision-modules")}
               isOpen={sidebarOpen}
             />
           </div>
@@ -722,6 +730,11 @@ export default function ContentManagerDashboard() {
             {activeTab === "branches-mappings" && (
               <div className="animate-in fade-in duration-300">
                 <AdminBranchesTab isContentManager={true} userName={userName} />
+              </div>
+            )}
+            {activeTab === "revision-modules" && (
+              <div className="animate-in fade-in duration-300">
+                <AdminRevisionModulesTab />
               </div>
             )}
             {activeTab === "profile" && (

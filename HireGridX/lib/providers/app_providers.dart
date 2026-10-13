@@ -11,6 +11,7 @@ import '../data/models/module_model.dart';
 import '../data/models/mission_model.dart';
 import '../data/models/plan_model.dart';
 import '../data/models/device_model.dart';
+import '../data/models/revision_model.dart';
 
 // ==========================================
 // CORE INFRASTRUCTURE PROVIDERS
@@ -101,6 +102,16 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   final deviceService = ref.watch(deviceInfoServiceProvider);
   final tokenStorage = ref.watch(tokenStorageProvider);
   return HttpProfileRepository(client, deviceService, tokenStorage);
+});
+
+final revisionRepositoryProvider = Provider<RevisionRepository>((ref) {
+  final client = ref.watch(dioClientProvider);
+  return HttpRevisionRepository(client);
+});
+
+final revisionSchedulesProvider = FutureProvider.autoDispose<RevisionSchedulesResponse>((ref) async {
+  final repo = ref.watch(revisionRepositoryProvider);
+  return repo.getRevisionSchedules();
 });
 
 // ==========================================

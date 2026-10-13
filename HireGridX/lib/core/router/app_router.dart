@@ -30,6 +30,7 @@ import '../../features/support/help_support_screen.dart';
 import '../../features/support/send_feedback_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/common/motivation_screen.dart';
+import '../../features/revision/revision_screen.dart';
 
 // Exam
 import '../../features/exam/exam_screen.dart';
@@ -230,7 +231,7 @@ final appRouter = GoRouter(
       ],
     ),
 
-    // Notifications & Motivation
+    // Notifications & Motivation & Revision
     GoRoute(
       path: '/notifications',
       builder: (context, state) => const NotificationsScreen(),
@@ -238,6 +239,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/motivation',
       builder: (context, state) => const MotivationEndScreen(),
+    ),
+    GoRoute(
+      path: '/module-revision',
+      builder: (context, state) => const RevisionScreen(),
     ),
 
     // Full Screen Exam Engine

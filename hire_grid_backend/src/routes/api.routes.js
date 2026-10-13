@@ -17,6 +17,7 @@ const { gateController } = require("../modules/gate");
 const { usersController } = require("../modules/users");
 const { adminUsersController } = require("../modules/admin-users");
 const { miscController } = require("../modules/misc");
+const { revisionController } = require("../modules/revision");
 
 // Protect all /api routes mounted on this router
 router.use(authenticate);
@@ -138,5 +139,17 @@ router.get("/notifications", (req, res, next) => miscController.getNotifications
 router.get("/purchases", (req, res, next) => miscController.getPurchases(req, res, next));
 router.get("/audit-logs", (req, res, next) => miscController.getAuditLogs(req, res, next));
 router.get("/audit_logs", (req, res, next) => miscController.getAuditLogs(req, res, next));
+
+// Spaced Repetition Revision Modules (Admin)
+router.get("/admin/revision-modules", (req, res, next) => revisionController.getAdminRevisionModules(req, res, next));
+router.post("/admin/revision-modules", invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.saveAdminRevisionModule(req, res, next));
+router.delete("/admin/revision-modules/:id", invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.deleteAdminRevisionModule(req, res, next));
+router.get("/admin/revision-modules/pool-size", (req, res, next) => revisionController.getPoolSize(req, res, next));
+
+// Spaced Repetition Revision Modules (Student / App)
+router.get("/revisions/schedules", (req, res, next) => revisionController.getUserRevisionSchedules(req, res, next));
+router.post("/revisions/complete-topic", (req, res, next) => revisionController.completeTopic(req, res, next));
+router.get("/revisions/start/:topicId", (req, res, next) => revisionController.startRevisionTest(req, res, next));
+router.post("/revisions/submit", sensitiveActionRateLimiter, (req, res, next) => revisionController.submitRevisionTest(req, res, next));
 
 module.exports = router;

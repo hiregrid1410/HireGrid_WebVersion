@@ -31,6 +31,7 @@ import { AdminPlansTab } from "../../components/admin/AdminPlansTab";
 import { AdminAuditLogTab } from "../../components/admin/AdminAuditLogTab";
 import { AdminPlacementMissionTab } from "../../components/admin/AdminPlacementMissionTab";
 import { AdminBranchesTab } from "../../components/admin/AdminBranchesTab";
+import { AdminRevisionModulesTab } from "../../components/admin/AdminRevisionModulesTab";
 import { AdminSystemHealthTab } from "../../components/admin/AdminSystemHealthTab";
 import { AdminMaintenanceTab } from "../../components/admin/AdminMaintenanceTab";
 import { ThemeToggle } from "../../components/common/ThemeToggle";
@@ -298,6 +299,13 @@ export default function AdminDashboard() {
                   isOpen={sidebarOpen}
                 />
                 <SidebarItem
+                  icon={<RotateCcw />}
+                  label="Revision Modules"
+                  active={activeWorkspace === "content" && activeSubTab === "revision_modules"}
+                  onClick={() => setView("content", "revision_modules")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
                   icon={<CreditCard />}
                   label="Subscription Plans"
                   active={activeWorkspace === "content" && activeSubTab === "plans"}
@@ -487,6 +495,9 @@ export default function AdminDashboard() {
               )}
               {activeWorkspace === "content" && activeSubTab === "branch_access" && (
                 <AdminBranchesTab isContentManager={false} userName={userName} />
+              )}
+              {activeWorkspace === "content" && activeSubTab === "revision_modules" && (
+                <AdminRevisionModulesTab />
               )}
               {activeWorkspace === "content" && activeSubTab === "plans" && (
                 <AdminPlansTab userName={userName} />

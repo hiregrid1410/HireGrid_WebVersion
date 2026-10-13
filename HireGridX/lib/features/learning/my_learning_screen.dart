@@ -842,37 +842,40 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                 children: branches.map((b) {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
+                    child: Material(
                       color: AppColors.surfaceCard,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.borderSubtle),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      leading: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryGreen.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: AppColors.borderSubtle),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        leading: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGreen.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(_getBranchIcon(b.name), color: AppColors.primaryGreen, size: 20),
                         ),
-                        child: Icon(_getBranchIcon(b.name), color: AppColors.primaryGreen, size: 20),
+                        title: Text(
+                          b.name,
+                          style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(
+                          'Tap to select a topic for revision test',
+                          style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                        onTap: () {
+                          setState(() {
+                            _selectedBranch = b;
+                            _tabController.animateTo(0);
+                          });
+                        },
                       ),
-                      title: Text(
-                        b.name,
-                        style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      subtitle: Text(
-                        'Tap to select a topic for revision test',
-                        style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary, fontSize: 11),
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-                      onTap: () {
-                        setState(() {
-                          _selectedBranch = b;
-                          _tabController.animateTo(0);
-                        });
-                      },
                     ),
                   );
                 }).toList(),
