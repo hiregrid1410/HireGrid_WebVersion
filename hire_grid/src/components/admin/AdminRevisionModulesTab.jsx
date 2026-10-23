@@ -1,3 +1,4 @@
+import { PlatformSelector, PlatformBadge, PlatformFilterTabs } from "./PlatformSelector";
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   RotateCcw, 
@@ -38,7 +39,9 @@ export function AdminRevisionModulesTab() {
     mcqCount: 50,
     selectionMode: "random",
     isActive: true,
+    platform: "both",
   });
+  const [platformFilter, setPlatformFilter] = useState("all");
 
   const [poolSize, setPoolSize] = useState(0);
   const [calculatingPool, setCalculatingPool] = useState(false);
@@ -219,6 +222,7 @@ export function AdminRevisionModulesTab() {
       mcqCount: 50,
       selectionMode: "random",
       isActive: true,
+      platform: "both",
     });
     setShowModal(true);
   };
@@ -296,7 +300,9 @@ export function AdminRevisionModulesTab() {
 
   const filteredModules = revisionModules.filter((rm) => {
     const q = searchQuery.toLowerCase();
-    return (
+      const displayedRevisionModules = revisionModules.filter(rm => platformFilter === "all" || (rm.platform || "both") === platformFilter);
+
+  return (
       rm.title?.toLowerCase().includes(q) ||
       rm.branchName?.toLowerCase().includes(q) ||
       rm.subjectName?.toLowerCase().includes(q) ||

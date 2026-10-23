@@ -39,6 +39,7 @@ export async function checkHealth(timeoutMs = 4000) {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const res = await fetch(`${API_URL}/health`, { 
       method: "GET",
+      headers: { "x-platform": "web" },
       signal: controller.signal
     });
     clearTimeout(timer);
@@ -62,6 +63,7 @@ export async function checkReady(timeoutMs = 5000) {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const res = await fetch(`${API_URL}/ready`, { 
       method: "GET",
+      headers: { "x-platform": "web" },
       signal: controller.signal
     });
     clearTimeout(timer);
@@ -162,6 +164,7 @@ async function request(method, path, body = null, requestOptions = {}) {
 
   const headers = {
     "Content-Type": "application/json",
+    "x-platform": "web",
   };
 
   if (token) {

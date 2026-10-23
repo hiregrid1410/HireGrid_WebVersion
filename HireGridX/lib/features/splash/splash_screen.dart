@@ -31,6 +31,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           baseUrl: ApiConfig.baseUrl,
           connectTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 5),
+          headers: {
+            'x-platform': 'app',
+            'x-app-key': const String.fromEnvironment('APP_API_KEY', defaultValue: ''),
+          },
         ),
       ).get('/branches/active').catchError((_) {
         // Silent catch: just a warm-up ping

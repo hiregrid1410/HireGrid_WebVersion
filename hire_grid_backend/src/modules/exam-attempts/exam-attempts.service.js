@@ -2,14 +2,22 @@ const { pool } = require("../../database/connection");
 const crypto = require("crypto");
 const { verifyUserItemAccess } = require("../../services/accessChecker.service");
 const { ApiError } = require("../../utils/ApiError");
+const { checkItemPlatformAccess } = require("../../utils/platformHelper");
 
 class ExamAttemptsService {
-  async startExamAttempt(userId, moduleId) {
+  async startExamAttempt(userId, moduleId, platform = null, role = null) {
     if (!userId || !moduleId) {
       throw new ApiError(400, "User ID and Module ID are required.");
     }
 
-    const accessCheck = await verifyUserItemAccess(userId, moduleId, "module");
+        if (role !== "admin" && role !== "content_manager" && platform) {
+      const isPlatformOk = await checkItemPlatformAccess("modules", moduleId, platform, role, pool);
+      if (!isPlatformOk) {
+        throw new ApiError(404, "Module not found.");
+      }
+    }
+
+    const accessCheck = await verifyUserItemAccess(userId, moduleId, "module", platform);
     if (!accessCheck.allowed) {
       throw new ApiError(403, accessCheck.reason || "Access locked under current plan.");
     }

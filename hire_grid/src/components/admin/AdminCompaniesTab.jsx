@@ -1,3 +1,4 @@
+import { PlatformSelector, PlatformBadge, PlatformFilterTabs } from "./PlatformSelector";
 import React, { useState, useEffect } from "react";
 import {
   Plus,
@@ -37,6 +38,8 @@ export function AdminCompaniesTab({
   const [sellType, setSellType] = useState("pack");
   const [displayOrder, setDisplayOrder] = useState(0);
   const [publicationStatus, setPublicationStatus] = useState("PUBLISHED");
+  const [platform, setPlatform] = useState("both");
+  const [platformFilter, setPlatformFilter] = useState("all");
 
   const [activeBranches, setActiveBranches] = useState([]);
   const [assignmentScope, setAssignmentScope] = useState("ALL");
@@ -60,7 +63,9 @@ export function AdminCompaniesTab({
           const orderA = a.displayOrder ?? 999999;
           const orderB = b.displayOrder ?? 999999;
           if (orderA !== orderB) return orderA - orderB;
-          return (a.createdAt || 0) - (b.createdAt || 0);
+            const displayedCompanies = companies.filter(c => platformFilter === "all" || (c.platform || "both") === platformFilter);
+
+  return (a.createdAt || 0) - (b.createdAt || 0);
         });
 
         setCompanies(fetchedCompanies);
@@ -175,6 +180,7 @@ export function AdminCompaniesTab({
             sellType,
             displayOrder,
             publicationStatus: finalStatus,
+            platform: platform || "both",
             createdAt: existing ? existing.createdAt : Date.now(),
             createdBy: existing ? (existing.createdBy || null) : userName,
           }),
@@ -204,6 +210,7 @@ export function AdminCompaniesTab({
       setPrice(99);
       setSellType("pack");
       setPublicationStatus("PUBLISHED");
+      setPlatform("both");
       setAssignmentScope("ALL");
       setSelectedBranchIds([]);
     } catch (err) {
@@ -242,6 +249,7 @@ export function AdminCompaniesTab({
     setSellType(c.sellType || "pack");
     setDisplayOrder(c.displayOrder || 0);
     setPublicationStatus(c.publicationStatus || c.publication_status || "PUBLISHED");
+    setPlatform(c.platform || "both");
 
     try {
       const res = await api.get(`/companies/${c.id}/branches`);
@@ -505,6 +513,7 @@ export function AdminCompaniesTab({
           </div>
 
           <div className="space-y-4">
+              <PlatformSelector value={platform} onChange={setPlatform} />
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">
               Display Order
             </label>
@@ -619,7 +628,7 @@ export function AdminCompaniesTab({
       {!isCreating && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <SortableList
-            items={companies}
+            items={displayedCompanies}
             collectionName="companies"
             onOrderChange={setCompanies}
             grid={true}

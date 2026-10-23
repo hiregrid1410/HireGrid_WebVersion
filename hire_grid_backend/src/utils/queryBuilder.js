@@ -1,11 +1,94 @@
-const applyQueryModifiers = (baseQuery, reqQuery = {}, defaultOrder = "created_at DESC", userBranchId = null) => {
+const { getPlatformSqlFilter, WHITELISTED_PLATFORM_TABLES } = require("./platformHelper");
+
+/**
+ * Enhanced queryBuilder with platform filtering, parent-child cascades, and role bypass.
+ *
+ * Implements:
+ * - A3: Strict table whitelist (companies, branches, hierarchy_nodes, modules, plans, revision_modules, exams, placement_mission_cycles).
+ * - A5: Parent-child cascade matching.
+ * - A9: Verified JWT admin/content_manager bypass (never filters out content for admins).
+ */
+const applyQueryModifiers = (
+  baseQuery,
+  reqQuery = {},
+  defaultOrder = "created_at DESC",
+  userBranchId = null,
+  platform = null,
+  userRole = null
+) => {
   let sql = baseQuery;
   const values = [];
   let paramIndex = 1;
   const whereClauses = [];
 
+  // Parse flexible context parameters (supports object or positional arguments)
+  let resolvedBranchId = userBranchId;
+  let resolvedPlatform = platform;
+  let resolvedRole = userRole;
+
+  if (typeof userBranchId === "object" && userBranchId !== null) {
+    resolvedBranchId = userBranchId.userBranchId ?? userBranchId.branchId ?? null;
+    resolvedPlatform = userBranchId.platform ?? platform ?? null;
+    resolvedRole = userBranchId.userRole ?? userBranchId.role ?? userRole ?? null;
+  }
+
+  // Fallback to internal query context if passed via reqQuery
+  if (!resolvedPlatform && reqQuery._platform) {
+    resolvedPlatform = reqQuery._platform;
+  }
+  if (!resolvedRole && reqQuery._userRole) {
+    resolvedRole = reqQuery._userRole;
+  }
+
+  // Determine which whitelisted table is queried (if any)
+  let matchedTable = null;
+  let tableAlias = null;
+
+  if (sql.includes("FROM companies")) {
+    matchedTable = "companies";
+    tableAlias = "companies";
+  } else if (sql.includes("FROM branches")) {
+    matchedTable = "branches";
+    tableAlias = "branches";
+  } else if (sql.includes("FROM hierarchy_nodes")) {
+    matchedTable = "hierarchy_nodes";
+    tableAlias = "hierarchy_nodes";
+  } else if (sql.includes("FROM modules m")) {
+    matchedTable = "modules";
+    tableAlias = "m";
+  } else if (sql.includes("FROM modules")) {
+    matchedTable = "modules";
+    tableAlias = "modules";
+  } else if (sql.includes("FROM plans")) {
+    matchedTable = "plans";
+    tableAlias = "plans";
+  } else if (sql.includes("FROM revision_modules rm")) {
+    matchedTable = "revision_modules";
+    tableAlias = "rm";
+  } else if (sql.includes("FROM revision_modules")) {
+    matchedTable = "revision_modules";
+    tableAlias = "revision_modules";
+  } else if (sql.includes("FROM exams")) {
+    matchedTable = "exams";
+    tableAlias = "exams";
+  } else if (sql.includes("FROM placement_mission_cycles")) {
+    matchedTable = "placement_mission_cycles";
+    tableAlias = "placement_mission_cycles";
+  }
+
+  // A3 & A9: Apply platform filter ONLY to whitelisted tables, and NEVER for admin/content_manager
+  const isAdminOrManager = resolvedRole === "admin" || resolvedRole === "content_manager";
+  if (!isAdminOrManager && matchedTable && resolvedPlatform) {
+    const platformFilter = getPlatformSqlFilter(matchedTable, resolvedPlatform, paramIndex, tableAlias);
+    if (platformFilter) {
+      whereClauses.push(platformFilter.sql);
+      values.push(...platformFilter.values);
+      paramIndex += platformFilter.values.length;
+    }
+  }
+
   // Branch-Based access filtering
-  if (userBranchId) {
+  if (resolvedBranchId) {
     if (sql.includes("FROM companies")) {
       whereClauses.push(`(
         EXISTS (
@@ -18,7 +101,7 @@ const applyQueryModifiers = (baseQuery, reqQuery = {}, defaultOrder = "created_a
           WHERE cbm2.company_id = companies.id
         )
       )`);
-      values.push(userBranchId);
+      values.push(resolvedBranchId);
     } else if (sql.includes("FROM modules")) {
       whereClauses.push(`(
         (m.module_type = 'company' AND (
@@ -43,7 +126,7 @@ const applyQueryModifiers = (baseQuery, reqQuery = {}, defaultOrder = "created_a
           )
         ))
       )`);
-      values.push(userBranchId, userBranchId);
+      values.push(resolvedBranchId, resolvedBranchId);
     } else if (sql.includes("FROM hierarchy_nodes")) {
       whereClauses.push(`(
         EXISTS (
@@ -56,7 +139,7 @@ const applyQueryModifiers = (baseQuery, reqQuery = {}, defaultOrder = "created_a
           WHERE cobm2.content_id = hierarchy_nodes.id AND cobm2.content_type = 'hierarchy_node'
         )
       )`);
-      values.push(userBranchId);
+      values.push(resolvedBranchId);
     }
   }
 
@@ -145,5 +228,6 @@ const applyQueryModifiers = (baseQuery, reqQuery = {}, defaultOrder = "created_a
 };
 
 module.exports = {
-  applyQueryModifiers
+  applyQueryModifiers,
+  WHITELISTED_PLATFORM_TABLES,
 };

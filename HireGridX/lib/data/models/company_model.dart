@@ -10,6 +10,7 @@ class CompanyModel {
   final String description;
   final List<String> hiringCriteria;
   final int avgSalaryLpa;
+  final String platform;
 
   const CompanyModel({
     required this.id,
@@ -21,6 +22,7 @@ class CompanyModel {
     required this.description,
     required this.hiringCriteria,
     required this.avgSalaryLpa,
+    this.platform = 'both',
   });
 
   factory CompanyModel.fromJson(Map<String, dynamic> json) {
@@ -53,6 +55,7 @@ class CompanyModel {
         'Strong foundational problem solving and aptitude',
       ],
       avgSalaryLpa: salary > 0 ? salary : 4,
+      platform: json['platform']?.toString() ?? 'both',
     );
   }
 }

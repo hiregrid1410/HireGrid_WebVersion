@@ -1,3 +1,4 @@
+import { PlatformSelector, PlatformBadge, PlatformFilterTabs } from "./PlatformSelector";
 import React, { useState, useEffect } from "react";
 import { api, invalidateCache } from "../../lib/api";
 import { showToast } from "../common/Toast";
@@ -25,6 +26,7 @@ import DataTable from "../common/DataTable";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 
 export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
+  const [platformFilter, setPlatformFilter] = useState("all");
   const [branches, setBranches] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [modules, setModules] = useState([]);
@@ -41,6 +43,7 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
     description: "",
     status: "ACTIVE",
     isGeneral: false,
+    platform: "both",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,7 +54,8 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
   const [selectedEntityIds, setSelectedEntityIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [assignmentScope, setAssignmentScope] = useState("ALL"); // 'ALL' | 'SPECIFIC'
+  const [assignmentScope, setAssignmentScope] = useState("ALL");
+  const displayedBranches = branches.filter(b => platformFilter === "all" || (b.platform || "both") === platformFilter); // 'ALL' | 'SPECIFIC'
   const [selectedBranchIds, setSelectedBranchIds] = useState([]);
 
   // Hierarchical Tree States
@@ -131,6 +135,7 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
       description: branch.description || "",
       status: branch.status || "ACTIVE",
       isGeneral: !!branch.isGeneral,
+      platform: branch.platform || "both",
     });
     setIsEditing(true);
   };
@@ -159,6 +164,7 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
       description: "",
       status: "ACTIVE",
       isGeneral: false,
+      platform: "both",
     });
     setIsEditing(false);
   };
@@ -717,7 +723,9 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
       return null;
     }
 
-    return (
+      
+
+  return (
       <div className="space-y-1">
         <div
           style={{ paddingLeft: `${depth * 16}px` }}
@@ -987,10 +995,11 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
           </div>
 
           {/* Specialties DataTable */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-4">
+            <PlatformFilterTabs selectedPlatform={platformFilter} onSelectPlatform={setPlatformFilter} />
             <DataTable
               columns={specialtiesColumns}
-              data={branches}
+              data={displayedBranches}
               loading={loading}
               searchKey="name"
               searchPlaceholder="Search branches by name..."

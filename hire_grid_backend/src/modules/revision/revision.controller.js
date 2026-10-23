@@ -1,5 +1,6 @@
 const { pool } = require("../../database/connection");
 const crypto = require("crypto");
+const { isValidPlatform, checkItemPlatformAccess } = require("../../utils/platformHelper");
 
 class RevisionController {
   // ==========================================
@@ -20,6 +21,7 @@ class RevisionController {
           rm.mcq_count AS "mcqCount",
           rm.selection_mode AS "selectionMode",
           rm.is_active AS "isActive",
+          rm.platform AS "platform",
           rm.created_at AS "createdAt",
           rm.updated_at AS "updatedAt",
           b.name AS "branchName",
@@ -111,8 +113,13 @@ class RevisionController {
       sourceModuleIds,
       mcqCount,
       selectionMode,
-      isActive
+      isActive,
+      platform: rawPlatform
     } = req.body;
+    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
+    if (!isValidPlatform(platform)) {
+      return res.status(400).json({ error: "Invalid platform value. Must be 'web', 'app', or 'both'." });
+    }
 
     const rmId = id || crypto.randomUUID();
     const count = parseInt(mcqCount, 10) || 50;
@@ -151,7 +158,8 @@ class RevisionController {
           formattedSourceModuleIds,
           count,
           selectionMode || "random",
-          active
+          active,
+          platform
         ]
       );
 
@@ -286,10 +294,21 @@ class RevisionController {
     const { topicId } = req.params;
 
     try {
-      const rmRes = await pool.query(
-        `SELECT * FROM revision_modules WHERE topic_id = $1 AND is_active = true LIMIT 1`,
-        [topicId]
-      );
+      const role = req.user?.role || "student";
+      const platform = req.platform;
+
+      let rmRes;
+      if (role !== "admin" && role !== "content_manager" && platform) {
+        rmRes = await pool.query(
+          `SELECT * FROM revision_modules WHERE topic_id = $1 AND is_active = true AND (platform = 'both' OR platform = $2) LIMIT 1`,
+          [topicId, platform.toLowerCase()]
+        );
+      } else {
+        rmRes = await pool.query(
+          `SELECT * FROM revision_modules WHERE topic_id = $1 AND is_active = true LIMIT 1`,
+          [topicId]
+        );
+      }
 
       let targetCount = 50;
       let sourceTopicId = topicId;

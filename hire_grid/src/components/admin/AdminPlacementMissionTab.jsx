@@ -1,3 +1,4 @@
+import { PlatformSelector, PlatformBadge, PlatformFilterTabs } from "./PlatformSelector";
 import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import { showToast } from "../common/Toast";
@@ -35,6 +36,9 @@ export function AdminPlacementMissionTab({ userName }) {
   const [cycles, setCycles] = useState([]);
   const [newCycleName, setNewCycleName] = useState("");
   const [isCreatingCycle, setIsCreatingCycle] = useState(false);
+  const [cyclePlatform, setCyclePlatform] = useState("both");
+  const [missionPlatform, setMissionPlatform] = useState("both");
+  const [platformFilter, setPlatformFilter] = useState("all");
 
   // Modules State
   const [modules, setModules] = useState([]);
@@ -147,7 +151,7 @@ export function AdminPlacementMissionTab({ userName }) {
 
     try {
       setLoading(true);
-      const res = await api.post("/placement-mission/content-manager/cycles", { name: newCycleName });
+      const res = await api.post("/placement-mission/content-manager/cycles", { name: newCycleName, platform: cyclePlatform || "both" });
       if (res.success) {
         showToast(res.message || "New weekly cycle started!", "success");
         setNewCycleName("");
@@ -692,6 +696,7 @@ export function AdminPlacementMissionTab({ userName }) {
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white uppercase font-mono tracking-wider text-sm mb-2">New Weekly Cycle</h3>
                 <p className="text-xs text-slate-500 mb-4">Starting a new cycle transitions previous cycles as completed, initializing a blank active leaderboard partition.</p>
                 <div className="space-y-4">
+            <PlatformSelector value={missionPlatform} onChange={setMissionPlatform} />
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Cycle Name</label>
                     <input

@@ -142,7 +142,7 @@ class AuthService {
     };
   }
 
-  async login({ email, password, isAdminLogin = false, deviceId, deviceName }) {
+  async login({ email, password, isAdminLogin = false, deviceId, deviceName, isTrustedApp = false }) {
     if (!password || (!isAdminLogin && (!email || email.trim() === ""))) {
       throw new ApiError(400, isAdminLogin ? "Password is required." : "Email and password are required.");
     }
@@ -214,7 +214,8 @@ class AuthService {
 
       user = foundUser;
 
-      if (user.role === "student") {
+      // A2: Bypass device limit only when isTrustedApp is true
+      if (user.role === "student" && !isTrustedApp) {
         const deviceCheck = await this.validateAndRegisterDevice(user, deviceId, deviceName);
         if (!deviceCheck.allowed) {
           const err = new ApiError(403, deviceCheck.message);
@@ -250,7 +251,7 @@ class AuthService {
     return formatUserResponse(user);
   }
 
-  async googleLogin({ credential, deviceId, deviceName }) {
+  async googleLogin({ credential, deviceId, deviceName, isTrustedApp = false }) {
     if (!credential) {
       throw new ApiError(400, "Google credential is required.");
     }
@@ -290,12 +291,15 @@ class AuthService {
       });
     }
 
-    const deviceCheck = await this.validateAndRegisterDevice(user, deviceId, deviceName);
-    if (!deviceCheck.allowed) {
-      const err = new ApiError(403, deviceCheck.message);
-      err.deviceLimitReached = true;
-      err.maxDevices = deviceCheck.maxDevices;
-      throw err;
+    // A2: Bypass device limit only when isTrustedApp is true
+    if (!isTrustedApp) {
+      const deviceCheck = await this.validateAndRegisterDevice(user, deviceId, deviceName);
+      if (!deviceCheck.allowed) {
+        const err = new ApiError(403, deviceCheck.message);
+        err.deviceLimitReached = true;
+        err.maxDevices = deviceCheck.maxDevices;
+        throw err;
+      }
     }
 
     const token = this.generateToken(user);

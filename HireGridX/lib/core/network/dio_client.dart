@@ -25,6 +25,8 @@ class DioClient {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'x-platform': 'app',
+          'x-app-key': const String.fromEnvironment('APP_API_KEY', defaultValue: ''),
           'X-Client-Platform': 'android',
           'X-App-Version': '1.0.0',
           'X-Requested-With': 'com.hiregridx.app',

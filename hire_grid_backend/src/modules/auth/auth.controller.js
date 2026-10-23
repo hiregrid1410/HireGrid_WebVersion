@@ -18,7 +18,10 @@ class AuthController {
 
   async login(req, res, next) {
     try {
-      const result = await authService.login(req.body);
+      const result = await authService.login({
+        ...req.body,
+        isTrustedApp: req.isTrustedApp === true,
+      });
       return res.json({
         success: true,
         message: result.message,
@@ -51,7 +54,10 @@ class AuthController {
 
   async googleLogin(req, res, next) {
     try {
-      const result = await authService.googleLogin(req.body);
+      const result = await authService.googleLogin({
+        ...req.body,
+        isTrustedApp: req.isTrustedApp === true,
+      });
       return res.json({
         success: true,
         message: result.message,

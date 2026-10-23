@@ -1,3 +1,4 @@
+import { PlatformSelector, PlatformBadge, PlatformFilterTabs } from "./PlatformSelector";
 import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import {
@@ -51,6 +52,8 @@ export function AdminPlansTab({ userName }) {
   const [qrCode, setQrCode] = useState("");
   const [activeFrom, setActiveFrom] = useState("");
   const [activeUntil, setActiveUntil] = useState("");
+  const [platform, setPlatform] = useState("both");
+  const [platformFilter, setPlatformFilter] = useState("all");
 
   // Selection States
   const [learningContent, setLearningContent] = useState([]);
@@ -92,7 +95,9 @@ export function AdminPlansTab({ userName }) {
       (error) => handleFirestoreError(error, OperationType.LIST, "companies")
     );
 
-    return () => {
+      const displayedPlans = plans.filter(p => platformFilter === "all" || (p.platform || "both") === platformFilter);
+
+  return () => {
       unsubPlans();
       unsubComp();
     };
@@ -223,6 +228,7 @@ export function AdminPlansTab({ userName }) {
         qrCode,
         activeFrom: activeFrom ? new Date(activeFrom).getTime() : null,
         activeUntil: activeUntil ? new Date(activeUntil).getTime() : null,
+        platform: platform || "both",
       };
 
       await api.post("/plans", payload).catch(() => {});
@@ -246,6 +252,7 @@ export function AdminPlansTab({ userName }) {
       setQrCode("");
       setActiveFrom("");
       setActiveUntil("");
+    setPlatform("both");
       showToast("Plan saved successfully!", "success");
     } catch (err) {
       showToast("Error saving plan: " + err.message, "error");
@@ -755,6 +762,7 @@ export function AdminPlansTab({ userName }) {
                 }`}
               >
                 <div className="space-y-4">
+                <PlatformSelector value={platform} onChange={setPlatform} />
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-bold text-slate-800 dark:text-white text-base tracking-wide line-clamp-1">{plan.name}</h3>

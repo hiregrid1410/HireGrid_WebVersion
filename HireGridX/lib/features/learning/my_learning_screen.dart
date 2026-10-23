@@ -844,7 +844,6 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                     margin: const EdgeInsets.only(bottom: 10),
                     child: Material(
                       color: AppColors.surfaceCard,
-                      borderRadius: BorderRadius.circular(14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                         side: const BorderSide(color: AppColors.borderSubtle),

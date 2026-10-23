@@ -3,19 +3,19 @@ const branchesService = require("./branches.service");
 class BranchesController {
   async getBranches(req, res, next) {
     try {
-      const branches = await branchesService.getBranches();
+      const branches = await branchesService.getBranches(req.platform, req.user?.role);
       res.json({ success: true, branches });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
   async getActiveBranches(req, res, next) {
     try {
-      const branches = await branchesService.getActiveBranches();
+      const branches = await branchesService.getActiveBranches(req.platform, req.user?.role);
       res.json({ success: true, branches });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -24,7 +24,7 @@ class BranchesController {
       const result = await branchesService.saveBranch(req.body, req.user?.id);
       res.json({ success: true, ...result });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -36,7 +36,7 @@ class BranchesController {
       if (err.statusCode) {
         return res.status(err.statusCode).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -45,7 +45,7 @@ class BranchesController {
       const mappings = await branchesService.getCompanyBranches(req.params.companyId);
       res.json({ success: true, mappings });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -59,7 +59,7 @@ class BranchesController {
       );
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -76,7 +76,7 @@ class BranchesController {
       if (err.statusCode) {
         return res.status(err.statusCode).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -85,7 +85,7 @@ class BranchesController {
       const mappings = await branchesService.getContentMappings(req.params.contentType, req.params.contentId);
       res.json({ success: true, mappings });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -100,7 +100,7 @@ class BranchesController {
       );
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -118,7 +118,7 @@ class BranchesController {
       if (err.statusCode) {
         return res.status(err.statusCode).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 }

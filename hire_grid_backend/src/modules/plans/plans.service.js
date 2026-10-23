@@ -4,10 +4,11 @@ const { applyQueryModifiers } = require("../../utils/queryBuilder");
 const { dbCache } = require("../../services/accessChecker.service");
 const cacheService = require("../../services/cache.service");
 const { ApiError } = require("../../utils/ApiError");
+const { isValidPlatform, checkItemPlatformAccess } = require("../../utils/platformHelper");
 
 class PlansService {
-  async getPlans(query) {
-    const cacheKey = `plans:query:${JSON.stringify(query)}`;
+  async getPlans(query, platform = null, userRole = null) {
+    const cacheKey = `plans:platform:${platform}:role:${userRole}:query:${JSON.stringify(query)}`;
     const cached = cacheService.get(cacheKey);
     if (cached) {
       return cached;
@@ -31,10 +32,11 @@ class PlansService {
         payment_number AS "paymentNumber",
         created_at AS "createdAt",
         active_from AS "activeFrom",
-        active_until AS "activeUntil"
+        active_until AS "activeUntil",
+        platform
       FROM plans
     `;
-    const { sql, values } = applyQueryModifiers(baseQuery, query, 'created_at DESC');
+    const { sql, values } = applyQueryModifiers(baseQuery, query, 'created_at DESC', null, platform, userRole);
     const result = await pool.query(sql, values);
     const plansList = result.rows;
 
@@ -64,7 +66,15 @@ class PlansService {
     return plansList;
   }
 
-  async getPlanById(id) {
+  async getPlanById(id, platform = null, userRole = null) {
+    const isAdmin = userRole === "admin" || userRole === "content_manager";
+    if (!isAdmin && platform) {
+      const isOk = await checkItemPlatformAccess("plans", id, platform, userRole, pool);
+      if (!isOk) {
+        throw new ApiError(404, "Plan not found");
+      }
+    }
+
     const result = await pool.query(
       `SELECT 
         id, 
@@ -83,7 +93,8 @@ class PlansService {
         payment_number AS "paymentNumber",
         created_at AS "createdAt",
         active_from AS "activeFrom",
-        active_until AS "activeUntil"
+        active_until AS "activeUntil",
+        platform
        FROM plans WHERE id = $1`,
       [id]
     );
@@ -122,8 +133,13 @@ class PlansService {
       paymentNumber,
       activeFrom,
       activeUntil,
+      platform: rawPlatform,
     } = body;
     const planId = id || crypto.randomUUID();
+    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
+    if (!isValidPlatform(platform)) {
+      throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+    }
 
     await pool.query("BEGIN");
     try {
@@ -165,6 +181,7 @@ class PlansService {
           paymentNumber || null,
           activeFrom !== undefined && activeFrom !== null ? Number(activeFrom) : null,
           activeUntil !== undefined && activeUntil !== null ? Number(activeUntil) : null,
+          platform
         ]
       );
 

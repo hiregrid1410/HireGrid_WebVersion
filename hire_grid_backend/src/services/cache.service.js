@@ -1,6 +1,10 @@
 /**
  * Bounded in-memory performance cache service with TTL and wildcard invalidation.
  * Protects memory footprint with MAX_ENTRIES cap and periodic expired-key cleanup.
+ *
+ * Implements A8:
+ * Provides buildPlatformKey helper ensuring cache entries partition cleanly across
+ * platform ('web' | 'app') and roleGroup ('admin' | 'student' | 'public').
  */
 class CacheService {
   constructor(maxEntries = 500) {
@@ -14,6 +18,13 @@ class CacheService {
     if (this.cleanupTimer.unref) {
       this.cleanupTimer.unref(); // Allow node process to exit cleanly if idle
     }
+  }
+
+  /**
+   * Builds platform-isolated composite cache key.
+   */
+  buildPlatformKey(prefix, platform = "app", roleGroup = "public", identifier = "") {
+    return `cache:${platform}:${roleGroup}:${prefix}:${identifier}`;
   }
 
   /**

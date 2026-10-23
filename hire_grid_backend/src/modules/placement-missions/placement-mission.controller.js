@@ -84,7 +84,7 @@ class PlacementMissionController {
     }
 
     try {
-      const result = await placementMissionService.createCycleCM(req.body.name);
+      const result = await placementMissionService.createCycleCM(req.body.name, req.body.platform);
       res.json({ success: true, message: `New weekly cycle '${result.name}' started successfully.` });
     } catch (err) {
       console.error("createCycleCM error:", err);

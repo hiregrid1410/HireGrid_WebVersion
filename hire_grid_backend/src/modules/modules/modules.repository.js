@@ -1,12 +1,14 @@
 const { pool } = require("../../database/connection");
 const crypto = require("crypto");
 const { applyQueryModifiers } = require("../../utils/queryBuilder");
+const { isValidPlatform } = require("../../utils/platformHelper");
+const { ApiError } = require("../../utils/ApiError");
 const { getUserBranchId } = require("../../services/accessChecker.service");
 const cacheService = require("../../services/cache.service");
 const { dbCache } = require("../../services/accessChecker.service");
 
 class ModulesRepository {
-  async getModules(query, user) {
+  async getModules(query, user, platform = null) {
     let role = "student";
     let userBranchId = null;
     if (user) {
@@ -16,7 +18,7 @@ class ModulesRepository {
       }
     }
 
-    const cacheKey = `modules:role:${role}:branch:${userBranchId}:query:${JSON.stringify(query)}`;
+    const cacheKey = `modules:role:${role}:branch:${userBranchId}:platform:${platform}:query:${JSON.stringify(query)}`;
     const cached = cacheService.get(cacheKey);
     if (cached) {
       return cached;
@@ -53,11 +55,12 @@ class ModulesRepository {
         m.publication_status AS "publicationStatus",
         m.is_placement_mission AS "isPlacementMission",
         m.cycle_id AS "cycleId",
+        m.platform AS "platform",
         (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS "questionCount"
       FROM modules m
       ${filterClause}
     `;
-    const { sql, values } = applyQueryModifiers(baseQuery, query, 'COALESCE(m.display_order, 999999) ASC, m.created_at ASC', userBranchId);
+    const { sql, values } = applyQueryModifiers(baseQuery, query, 'COALESCE(m.display_order, 999999) ASC, m.created_at ASC', userBranchId, platform, role);
     const result = await pool.query(sql, values);
     
     const formattedModules = result.rows.map(r => ({
@@ -73,6 +76,11 @@ class ModulesRepository {
     await pool.query("BEGIN");
     try {
       for (const m of modulesList) {
+        const rawPlatform = m.platform;
+        const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
+        if (!isValidPlatform(platform)) {
+          throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+        }
         await pool.query(
           `INSERT INTO modules (
             id, title, module_type, parent_id,
@@ -125,7 +133,8 @@ class ModulesRepository {
             JSON.stringify(m.subTestests || m.subTests || []),
             m.createdBy || null,
             m.branchId || m.branch_id || null,
-            m.publicationStatus || m.publication_status || 'PUBLISHED'
+            m.publicationStatus || m.publication_status || 'PUBLISHED',
+            platform
           ]
         );
 

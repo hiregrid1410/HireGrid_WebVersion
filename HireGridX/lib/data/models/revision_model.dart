@@ -16,6 +16,7 @@ class RevisionScheduleItem {
   final int completedModules;
   final int totalModules;
   final int percentage;
+  final String platform;
 
   RevisionScheduleItem({
     required this.revisionModuleId,
@@ -35,6 +36,7 @@ class RevisionScheduleItem {
     this.completedModules = 0,
     this.totalModules = 0,
     this.percentage = 100,
+    this.platform = 'both',
   });
 
   factory RevisionScheduleItem.fromJson(Map<String, dynamic> json) {
@@ -62,6 +64,7 @@ class RevisionScheduleItem {
       completedModules: progress['completedModules'] is int ? progress['completedModules'] : int.tryParse(progress['completedModules']?.toString() ?? '0') ?? 0,
       totalModules: progress['totalModules'] is int ? progress['totalModules'] : int.tryParse(progress['totalModules']?.toString() ?? '0') ?? 0,
       percentage: progress['percentage'] is int ? progress['percentage'] : int.tryParse(progress['percentage']?.toString() ?? '100') ?? 100,
+      platform: json['platform']?.toString() ?? 'both',
     );
   }
 }

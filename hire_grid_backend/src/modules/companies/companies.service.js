@@ -4,9 +4,10 @@ const { applyQueryModifiers } = require("../../utils/queryBuilder");
 const { getUserBranchId, dbCache } = require("../../services/accessChecker.service");
 const cacheService = require("../../services/cache.service");
 const { ApiError } = require("../../utils/ApiError");
+const { isValidPlatform } = require("../../utils/platformHelper");
 
 class CompaniesService {
-  async getCompanies(query, user) {
+  async getCompanies(query, user, platform = null) {
     let role = "student";
     let userBranchId = null;
     if (user) {
@@ -16,7 +17,7 @@ class CompaniesService {
       }
     }
 
-    const cacheKey = `companies:role:${role}:branch:${userBranchId}:query:${JSON.stringify(query)}`;
+    const cacheKey = `companies:role:${role}:branch:${userBranchId}:platform:${platform}:query:${JSON.stringify(query)}`;
     const cached = cacheService.get(cacheKey);
     if (cached) {
       return cached;
@@ -40,11 +41,13 @@ class CompaniesService {
         display_order AS "displayOrder",
         created_at AS "createdAt",
         created_by AS "createdBy",
-        publication_status AS "publicationStatus"
+        publication_status AS "publicationStatus",
+        platform,
+        platform
       FROM companies
       ${filterClause}
     `;
-    const { sql, values } = applyQueryModifiers(baseQuery, query, 'COALESCE(display_order, 999999) ASC, created_at ASC', userBranchId);
+    const { sql, values } = applyQueryModifiers(baseQuery, query, 'COALESCE(display_order, 999999) ASC, created_at ASC', userBranchId, platform, role);
     const result = await pool.query(sql, values);
     
     cacheService.set(cacheKey, result.rows, 300);
@@ -52,15 +55,19 @@ class CompaniesService {
   }
 
   async saveCompany(body) {
-    const { id, name, description, logoUrl, accessType, isPremium, price, sellType, displayOrder, createdAt, createdBy, publicationStatus } = body;
+    const { id, name, description, logoUrl, accessType, isPremium, price, sellType, displayOrder, createdAt, createdBy, publicationStatus, platform: rawPlatform } = body;
     const compId = id || crypto.randomUUID();
     const targetDisplayOrder = displayOrder !== undefined && displayOrder !== null ? displayOrder : Math.floor(Date.now() / 1000);
+    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
+    if (!isValidPlatform(platform)) {
+      throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+    }
 
     await pool.query(
       `INSERT INTO companies (
-        id, name, description, logo_url, access_type, is_premium, price, sell_type, display_order, created_at, created_by, publication_status
+        id, name, description, logo_url, access_type, is_premium, price, sell_type, display_order, created_at, created_by, publication_status, platform
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (id) DO UPDATE
        SET name = EXCLUDED.name, 
            description = EXCLUDED.description, 
@@ -72,7 +79,8 @@ class CompaniesService {
            display_order = EXCLUDED.display_order,
            created_at = EXCLUDED.created_at,
            created_by = COALESCE(companies.created_by, EXCLUDED.created_by),
-           publication_status = EXCLUDED.publication_status`,
+           publication_status = EXCLUDED.publication_status,
+           platform = EXCLUDED.platform`,
       [
         compId, 
         name, 
@@ -85,7 +93,8 @@ class CompaniesService {
         targetDisplayOrder,
         createdAt || Date.now(),
         createdBy || null,
-        publicationStatus || 'PUBLISHED'
+        publicationStatus || 'PUBLISHED',
+        platform
       ]
     );
     dbCache.clear();
@@ -100,7 +109,7 @@ class CompaniesService {
     return { success: true };
   }
 
-  async getExams(user) {
+  async getExams(user, platform = null) {
     let role = "student";
     if (user) {
       role = user.role || "student";
@@ -108,26 +117,33 @@ class CompaniesService {
 
     let result;
     if (role === "admin" || role === "content_manager") {
-      result = await pool.query("SELECT *, publication_status AS \"publicationStatus\" FROM exams ORDER BY created_at DESC");
+      result = await pool.query("SELECT *, publication_status AS \"publicationStatus\", platform FROM exams ORDER BY created_at DESC");
     } else {
+      const p = platform ? platform.toLowerCase() : "app";
       result = await pool.query(
-        "SELECT *, publication_status AS \"publicationStatus\" FROM exams WHERE publication_status = 'PUBLISHED' OR publication_status IS NULL ORDER BY created_at DESC"
+        "SELECT *, publication_status AS \"publicationStatus\", platform FROM exams WHERE (publication_status = 'PUBLISHED' OR publication_status IS NULL) AND (platform = 'both' OR platform = $1) ORDER BY created_at DESC",
+        [p]
       );
     }
     return result.rows;
   }
 
   async saveExam(body) {
-    const { id, title, description, publicationStatus } = body;
+    const { id, title, description, publicationStatus, platform: rawPlatform } = body;
     const examId = id || crypto.randomUUID();
+    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
+    if (!isValidPlatform(platform)) {
+      throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+    }
     await pool.query(
-      `INSERT INTO exams (id, title, description, publication_status)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO exams (id, title, description, publication_status, platform)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (id) DO UPDATE
        SET title = EXCLUDED.title, 
            description = EXCLUDED.description,
-           publication_status = EXCLUDED.publication_status`,
-      [examId, title, description || null, publicationStatus || 'PUBLISHED']
+           publication_status = EXCLUDED.publication_status,
+           platform = EXCLUDED.platform`,
+      [examId, title, description || null, publicationStatus || 'PUBLISHED', platform]
     );
     return { success: true };
   }
@@ -137,7 +153,7 @@ class CompaniesService {
     return { success: true };
   }
 
-  async getHierarchyNodes(query, user) {
+  async getHierarchyNodes(query, user, platform = null) {
     let role = "student";
     let userBranchId = null;
     if (user) {
@@ -147,7 +163,7 @@ class CompaniesService {
       }
     }
 
-    const cacheKey = `hierarchy_nodes:role:${role}:branch:${userBranchId}:query:${JSON.stringify(query)}`;
+    const cacheKey = `hierarchy_nodes:role:${role}:branch:${userBranchId}:platform:${platform}:query:${JSON.stringify(query)}`;
     const cached = cacheService.get(cacheKey);
     if (cached) {
       return cached;
@@ -175,7 +191,7 @@ class CompaniesService {
       FROM hierarchy_nodes
       ${filterClause}
     `;
-    const { sql, values } = applyQueryModifiers(baseQuery, query, 'COALESCE(display_order, 999999) ASC, created_at ASC', userBranchId);
+    const { sql, values } = applyQueryModifiers(baseQuery, query, 'COALESCE(display_order, 999999) ASC, created_at ASC', userBranchId, platform, role);
     const result = await pool.query(sql, values);
     
     cacheService.set(cacheKey, result.rows, 300);
@@ -183,15 +199,19 @@ class CompaniesService {
   }
 
   async saveHierarchyNode(body) {
-    const { id, name, type, parentId, description, accessType, isPremium, sellType, displayOrder, createdAt, createdBy, publicationStatus } = body;
+    const { id, name, type, parentId, description, accessType, isPremium, sellType, displayOrder, createdAt, createdBy, publicationStatus, platform: rawPlatform } = body;
     const nodeId = id || crypto.randomUUID();
     const targetDisplayOrder = displayOrder !== undefined && displayOrder !== null ? displayOrder : Math.floor(Date.now() / 1000);
+    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
+    if (!isValidPlatform(platform)) {
+      throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+    }
 
     await pool.query(
       `INSERT INTO hierarchy_nodes (
-        id, name, type, parent_id, description, access_type, is_premium, sell_type, display_order, created_at, created_by, publication_status
+        id, name, type, parent_id, description, access_type, is_premium, sell_type, display_order, created_at, created_by, publication_status, platform
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (id) DO UPDATE
        SET name = EXCLUDED.name, 
            type = EXCLUDED.type, 
@@ -203,7 +223,8 @@ class CompaniesService {
            display_order = EXCLUDED.display_order,
            created_at = EXCLUDED.created_at,
            created_by = COALESCE(hierarchy_nodes.created_by, EXCLUDED.created_by),
-           publication_status = EXCLUDED.publication_status`,
+           publication_status = EXCLUDED.publication_status,
+           platform = EXCLUDED.platform`,
       [
         nodeId, 
         name, 
@@ -216,7 +237,8 @@ class CompaniesService {
         targetDisplayOrder,
         createdAt || Date.now(),
         createdBy || null,
-        publicationStatus || 'PUBLISHED'
+        publicationStatus || 'PUBLISHED',
+        platform
       ]
     );
     cacheService.invalidatePattern("hierarchy_nodes");

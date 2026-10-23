@@ -1,3 +1,4 @@
+const { checkItemPlatformAccess } = require("../utils/platformHelper");
 const { pool } = require("../config/database");
 
 // Simple In-Memory Cache with TTL
@@ -161,7 +162,7 @@ const verifyBranchAccess = async (userId, itemId, itemType) => {
   return true;
 };
 
-async function verifyUserItemAccess(userId, itemId, itemType = "module") {
+async function verifyUserItemAccess(userId, itemId, itemType = "module", platform = null) {
   if (!userId) {
     return { allowed: false, reason: "Authentication required." };
   }
@@ -178,6 +179,21 @@ async function verifyUserItemAccess(userId, itemId, itemType = "module") {
 
   if (role === "admin" || role === "content_manager") {
     return { allowed: true };
+  }
+
+  if (platform && role !== "admin" && role !== "content_manager") {
+    const norm = normalizeItemType(itemType);
+    const targetTable = norm === "company" ? "companies" :
+                        norm === "module" ? "modules" :
+                        norm === "exam" ? "exams" :
+                        norm === "plan" ? "plans" :
+                        norm === "revision_module" ? "revision_modules" :
+                        norm === "placement_mission_cycle" ? "placement_mission_cycles" :
+                        "hierarchy_nodes";
+    const isPlatformOk = await checkItemPlatformAccess(targetTable, itemId, platform, role, pool);
+    if (isPlatformOk === false) {
+      return { allowed: false, reason: "This content is not available on your platform.", isPlatformRestricted: true };
+    }
   }
 
   const hasBranchAccess = await verifyBranchAccess(userId, itemId, itemType);

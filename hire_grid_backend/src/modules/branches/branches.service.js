@@ -2,10 +2,19 @@ const { pool } = require("../../database/connection");
 const crypto = require("crypto");
 const cacheService = require("../../services/cache.service");
 const { ApiError } = require("../../utils/ApiError");
+const { isValidPlatform } = require("../../utils/platformHelper");
 
 class BranchesService {
-  async getBranches() {
-    const result = await pool.query("SELECT * FROM branches ORDER BY name ASC");
+  async getBranches(platform = null, userRole = null) {
+    const isAdmin = userRole === "admin" || userRole === "content_manager";
+    let query = "SELECT * FROM branches";
+    const values = [];
+    if (!isAdmin && platform) {
+      query += " WHERE (platform = 'both' OR platform = $1)";
+      values.push(platform.toLowerCase());
+    }
+    query += " ORDER BY name ASC";
+    const result = await pool.query(query, values);
     return result.rows.map(row => ({
       id: row.id,
       name: row.name,
@@ -13,26 +22,40 @@ class BranchesService {
       description: row.description,
       status: row.status,
       isGeneral: row.is_general,
+      platform: row.platform,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
   }
 
-  async getActiveBranches() {
-    const result = await pool.query("SELECT * FROM branches WHERE status = 'ACTIVE' ORDER BY name ASC");
+  async getActiveBranches(platform = null, userRole = null) {
+    const isAdmin = userRole === "admin" || userRole === "content_manager";
+    let query = "SELECT * FROM branches WHERE status = 'ACTIVE'";
+    const values = [];
+    if (!isAdmin && platform) {
+      query += " AND (platform = 'both' OR platform = $1)";
+      values.push(platform.toLowerCase());
+    }
+    query += " ORDER BY name ASC";
+    const result = await pool.query(query, values);
     return result.rows.map(row => ({
       id: row.id,
       name: row.name,
       code: row.code,
       description: row.description,
       status: row.status,
-      isGeneral: row.is_general
+      isGeneral: row.is_general,
+      platform: row.platform
     }));
   }
 
   async saveBranch(body, userId) {
-    const { id, name, code, description, status, isGeneral } = body;
+    const { id, name, code, description, status, isGeneral, platform: rawPlatform } = body;
     const branchId = id || crypto.randomUUID();
+    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
+    if (!isValidPlatform(platform)) {
+      throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+    }
 
     if (isGeneral) {
       await pool.query("UPDATE branches SET is_general = FALSE WHERE is_general = TRUE");
@@ -42,15 +65,15 @@ class BranchesService {
     if (check.rows.length > 0) {
       await pool.query(
         `UPDATE branches 
-         SET name = $1, code = $2, description = $3, status = $4, is_general = $5, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $6`,
-        [name, code, description, status || "ACTIVE", !!isGeneral, branchId]
+         SET name = $1, code = $2, description = $3, status = $4, is_general = $5, platform = $6, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $7`,
+        [name, code, description, status || "ACTIVE", !!isGeneral, platform, branchId]
       );
     } else {
       await pool.query(
-        `INSERT INTO branches (id, name, code, description, status, is_general, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [branchId, name, code, description, status || "ACTIVE", !!isGeneral, userId || "system"]
+        `INSERT INTO branches (id, name, code, description, status, is_general, created_by, platform)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [branchId, name, code, description, status || "ACTIVE", !!isGeneral, userId || "system", platform]
       );
     }
 

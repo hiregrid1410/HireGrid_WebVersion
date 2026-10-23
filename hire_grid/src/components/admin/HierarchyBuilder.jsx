@@ -1,3 +1,4 @@
+import { PlatformSelector, PlatformBadge, PlatformFilterTabs } from "./PlatformSelector";
 import React, { useState, useEffect } from "react";
 import { OperationType, collection, db, deleteDoc, doc, handleFirestoreError, onSnapshot, query, setDoc, where } from "../../firebase";
 
@@ -44,6 +45,8 @@ export function HierarchyBuilder({
   const [sellType, setSellType] = useState("pack");
   const [displayOrder, setDisplayOrder] = useState(0);
   const [publicationStatus, setPublicationStatus] = useState("PUBLISHED");
+  const [platform, setPlatform] = useState("both");
+  const [platformFilter, setPlatformFilter] = useState("all");
   const [deleteNodeInfo, setDeleteNodeInfo] = useState(null);
 
   const fetchNodes = async () => {
@@ -66,7 +69,9 @@ export function HierarchyBuilder({
           const orderA = a.displayOrder ?? 999999;
           const orderB = b.displayOrder ?? 999999;
           if (orderA !== orderB) return orderA - orderB;
-          return (a.createdAt || 0) - (b.createdAt || 0);
+            const displayedNodes = nodes.filter(n => platformFilter === "all" || (n.platform || "both") === platformFilter);
+
+  return (a.createdAt || 0) - (b.createdAt || 0);
         });
         setNodes(fetchedNodes);
       }
@@ -161,6 +166,7 @@ export function HierarchyBuilder({
       setSellType("pack");
       setPrice(0);
       setPublicationStatus("PUBLISHED");
+      setPlatform("both");
       showToast("Saved successfully!", "success");
     } catch (err) {
       showToast("Error: " + err.message, "error");
@@ -469,7 +475,7 @@ export function HierarchyBuilder({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <SortableList
-          items={nodes}
+          items={displayedNodes}
           collectionName="hierarchy_nodes"
           onOrderChange={setNodes}
           grid={true}

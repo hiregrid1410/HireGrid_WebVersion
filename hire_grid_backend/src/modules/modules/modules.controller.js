@@ -3,10 +3,10 @@ const modulesService = require("./modules.service");
 class ModulesController {
   async getModules(req, res, next) {
     try {
-      const modules = await modulesService.getModules(req.query, req.user);
+      const modules = await modulesService.getModules(req.query, req.user, req.platform);
       res.json({ success: true, modules });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -18,7 +18,7 @@ class ModulesController {
       if (err.statusCode) {
         return res.status(err.statusCode).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -27,19 +27,19 @@ class ModulesController {
       const result = await modulesService.deleteModule(req.params.id);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
   async getModuleQuestions(req, res, next) {
     try {
-      const questions = await modulesService.getModuleQuestions(req.params.id, req.user);
+      const questions = await modulesService.getModuleQuestions(req.params.id, req.user, req.platform);
       res.json({ success: true, questions });
     } catch (err) {
       if (err.statusCode) {
         return res.status(err.statusCode).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -51,7 +51,7 @@ class ModulesController {
       if (err.statusCode) {
         return res.status(err.statusCode).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 }

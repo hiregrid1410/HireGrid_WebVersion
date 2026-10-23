@@ -3,6 +3,7 @@ const { pool } = require("../../database/connection");
 const placementMissionRepo = require("./placement-mission.repository");
 const { verifyUserItemAccess } = require("../../services/accessChecker.service");
 const { ApiError } = require("../../utils/ApiError");
+const { isValidPlatform, checkItemPlatformAccess } = require("../../utils/platformHelper");
 
 class PlacementMissionService {
   async getActiveCycle() {
@@ -532,13 +533,17 @@ class PlacementMissionService {
   }
 
   async getCyclesCM() {
-    const result = await pool.query("SELECT * FROM placement_mission_cycles ORDER BY created_at DESC");
+    const result = await pool.query("SELECT *, platform FROM placement_mission_cycles ORDER BY created_at DESC");
     return result.rows;
   }
 
-  async createCycleCM(name) {
+  async createCycleCM(name, rawPlatform = "both") {
     if (!name) {
       throw new ApiError(400, "Cycle name is required.");
+    }
+    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
+    if (!isValidPlatform(platform)) {
+      throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
     }
 
     const client = await pool.connect();
@@ -548,8 +553,8 @@ class PlacementMissionService {
 
       const cycleId = crypto.randomUUID();
       await client.query(
-        "INSERT INTO placement_mission_cycles (id, name, is_active) VALUES ($1, $2, TRUE)",
-        [cycleId, name]
+        "INSERT INTO placement_mission_cycles (id, name, is_active, platform) VALUES ($1, $2, TRUE, $3)",
+        [cycleId, name, platform]
       );
 
       await client.query("COMMIT");

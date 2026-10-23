@@ -3,7 +3,7 @@ const examAttemptsService = require("./exam-attempts.service");
 class ExamAttemptsController {
   async startExamAttempt(req, res, next) {
     try {
-      const result = await examAttemptsService.startExamAttempt(req.user?.id, req.body.moduleId);
+      const result = await examAttemptsService.startExamAttempt(req.user?.id, req.body.moduleId, req.platform, req.user?.role);
       res.json(result);
     } catch (err) {
       console.error("Start exam attempt error:", err);
@@ -57,7 +57,7 @@ class ExamAttemptsController {
       if (err.statusCode) {
         return res.status(err.statusCode).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 }

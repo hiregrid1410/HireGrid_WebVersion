@@ -243,6 +243,7 @@ class BranchModel {
   final String iconName;
   final bool isGeneral;
   final String status;
+  final String platform;
 
   const BranchModel({
     required this.id,
@@ -250,6 +251,7 @@ class BranchModel {
     required this.iconName,
     this.isGeneral = false,
     this.status = 'ACTIVE',
+    this.platform = 'both',
   });
 
   factory BranchModel.fromJson(Map<String, dynamic> json) {
@@ -274,6 +276,7 @@ class BranchModel {
       iconName: icon,
       isGeneral: json['isGeneral'] == true || json['is_general'] == true,
       status: json['status']?.toString() ?? 'ACTIVE',
+      platform: json['platform']?.toString() ?? 'both',
     );
   }
 
@@ -284,6 +287,7 @@ class BranchModel {
       'iconName': iconName,
       'isGeneral': isGeneral,
       'status': status,
+      'platform': platform,
     };
   }
 }

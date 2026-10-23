@@ -1,3 +1,4 @@
+import { PlatformSelector, PlatformBadge, PlatformFilterTabs } from "./PlatformSelector";
 import React, { useState, useEffect } from "react";
 import {
   UploadCloud,
@@ -118,6 +119,9 @@ export function AdminModulesTab({
 
   const [timeLimit, setTimeLimit] = useState(30);
   const [passPercentage, setPassPercentage] = useState(60);
+  const [platform, setPlatform] = useState("both");
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const displayedModules = modules.filter(m => platformFilter === "all" || (m.platform || "both") === platformFilter);
   const [accessMode, setAccessMode] = useState("inherit");
   const [accessType, setAccessType] = useState("free");
   const [price, setPrice] = useState(0);
@@ -260,7 +264,8 @@ export function AdminModulesTab({
           const orderA = a.displayOrder ?? 999999;
           const orderB = b.displayOrder ?? 999999;
           if (orderA !== orderB) return orderA - orderB;
-          return (a.createdAt || 0) - (b.createdAt || 0);
+
+  return (a.createdAt || 0) - (b.createdAt || 0);
         });
         setModules(mods);
       }
@@ -989,6 +994,7 @@ export function AdminModulesTab({
     setDisplayOrder(m.displayOrder || 0);
     setBranchId(m.branchId || m.branch_id || "");
     setPublicationStatus(m.publicationStatus || m.publication_status || "PUBLISHED");
+    setPlatform(m.platform || "both");
   };
 
   const cancelEdit = () => {
@@ -1011,6 +1017,7 @@ export function AdminModulesTab({
     setAccessType("free");
     setPrice(0);
     setPublicationStatus("PUBLISHED");
+    setPlatform("both");
   };
 
   return (
@@ -1160,6 +1167,7 @@ export function AdminModulesTab({
               </h4>
 
               <div className="space-y-4">
+          <PlatformSelector value={platform} onChange={setPlatform} />
                 <div className="flex flex-col sm:flex-row gap-6">
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -2233,8 +2241,10 @@ Please generate the requested JSON now.`;
               </div>
             </div>
           ) : (
-            <SortableList
-              items={modules}
+            <>
+              <div className="mb-4 flex justify-between items-center"><PlatformFilterTabs selectedPlatform={platformFilter} onSelectPlatform={setPlatformFilter} /></div>
+              <SortableList
+              items={displayedModules}
               collectionName="modules"
               onOrderChange={setModules}
               grid={true}
@@ -2248,6 +2258,7 @@ Please generate the requested JSON now.`;
                         {module.title}
                       </h3>
                       <div className="flex flex-col space-y-1 items-end">
+                        <PlatformBadge platform={module.platform} />
                         <span className={`inline-flex py-1 px-2.5 rounded-md text-xs font-bold uppercase tracking-wider shadow-sm whitespace-nowrap ${
                           (module.publicationStatus || module.publication_status || "PUBLISHED") === "DRAFT"
                             ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
@@ -2358,6 +2369,7 @@ Please generate the requested JSON now.`;
                 </div>
               )}
             />
+            </>
           )}
         </div>
       )}

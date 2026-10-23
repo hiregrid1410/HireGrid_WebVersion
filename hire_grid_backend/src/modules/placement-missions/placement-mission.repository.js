@@ -31,10 +31,15 @@ class PlacementMissionRepository {
     return !!(isPremium && notExpired);
   }
 
-  async getActiveCycle() {
-    const res = await pool.query(
-      "SELECT * FROM placement_mission_cycles WHERE is_active = TRUE LIMIT 1"
-    );
+  async getActiveCycle(platform = null) {
+    let query = "SELECT * FROM placement_mission_cycles WHERE is_active = TRUE";
+    const values = [];
+    if (platform) {
+      query += " AND (platform = 'both' OR platform = $1)";
+      values.push(platform.toLowerCase());
+    }
+    query += " LIMIT 1";
+    const res = await pool.query(query, values);
     if (res.rows.length === 0) {
       return { id: "cycle_1", name: "Cycle 1" };
     }
@@ -46,22 +51,26 @@ class PlacementMissionRepository {
     return res.rows[0] || null;
   }
 
-  async getPlacementModulesByCycleAndBranch(cycleId, branchId) {
-    const res = await pool.query(
-      `SELECT m.id, m.title, m.description, m.time_limit AS "timeLimit", m.total_marks AS "totalMarks",
+  async getPlacementModulesByCycleAndBranch(cycleId, branchId, platform = null) {
+    let query = `SELECT m.id, m.title, m.description, m.time_limit AS "timeLimit", m.total_marks AS "totalMarks",
               m.start_time AS "startTime", m.end_time AS "endTime", m.publication_status AS "publicationStatus",
+              m.platform AS "platform",
               (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS "questionCount"
        FROM modules m
        WHERE m.is_placement_mission = TRUE AND m.is_active = TRUE AND m.cycle_id = $1
-         AND (m.publication_status = 'PUBLISHED' OR m.publication_status IS NULL)
+         AND (m.publication_status = PUBLISHED OR m.publication_status IS NULL)
          AND EXISTS (
            SELECT 1 FROM content_branch_mappings cobm
-           WHERE cobm.content_id = m.id AND cobm.content_type = 'module'
-             AND (cobm.assignment_scope = 'ALL' OR cobm.branch_id = $2)
-         )
-       ORDER BY m.display_order ASC, m.created_at ASC`,
-      [cycleId, branchId]
-    );
+           WHERE cobm.content_id = m.id AND cobm.content_type = module
+             AND (cobm.assignment_scope = ALL OR cobm.branch_id = $2)
+         )`;
+    const values = [cycleId, branchId];
+    if (platform) {
+      query += " AND (m.platform = both OR m.platform = $3)";
+      values.push(platform.toLowerCase());
+    }
+    query += " ORDER BY m.display_order ASC, m.created_at ASC";
+    const res = await pool.query(query, values);
     return res.rows;
   }
 

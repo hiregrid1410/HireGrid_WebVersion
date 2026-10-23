@@ -69,6 +69,7 @@ class ModuleModel {
   final bool isPremium;
   final String description;
   final List<ModuleTestModel> tests;
+  final String platform;
 
   const ModuleModel({
     required this.id,
@@ -81,6 +82,7 @@ class ModuleModel {
     required this.isPremium,
     required this.description,
     required this.tests,
+    this.platform = 'both',
   });
 
   factory ModuleModel.fromJson(Map<String, dynamic> json) {
@@ -156,6 +158,7 @@ class ModuleModel {
       isPremium: isPrem,
       description: json['description']?.toString() ?? 'Comprehensive placement module with speed tests.',
       tests: parsedTests,
+      platform: json['platform']?.toString() ?? 'both',
     );
   }
 }
@@ -167,6 +170,7 @@ class SubjectModel {
   final String initial;
   final int totalModules;
   final int completedModules;
+  final String platform;
 
   const SubjectModel({
     required this.id,
@@ -175,6 +179,7 @@ class SubjectModel {
     required this.initial,
     required this.totalModules,
     required this.completedModules,
+    this.platform = 'both',
   });
 
   factory SubjectModel.fromJson(Map<String, dynamic> json) {
@@ -196,6 +201,7 @@ class SubjectModel {
       initial: name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'S',
       totalModules: parseNum(json['moduleCount'] ?? json['totalModules'], 10),
       completedModules: parseNum(json['completedCount'] ?? json['completedModules'], 4),
+      platform: json['platform']?.toString() ?? 'both',
     );
   }
 }
@@ -206,6 +212,7 @@ class TopicModel {
   final String parentId;
   final String type;
   final int totalModules;
+  final String platform;
 
   const TopicModel({
     required this.id,
@@ -213,6 +220,7 @@ class TopicModel {
     required this.parentId,
     required this.type,
     this.totalModules = 0,
+    this.platform = 'both',
   });
 
   factory TopicModel.fromJson(Map<String, dynamic> json) {
@@ -222,6 +230,7 @@ class TopicModel {
       parentId: json['parentId']?.toString() ?? json['parent_id']?.toString() ?? '',
       type: json['type']?.toString() ?? 'general_topic',
       totalModules: (json['moduleCount'] is num) ? (json['moduleCount'] as num).toInt() : 0,
+      platform: json['platform']?.toString() ?? 'both',
     );
   }
 }

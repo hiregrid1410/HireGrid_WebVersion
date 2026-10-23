@@ -2,10 +2,11 @@ const modulesRepo = require("./modules.repository");
 const { verifyUserItemAccess, dbCache } = require("../../services/accessChecker.service");
 const { pool } = require("../../database/connection");
 const { ApiError } = require("../../utils/ApiError");
+const { checkItemPlatformAccess } = require("../../utils/platformHelper");
 
 class ModulesService {
-  async getModules(query, user) {
-    return modulesRepo.getModules(query, user);
+  async getModules(query, user, platform = null) {
+    return modulesRepo.getModules(query, user, platform);
   }
 
   async saveModules(body) {
@@ -29,11 +30,18 @@ class ModulesService {
     return { success: true };
   }
 
-  async getModuleQuestions(id, user) {
+  async getModuleQuestions(id, user, platform = null) {
     const userId = user ? user.id : null;
     let role = "student";
     
-    const accessCheck = await verifyUserItemAccess(userId, id, "module");
+        const roleUser = user?.role || "student";
+    if (roleUser !== "admin" && roleUser !== "content_manager" && platform) {
+      const isOk = await checkItemPlatformAccess("modules", id, platform, roleUser, pool);
+      if (!isOk) {
+        throw new ApiError(404, "Module not found.");
+      }
+    }
+    const accessCheck = await verifyUserItemAccess(userId, id, "module", platform);
     if (!accessCheck.allowed) {
       throw new ApiError(403, accessCheck.reason || "Module access locked under current plan.");
     }

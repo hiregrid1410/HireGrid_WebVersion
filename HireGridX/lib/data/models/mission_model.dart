@@ -6,6 +6,7 @@ class MissionExamModel {
   final String typeSubtitle; // e.g. "Accuracy + Speed First"
   final String endsInText; // e.g. "Ends in 3d"
   final bool isLive;
+  final String platform;
 
   const MissionExamModel({
     required this.id,
@@ -15,6 +16,7 @@ class MissionExamModel {
     required this.typeSubtitle,
     required this.endsInText,
     this.isLive = true,
+    this.platform = 'both',
   });
 
   factory MissionExamModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class MissionExamModel {
       typeSubtitle: json['description']?.toString() ?? 'Accuracy + Speed First',
       endsInText: 'Live Now',
       isLive: true,
+      platform: json['platform']?.toString() ?? 'both',
     );
   }
 }
@@ -39,6 +42,7 @@ class MissionModel {
   final int participantCount;
   final List<MissionExamModel> liveExams;
   final List<MissionExamModel> upcomingExams;
+  final String platform;
 
   const MissionModel({
     required this.id,
@@ -49,6 +53,7 @@ class MissionModel {
     required this.participantCount,
     required this.liveExams,
     required this.upcomingExams,
+    this.platform = 'both',
   });
 
   factory MissionModel.fromBackendJson({
@@ -75,6 +80,7 @@ class MissionModel {
           isLive: false,
         ),
       ],
+      platform: cycleJson['platform']?.toString() ?? 'both',
     );
   }
 }

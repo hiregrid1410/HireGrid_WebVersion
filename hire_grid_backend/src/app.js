@@ -12,6 +12,7 @@ const routes = require("./routes");
 const errorHandler = require("./middlewares/error.middleware");
 const notFound = require("./middlewares/notFound.middleware");
 const requestTimeout = require("./middlewares/timeout.middleware");
+const { platformMiddleware } = require("./middlewares/platform.middleware");
 const { pool } = require("./database/connection");
 const storageService = require("./services/storage.service");
 
@@ -37,6 +38,9 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
+// Platform Detection & Security Middleware (A1, A2, A8)
+app.use(platformMiddleware);
+
 // Performance Timing Middleware (skips health check noise)
 app.use((req, res, next) => {
   if (req.originalUrl === "/health" || req.path === "/health" || req.path === "/ping" || req.path === "/ready") {
@@ -56,16 +60,16 @@ app.use((req, res, next) => {
 app.use("/uploads", express.static(storageService.LOCAL_UPLOADS_DIR));
 
 // Lightweight Health & Ping check routes (Instantly returns 200 OK without touching Neon DB compute)
-app.get("/health", (req, res) => {
+app.get(["/health", "/api/health"], (req, res) => {
   res.json({ status: "ok", timestamp: Date.now() });
 });
 
-app.get("/ping", (req, res) => {
+app.get(["/ping", "/api/ping"], (req, res) => {
   res.json({ status: "pong", timestamp: Date.now() });
 });
 
 // Database Readiness / Keep-Warm route (actively queries Neon DB)
-app.get("/ready", async (req, res) => {
+app.get(["/ready", "/api/ready"], async (req, res) => {
   try {
     await pool.query("SELECT 1");
     res.json({ status: "ready", database: "connected", timestamp: Date.now() });

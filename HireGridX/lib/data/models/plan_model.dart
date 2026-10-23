@@ -11,6 +11,7 @@ class PlanModel {
   final String subtitle;
   final List<String> features;
   final bool isPopular;
+  final String platform;
 
   const PlanModel({
     required this.id,
@@ -22,6 +23,7 @@ class PlanModel {
     required this.subtitle,
     required this.features,
     this.isPopular = false,
+    this.platform = 'both',
   });
 
   factory PlanModel.fromJson(Map<String, dynamic> json) {
@@ -86,6 +88,7 @@ class PlanModel {
       subtitle: json['description']?.toString() ?? 'Full Access to Placement Series & Tests',
       features: feats,
       isPopular: popular || json['isPopular'] == true,
+      platform: json['platform']?.toString() ?? 'both',
     );
   }
 }

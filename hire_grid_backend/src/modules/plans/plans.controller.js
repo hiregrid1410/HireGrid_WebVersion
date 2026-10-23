@@ -3,22 +3,22 @@ const plansService = require("./plans.service");
 class PlansController {
   async getPlans(req, res, next) {
     try {
-      const plans = await plansService.getPlans(req.query);
+      const plans = await plansService.getPlans(req.query, req.platform, req.user?.role);
       res.json({ success: true, plans });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
   async getPlanById(req, res, next) {
     try {
-      const plan = await plansService.getPlanById(req.params.id);
+      const plan = await plansService.getPlanById(req.params.id, req.platform, req.user?.role);
       res.json({ success: true, plan });
     } catch (err) {
       if (err.statusCode) {
         return res.status(err.statusCode).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -30,7 +30,7 @@ class PlansController {
       if (err.statusCode) {
         return res.status(err.statusCode).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -39,7 +39,7 @@ class PlansController {
       const result = await plansService.deletePlan(req.params.id);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -48,7 +48,7 @@ class PlansController {
       const requests = await plansService.getPaymentRequests();
       res.json({ success: true, requests });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -57,7 +57,7 @@ class PlansController {
       const result = await plansService.createPaymentRequest(req.body);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 
@@ -66,7 +66,7 @@ class PlansController {
       const result = await plansService.updatePaymentRequest(req.params.id, req.body.status);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
 }
