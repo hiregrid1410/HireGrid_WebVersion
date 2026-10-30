@@ -22,7 +22,7 @@ class CompanyModel {
     required this.description,
     required this.hiringCriteria,
     required this.avgSalaryLpa,
-    this.platform = 'both',
+    this.platform = 'web',
   });
 
   factory CompanyModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +41,9 @@ class CompanyModel {
     final questions = parseNum(json['questionCount'] ?? json['totalQuestions'], 250);
     final salary = parseNum(json['price'], 4);
 
+    final rawP = json['platform']?.toString().trim().toLowerCase();
+    final cleanPlatform = (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+
     return CompanyModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Company',
@@ -55,7 +58,21 @@ class CompanyModel {
         'Strong foundational problem solving and aptitude',
       ],
       avgSalaryLpa: salary > 0 ? salary : 4,
-      platform: json['platform']?.toString() ?? 'both',
+      platform: cleanPlatform,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'logoUrl': logoUrl,
+      'isPremium': tier == CompanyTier.premium,
+      'totalExams': totalExams,
+      'totalQuestions': totalQuestions,
+      'description': description,
+      'price': avgSalaryLpa,
+      'platform': platform,
+    };
   }
 }

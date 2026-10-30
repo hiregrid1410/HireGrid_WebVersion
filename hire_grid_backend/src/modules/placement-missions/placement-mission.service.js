@@ -10,15 +10,15 @@ class PlacementMissionService {
     return placementMissionRepo.getActiveCycle();
   }
 
-  async getMissions(userId) {
-    const cycle = await placementMissionRepo.getActiveCycle();
+  async getMissions(userId, platform = null) {
+    const cycle = await placementMissionRepo.getActiveCycle(platform);
     if (!cycle) {
       return { cycle: null, missions: [], history: [] };
     }
 
     const isPremium = await placementMissionRepo.isUserPremium(userId);
     const studentBranchId = await placementMissionRepo.getUserBranchId(userId);
-    const allModules = await placementMissionRepo.getPlacementModulesByCycleAndBranch(cycle.id, studentBranchId);
+    const allModules = await placementMissionRepo.getPlacementModulesByCycleAndBranch(cycle.id, studentBranchId, platform);
 
     let allowedModules = [];
     if (isPremium) {
@@ -448,8 +448,14 @@ class PlacementMissionService {
     }
   }
 
-  async getLeaderboard() {
-    const cycle = await placementMissionRepo.getActiveCycle();
+  async getLeaderboard(platform = null) {
+    const cycle = await placementMissionRepo.getActiveCycle(platform);
+    if (!cycle || !cycle.id) {
+      return {
+        cycle: null,
+        leaderboard: []
+      };
+    }
     const result = await pool.query(
       `SELECT rank, user_name AS "userName", xp, accuracy, completion_time AS "completionTime", badge
        FROM leaderboard_snapshots

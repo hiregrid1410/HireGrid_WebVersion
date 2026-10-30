@@ -58,7 +58,8 @@ class MiscController {
 
   async createFeedback(req, res, next) {
     try {
-      const result = await miscService.createFeedback(req.body);
+      const payload = { ...req.body, userId: req.body.userId || req.user?.id, userName: req.body.userName || req.user?.name, userEmail: req.body.userEmail || req.user?.email };
+      const result = await miscService.createFeedback(payload);
       res.json(result);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -92,8 +93,31 @@ class MiscController {
     }
   }
 
-  async getNotifications(req, res, next) {
-    res.json({ success: true, notifications: [] });
+    async getNotifications(req, res, next) {
+    try {
+      const notifications = await miscService.getNotifications(req.user?.id);
+      res.json({ success: true, notifications });
+    } catch (err) {
+      res.json({ success: true, notifications: [] });
+    }
+  }
+
+  async markNotificationRead(req, res, next) {
+    try {
+      const result = await miscService.markNotificationRead(req.params.id, req.user?.id);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  async markAllNotificationsRead(req, res, next) {
+    try {
+      const result = await miscService.markAllNotificationsRead(req.user?.id);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   }
 
   async getPurchases(req, res, next) {

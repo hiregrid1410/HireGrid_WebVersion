@@ -1,4 +1,6 @@
 const branchesService = require("./branches.service");
+const { pool } = require("../../database/connection");
+const { validateContentManagerPlatformAccess } = require("../../utils/platformHelper");
 
 class BranchesController {
   async getBranches(req, res, next) {
@@ -21,6 +23,12 @@ class BranchesController {
 
   async saveBranch(req, res, next) {
     try {
+      let existingPlatform = null;
+      if (req.body.id) {
+        const existing = await pool.query("SELECT platform FROM branches WHERE id = $1", [req.body.id]);
+        if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      }
+      validateContentManagerPlatformAccess(req.user, req.body.platform, existingPlatform);
       const result = await branchesService.saveBranch(req.body, req.user?.id);
       res.json({ success: true, ...result });
     } catch (err) {
@@ -30,6 +38,10 @@ class BranchesController {
 
   async deleteBranch(req, res, next) {
     try {
+      let existingPlatform = null;
+      const existing = await pool.query("SELECT platform FROM branches WHERE id = $1", [req.params.id]);
+      if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      validateContentManagerPlatformAccess(req.user, null, existingPlatform);
       const result = await branchesService.deleteBranch(req.params.id);
       res.json(result);
     } catch (err) {

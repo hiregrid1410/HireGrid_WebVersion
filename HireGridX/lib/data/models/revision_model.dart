@@ -36,7 +36,7 @@ class RevisionScheduleItem {
     this.completedModules = 0,
     this.totalModules = 0,
     this.percentage = 100,
-    this.platform = 'both',
+    this.platform = 'web',
   });
 
   factory RevisionScheduleItem.fromJson(Map<String, dynamic> json) {
@@ -64,7 +64,10 @@ class RevisionScheduleItem {
       completedModules: progress['completedModules'] is int ? progress['completedModules'] : int.tryParse(progress['completedModules']?.toString() ?? '0') ?? 0,
       totalModules: progress['totalModules'] is int ? progress['totalModules'] : int.tryParse(progress['totalModules']?.toString() ?? '0') ?? 0,
       percentage: progress['percentage'] is int ? progress['percentage'] : int.tryParse(progress['percentage']?.toString() ?? '100') ?? 100,
-      platform: json['platform']?.toString() ?? 'both',
+      platform: (() {
+        final rawP = json['platform']?.toString().trim().toLowerCase();
+        return (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+      })(),
     );
   }
 }
@@ -85,18 +88,22 @@ class RevisionSchedulesResponse {
   factory RevisionSchedulesResponse.fromJson(Map<String, dynamic> json) {
     final todayList = (json['todayDue'] as List<dynamic>? ?? [])
         .map((e) => RevisionScheduleItem.fromJson(e as Map<String, dynamic>))
+        .where((e) => e.platform == 'app' || e.platform == 'both')
         .toList();
 
     final upList = (json['upcoming'] as List<dynamic>? ?? [])
         .map((e) => RevisionScheduleItem.fromJson(e as Map<String, dynamic>))
+        .where((e) => e.platform == 'app' || e.platform == 'both')
         .toList();
 
     final compList = (json['completed'] as List<dynamic>? ?? [])
         .map((e) => RevisionScheduleItem.fromJson(e as Map<String, dynamic>))
+        .where((e) => e.platform == 'app' || e.platform == 'both')
         .toList();
 
     final allList = (json['revisionModules'] as List<dynamic>? ?? [])
         .map((e) => RevisionScheduleItem.fromJson(e as Map<String, dynamic>))
+        .where((e) => e.platform == 'app' || e.platform == 'both')
         .toList();
 
     return RevisionSchedulesResponse(

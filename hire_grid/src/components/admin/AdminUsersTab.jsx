@@ -17,12 +17,12 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
 
   // Create Staff state
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
-  const [newAdmin, setNewAdmin] = useState({ name: "", email: "", password: "", role: "content_manager" });
+  const [newAdmin, setNewAdmin] = useState({ name: "", email: "", password: "", role: "content_manager", allowedPlatforms: "all" });
   const [error, setError] = useState("");
 
   // Edit Staff state
   const [editingAdmin, setEditingAdmin] = useState(null);
-  const [editForm, setEditForm] = useState({ name: "", email: "", password: "", role: "content_manager" });
+  const [editForm, setEditForm] = useState({ name: "", email: "", password: "", role: "content_manager", allowedPlatforms: "all" });
   const [editError, setEditError] = useState("");
 
   // Access Grant State
@@ -159,7 +159,12 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
       return;
     }
     try {
-      const updateData = { name: editForm.name, email: editForm.email.trim(), role: editForm.role };
+      const updateData = { 
+        name: editForm.name, 
+        email: editForm.email.trim(), 
+        role: editForm.role,
+        allowedPlatforms: editForm.allowedPlatforms || "all"
+      };
       if (editForm.password) updateData.password = editForm.password;
 
       await api.put(`/admin_users/${editingAdmin.id}`, updateData);
@@ -390,6 +395,32 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
           {row.role.replace("_", " ")}
         </span>
       ),
+    },
+    {
+      label: "Platform Access",
+      key: "allowedPlatforms",
+      render: (row) => {
+        const p = (row.allowedPlatforms || row.allowed_platforms || "all").toLowerCase();
+        if (p === "web") {
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+              Web Only
+            </span>
+          );
+        }
+        if (p === "app") {
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+              App Only
+            </span>
+          );
+        }
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+            All Platforms
+          </span>
+        );
+      },
     },
     {
       label: "Actions",
@@ -736,6 +767,18 @@ export function AdminUsersTab({ isSuperAdmin, adminName }) {
                 >
                   <option value="content_manager">Content Manager</option>
                   <option value="super_admin">Super Admin</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase text-slate-455 dark:text-slate-500 font-mono">Platform Permission</label>
+                <select
+                  value={newAdmin.allowedPlatforms || "all"}
+                  onChange={(e) => setNewAdmin({ ...newAdmin, allowedPlatforms: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-255 dark:border-slate-805 bg-white dark:bg-slate-950 text-slate-800 dark:text-white text-sm outline-none focus:border-emerald-500"
+                >
+                  <option value="all">All Platforms (Web, App & Both)</option>
+                  <option value="web">Web Only</option>
+                  <option value="app">App Only</option>
                 </select>
               </div>
               <div className="flex gap-4 pt-4">

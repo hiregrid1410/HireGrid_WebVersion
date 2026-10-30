@@ -18,9 +18,17 @@ class AuthController {
 
   async login(req, res, next) {
     try {
+      const isApp = req.platform === "app" ||
+                    req.headers?.["x-platform"]?.trim()?.toLowerCase() === "app" ||
+                    req.headers?.["x-requested-with"] === "com.hiregridx.app" ||
+                    req.headers?.["x-client-platform"] === "android" ||
+                    req.headers?.["x-client-platform"] === "ios" ||
+                    req.isTrustedApp === true;
       const result = await authService.login({
         ...req.body,
-        isTrustedApp: req.isTrustedApp === true,
+        platform: isApp ? "app" : (req.platform || "web"),
+        isTrustedApp: isApp,
+        isApp,
       });
       return res.json({
         success: true,
@@ -54,9 +62,17 @@ class AuthController {
 
   async googleLogin(req, res, next) {
     try {
+      const isApp = req.platform === "app" ||
+                    req.headers?.["x-platform"]?.trim()?.toLowerCase() === "app" ||
+                    req.headers?.["x-requested-with"] === "com.hiregridx.app" ||
+                    req.headers?.["x-client-platform"] === "android" ||
+                    req.headers?.["x-client-platform"] === "ios" ||
+                    req.isTrustedApp === true;
       const result = await authService.googleLogin({
         ...req.body,
-        isTrustedApp: req.isTrustedApp === true,
+        platform: isApp ? "app" : (req.platform || "web"),
+        isTrustedApp: isApp,
+        isApp,
       });
       return res.json({
         success: true,

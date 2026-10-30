@@ -52,6 +52,10 @@ const formatUserResponse = (user) => {
     formatted.maxDevices = formatted.max_devices;
     delete formatted.max_devices;
   }
+  if (formatted.allowed_platforms !== undefined) {
+    formatted.allowedPlatforms = formatted.allowed_platforms;
+    delete formatted.allowed_platforms;
+  }
   if (formatted.allowed_devices !== undefined) {
     formatted.allowedDevices = formatted.allowed_devices;
     delete formatted.allowed_devices;

@@ -29,9 +29,9 @@ class MotivationEndScreen extends StatelessWidget {
               height: 260,
               child: CustomPaint(
                 painter: MountainSilhouettePainter(
-                  primaryColor: AppColors.primaryGreenDark,
-                  secondaryColor: AppColors.deepBlueSlate,
-                  opacity: 0.8,
+                  primaryColor: AppColors.forestGreen,
+                  secondaryColor: AppColors.sandBeige,
+                  opacity: 0.35,
                 ),
               ),
             ),

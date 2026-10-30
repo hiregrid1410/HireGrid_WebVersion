@@ -18,13 +18,13 @@ class ShimmerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: AppColors.surfaceCard,
-      highlightColor: AppColors.surfaceCardElevated,
+      baseColor: AppColors.lightGrey,
+      highlightColor: AppColors.surfaceWhite,
       child: Container(
         height: height,
         width: width ?? double.infinity,
         decoration: BoxDecoration(
-          color: AppColors.surfaceCard,
+          color: AppColors.lightGrey,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
       ),
@@ -60,11 +60,11 @@ class EmptyStateWidget extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: AppColors.surfaceCardElevated,
+                color: AppColors.paleMint,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.borderSubtle),
+                border: Border.all(color: AppColors.softBeigeGrey),
               ),
-              child: Icon(icon, size: 36, color: AppColors.textMuted),
+              child: Icon(icon, size: 36, color: AppColors.forestGreen),
             ),
             const SizedBox(height: 20),
             Text(title, style: AppTextStyles.h2, textAlign: TextAlign.center),
@@ -79,14 +79,14 @@ class EmptyStateWidget extends StatelessWidget {
               OutlinedButton(
                 onPressed: onAction,
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.primaryGreen),
+                  side: const BorderSide(color: AppColors.forestGreen),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 child: Text(
                   actionText!,
                   style: AppTextStyles.bodyMd.copyWith(
-                    color: AppColors.primaryGreen,
+                    color: AppColors.forestGreen,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -124,9 +124,9 @@ class SettingsTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
+        color: AppColors.surfaceWhite,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.softBeigeGrey),
       ),
       child: Material(
         color: Colors.transparent,
@@ -139,10 +139,10 @@ class SettingsTile extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: (iconColor ?? AppColors.primaryGreen).withOpacity(0.12),
+              color: (iconColor ?? AppColors.forestGreen).withOpacity(0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: iconColor ?? AppColors.primaryGreen, size: 20),
+            child: Icon(icon, color: iconColor ?? AppColors.forestGreen, size: 20),
           ),
           title: Text(
             title,
@@ -185,10 +185,10 @@ class PaymentMethodTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isSelected ? AppColors.primaryGreen.withOpacity(0.08) : AppColors.surfaceCard,
+        color: isSelected ? AppColors.paleMint : AppColors.surfaceWhite,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isSelected ? AppColors.primaryGreen : AppColors.borderSubtle,
+          color: isSelected ? AppColors.forestGreen : AppColors.softBeigeGrey,
           width: isSelected ? 1.5 : 1,
         ),
       ),
@@ -206,13 +206,13 @@ class PaymentMethodTile extends StatelessWidget {
                   height: 44,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.primaryGreen.withOpacity(0.15)
-                        : AppColors.surfaceInput,
+                        ? AppColors.forestGreen.withOpacity(0.15)
+                        : AppColors.warmCream,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     icon,
-                    color: isSelected ? AppColors.primaryGreen : AppColors.textSecondary,
+                    color: isSelected ? AppColors.forestGreen : AppColors.textSecondary,
                     size: 22,
                   ),
                 ),
@@ -238,7 +238,7 @@ class PaymentMethodTile extends StatelessWidget {
                 ),
                 Icon(
                   isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                  color: isSelected ? AppColors.primaryGreen : AppColors.textMuted,
+                  color: isSelected ? AppColors.forestGreen : AppColors.textMuted,
                   size: 22,
                 ),
               ],

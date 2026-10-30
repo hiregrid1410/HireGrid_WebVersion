@@ -399,18 +399,18 @@ class CompanyDetailScreen extends ConsumerWidget {
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accentYellow,
-                  foregroundColor: Colors.black,
+                  backgroundColor: AppColors.forestGreen,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   elevation: 0,
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);
-                  context.push('/plans');
+                  context.go('/plans');
                 },
                 child: Text(
                   'View Premium Plans',
-                  style: AppTextStyles.button.copyWith(color: Colors.black, fontWeight: FontWeight.w800),
+                  style: AppTextStyles.button.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
                 ),
               ),
             ),

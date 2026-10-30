@@ -69,9 +69,7 @@ export function HierarchyBuilder({
           const orderA = a.displayOrder ?? 999999;
           const orderB = b.displayOrder ?? 999999;
           if (orderA !== orderB) return orderA - orderB;
-            const displayedNodes = nodes.filter(n => platformFilter === "all" || (n.platform || "both") === platformFilter);
-
-  return (a.createdAt || 0) - (b.createdAt || 0);
+          return (a.createdAt || 0) - (b.createdAt || 0);
         });
         setNodes(fetchedNodes);
       }
@@ -137,6 +135,7 @@ export function HierarchyBuilder({
         sellType,
         displayOrder,
         publicationStatus,
+        platform: platform || "both",
         createdAt: editingId
           ? nodes.find((n) => n.id === editingId)?.createdAt || Date.now()
           : Date.now(),
@@ -209,6 +208,10 @@ export function HierarchyBuilder({
     setCurrentNodeInfo(newPath[newPath.length - 1]);
   };
 
+  const displayedNodes = nodes.filter(
+    (n) => platformFilter === "all" || (n.platform || "both") === platformFilter
+  );
+
   if (currentNodeInfo.type === "module") {
     return (
       <div>
@@ -253,9 +256,14 @@ export function HierarchyBuilder({
       </div>
 
       <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 capitalize">
-          {currentNodeInfo.type.replace("_", " ")} Management
-        </h3>
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 capitalize">
+            {currentNodeInfo.type.replace("_", " ")} Management
+          </h3>
+          <div className="mt-2">
+            <PlatformFilterTabs selectedPlatform={platformFilter} onSelectPlatform={setPlatformFilter} />
+          </div>
+        </div>
         {!isCreating && (
           <button
             onClick={() => {
@@ -482,6 +490,9 @@ export function HierarchyBuilder({
           disabled={!isContentManager}
           renderItem={(node) => (
             <div className="relative group bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 dark:hover:border-amber-500/50 transition-colors flex flex-col h-full z-10">
+              <div className="absolute top-2 right-2 z-10">
+                <PlatformBadge platform={node.platform} />
+              </div>
               {(node.publicationStatus || node.publication_status || "PUBLISHED") === "DRAFT" && (
                 <div className="absolute top-0 left-0 bg-rose-500 text-white text-[10px] font-bold px-2 py-1 uppercase tracking-wider rounded-br-lg z-10">
                   Draft
@@ -545,6 +556,7 @@ export function HierarchyBuilder({
                     setSellType(node.sellType || "pack");
                     setPublicationStatus(node.publicationStatus || node.publication_status || "PUBLISHED");
                     setDisplayOrder(node.displayOrder || 0);
+                    setPlatform(node.platform || "both");
                   }}
                   className="flex items-center text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                 >

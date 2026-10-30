@@ -3,7 +3,8 @@ const placementMissionService = require("./placement-mission.service");
 class PlacementMissionController {
   async getMissions(req, res, next) {
     try {
-      const result = await placementMissionService.getMissions(req.user.id);
+      const platform = req.platform || req.headers['x-platform'] || null;
+      const result = await placementMissionService.getMissions(req.user.id, platform);
       res.json({ success: true, ...result });
     } catch (err) {
       console.error("getMissions error:", err);
@@ -52,7 +53,8 @@ class PlacementMissionController {
 
   async getLeaderboard(req, res, next) {
     try {
-      const result = await placementMissionService.getLeaderboard();
+      const platform = req.platform || req.headers['x-platform'] || null;
+      const result = await placementMissionService.getLeaderboard(platform);
       res.json({ success: true, ...result });
     } catch (err) {
       console.error("getLeaderboard error:", err);

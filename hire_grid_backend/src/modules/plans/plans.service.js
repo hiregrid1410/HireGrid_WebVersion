@@ -136,18 +136,26 @@ class PlansService {
       platform: rawPlatform,
     } = body;
     const planId = id || crypto.randomUUID();
-    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
-    if (!isValidPlatform(platform)) {
-      throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+    let platform = "web";
+    if (rawPlatform !== undefined && rawPlatform !== null) {
+      platform = String(rawPlatform).toLowerCase();
+      if (!isValidPlatform(platform)) {
+        throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+      }
+    } else if (id) {
+      const existing = await pool.query("SELECT platform FROM plans WHERE id = ", [id]);
+      if (existing.rows.length > 0 && existing.rows[0].platform) {
+        platform = existing.rows[0].platform;
+      }
     }
 
     await pool.query("BEGIN");
     try {
       await pool.query(
         `INSERT INTO plans (
-          id, name, price, duration, duration_days, is_active, is_freemium, learning_content, company_modules, free_demo_modules, upi_id, contact_number, qr_code, payment_number, active_from, active_until
+          id, name, price, duration, duration_days, is_active, is_freemium, learning_content, company_modules, free_demo_modules, upi_id, contact_number, qr_code, payment_number, active_from, active_until, platform
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          ON CONFLICT (id) DO UPDATE
          SET name = EXCLUDED.name,
              price = EXCLUDED.price,
@@ -163,7 +171,8 @@ class PlansService {
              qr_code = EXCLUDED.qr_code,
              payment_number = EXCLUDED.payment_number,
              active_from = EXCLUDED.active_from,
-             active_until = EXCLUDED.active_until`,
+             active_until = EXCLUDED.active_until,
+             platform = EXCLUDED.platform`,
         [
           planId,
           name,

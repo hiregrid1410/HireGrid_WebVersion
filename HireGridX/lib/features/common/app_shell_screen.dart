@@ -67,7 +67,7 @@ class AppShellScreen extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.primaryGreen.withOpacity(0.12) : Colors.transparent,
+          color: isActive ? AppColors.paleMint : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(

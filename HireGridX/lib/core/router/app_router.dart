@@ -25,7 +25,6 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/profile/edit_profile_screen.dart';
 import '../../features/profile/subscriptions_history_screen.dart';
 import '../../features/settings/settings_screen.dart';
-import '../../features/settings/device_management_screen.dart';
 import '../../features/support/help_support_screen.dart';
 import '../../features/support/send_feedback_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
@@ -99,16 +98,6 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/learn',
               builder: (context, state) => const MyLearningScreen(),
-              routes: [
-                GoRoute(
-                  path: 'module/:id',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (context, state) {
-                    final id = state.pathParameters['id'] ?? 'mod_apt';
-                    return ModuleDetailScreen(moduleId: id);
-                  },
-                ),
-              ],
             ),
           ],
         ),
@@ -120,16 +109,6 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/missions',
               builder: (context, state) => const MissionsLeaderboardScreen(),
-              routes: [
-                GoRoute(
-                  path: ':id',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (context, state) {
-                    final id = state.pathParameters['id'] ?? 'mis_w38';
-                    return MissionDetailScreen(missionId: id);
-                  },
-                ),
-              ],
             ),
           ],
         ),
@@ -141,24 +120,6 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/plans',
               builder: (context, state) => const PlansScreen(),
-              routes: [
-                GoRoute(
-                  path: 'checkout/:planId',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (context, state) {
-                    final planId = state.pathParameters['planId'] ?? 'plan_premium';
-                    return PaymentMethodScreen(planId: planId);
-                  },
-                ),
-                GoRoute(
-                  path: 'status',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (context, state) {
-                    final planId = state.uri.queryParameters['planId'] ?? 'plan_premium';
-                    return PaymentStatusScreen(planId: planId);
-                  },
-                ),
-              ],
             ),
           ],
         ),
@@ -170,22 +131,54 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/profile',
               builder: (context, state) => const ProfileScreen(),
-              routes: [
-                GoRoute(
-                  path: 'edit',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (context, state) => const EditProfileScreen(),
-                ),
-                GoRoute(
-                  path: 'subscriptions',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (context, state) => const SubscriptionsHistoryScreen(),
-                ),
-              ],
             ),
           ],
         ),
       ],
+    ),
+
+    // Full-screen sub-routes placed at root level to prevent keyReservation collisions
+    GoRoute(
+      path: '/learn/module/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final id = state.pathParameters['id'] ?? 'mod_apt';
+        return ModuleDetailScreen(moduleId: id);
+      },
+    ),
+    GoRoute(
+      path: '/missions/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final id = state.pathParameters['id'] ?? 'mis_w38';
+        return MissionDetailScreen(missionId: id);
+      },
+    ),
+    GoRoute(
+      path: '/plans/checkout/:planId',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final planId = state.pathParameters['planId'] ?? 'plan_premium';
+        return PaymentMethodScreen(planId: planId);
+      },
+    ),
+    GoRoute(
+      path: '/plans/status',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final planId = state.uri.queryParameters['planId'] ?? 'plan_premium';
+        return PaymentStatusScreen(planId: planId);
+      },
+    ),
+    GoRoute(
+      path: '/profile/edit',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const EditProfileScreen(),
+    ),
+    GoRoute(
+      path: '/profile/subscriptions',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const SubscriptionsHistoryScreen(),
     ),
 
     // Companies Sub-stack
@@ -208,10 +201,7 @@ final appRouter = GoRouter(
       path: '/settings',
       builder: (context, state) => const SettingsScreen(),
       routes: [
-        GoRoute(
-          path: 'devices',
-          builder: (context, state) => const DeviceManagementScreen(),
-        ),
+
         GoRoute(
           path: 'branch',
           builder: (context, state) => const BranchSelectionScreen(isFromSettings: true),

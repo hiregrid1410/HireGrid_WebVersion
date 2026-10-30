@@ -168,12 +168,12 @@ final companiesListProvider = FutureProvider<List<CompanyModel>>((ref) async {
   return repo.getCompanies(filter: filter.toLowerCase());
 });
 
-final companyDetailProvider = FutureProvider.family<CompanyModel?, String>((ref, id) async {
+final companyDetailProvider = FutureProvider.autoDispose.family<CompanyModel?, String>((ref, id) async {
   final repo = ref.watch(companyRepositoryProvider);
   return repo.getCompanyById(id);
 });
 
-final companyAssessmentsProvider = FutureProvider.family<List<ModuleTestModel>, String>((ref, companyId) async {
+final companyAssessmentsProvider = FutureProvider.autoDispose.family<List<ModuleTestModel>, String>((ref, companyId) async {
   final repo = ref.watch(companyRepositoryProvider);
   return repo.getCompanyAssessments(companyId);
 });
@@ -197,19 +197,19 @@ final subjectsProvider = FutureProvider<List<SubjectModel>>((ref) async {
   return ref.watch(moduleRepositoryProvider).getSubjectsByBranch(branchId);
 });
 
-final subjectsByBranchProvider = FutureProvider.family<List<SubjectModel>, String>((ref, branchId) async {
+final subjectsByBranchProvider = FutureProvider.autoDispose.family<List<SubjectModel>, String>((ref, branchId) async {
   return ref.watch(moduleRepositoryProvider).getSubjectsByBranch(branchId);
 });
 
-final topicsBySubjectProvider = FutureProvider.family<List<TopicModel>, String>((ref, subjectId) async {
+final topicsBySubjectProvider = FutureProvider.autoDispose.family<List<TopicModel>, String>((ref, subjectId) async {
   return ref.watch(moduleRepositoryProvider).getTopicsBySubject(subjectId);
 });
 
-final modulesByTopicProvider = FutureProvider.family<List<ModuleModel>, String>((ref, topicId) async {
+final modulesByTopicProvider = FutureProvider.autoDispose.family<List<ModuleModel>, String>((ref, topicId) async {
   return ref.watch(moduleRepositoryProvider).getModules(topicId: topicId);
 });
 
-final modulesBySubjectProvider = FutureProvider.family<List<ModuleModel>, String>((ref, subjectId) async {
+final modulesBySubjectProvider = FutureProvider.autoDispose.family<List<ModuleModel>, String>((ref, subjectId) async {
   return ref.watch(moduleRepositoryProvider).getModules(subjectId: subjectId);
 });
 
@@ -217,7 +217,7 @@ final modulesListProvider = FutureProvider.family<List<ModuleModel>, String?>((r
   return ref.watch(moduleRepositoryProvider).getModules(category: category);
 });
 
-final moduleDetailProvider = FutureProvider.family<ModuleModel?, String>((ref, id) async {
+final moduleDetailProvider = FutureProvider.autoDispose.family<ModuleModel?, String>((ref, id) async {
   return ref.watch(moduleRepositoryProvider).getModuleById(id);
 });
 

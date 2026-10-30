@@ -10,6 +10,7 @@ import '../../data/models/question_model.dart';
 import '../../shared/widgets/app_buttons.dart';
 import '../../shared/widgets/exam_widgets.dart';
 import '../../data/mock/mock_data.dart';
+import '../../core/security/secure_screen_wrapper.dart';
 
 class ExamResultScreen extends ConsumerStatefulWidget {
   final String attemptId;
@@ -50,7 +51,11 @@ class _ExamResultScreenState extends ConsumerState<ExamResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SecureScreenWrapper(
+      screenTitle: 'Exam Results',
+      isSensitive: true,
+      enableWatermark: true,
+      child: Scaffold(
       body: Stack(
         children: [
           SafeArea(
@@ -347,6 +352,7 @@ class _ExamResultScreenState extends ConsumerState<ExamResultScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 

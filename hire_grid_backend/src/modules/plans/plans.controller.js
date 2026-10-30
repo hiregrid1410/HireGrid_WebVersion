@@ -1,4 +1,6 @@
 const plansService = require("./plans.service");
+const { pool } = require("../../database/connection");
+const { validateContentManagerPlatformAccess } = require("../../utils/platformHelper");
 
 class PlansController {
   async getPlans(req, res, next) {
@@ -24,6 +26,12 @@ class PlansController {
 
   async savePlan(req, res, next) {
     try {
+      let existingPlatform = null;
+      if (req.body.id) {
+        const existing = await pool.query("SELECT platform FROM plans WHERE id = $1", [req.body.id]);
+        if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      }
+      validateContentManagerPlatformAccess(req.user, req.body.platform, existingPlatform);
       const result = await plansService.savePlan(req.body);
       res.json({ success: true, plan: result });
     } catch (err) {
@@ -36,6 +44,10 @@ class PlansController {
 
   async deletePlan(req, res, next) {
     try {
+      let existingPlatform = null;
+      const existing = await pool.query("SELECT platform FROM plans WHERE id = $1", [req.params.id]);
+      if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      validateContentManagerPlatformAccess(req.user, null, existingPlatform);
       const result = await plansService.deletePlan(req.params.id);
       res.json(result);
     } catch (err) {

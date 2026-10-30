@@ -187,6 +187,34 @@ class MiscService {
     );
     return result.rows;
   }
+  async getNotifications(userId) {
+    if (!userId) return [];
+    const result = await pool.query(
+      "SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50",
+      [userId]
+    );
+    return result.rows.map((n) => ({
+      id: n.id,
+      title: n.title,
+      message: n.message,
+      type: n.type,
+      topicId: n.topic_id,
+      moduleId: n.module_id,
+      isRead: n.is_read,
+      createdAt: n.created_at
+    }));
+  }
+
+  async markNotificationRead(id, userId) {
+    await pool.query("UPDATE notifications SET is_read = TRUE WHERE id = $1 AND user_id = $2", [id, userId]);
+    return { success: true };
+  }
+
+  async markAllNotificationsRead(userId) {
+    if (!userId) return { success: true };
+    await pool.query("UPDATE notifications SET is_read = TRUE WHERE user_id = $1", [userId]);
+    return { success: true };
+  }
 }
 
 module.exports = new MiscService();

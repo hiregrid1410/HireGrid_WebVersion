@@ -60,6 +60,18 @@ class ExamAttemptsController {
       res.status(err.statusCode || 500).json({ error: err.message });
     }
   }
+  async getExamAttemptReview(req, res, next) {
+    try {
+      const result = await examAttemptsService.getExamAttemptReview(req.user?.id, req.params.id);
+      res.json(result);
+    } catch (err) {
+      console.error("getExamAttemptReview error:", err);
+      if (err.statusCode) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      res.status(500).json({ error: "Failed to fetch exam review." });
+    }
+  }
 }
 
 module.exports = new ExamAttemptsController();

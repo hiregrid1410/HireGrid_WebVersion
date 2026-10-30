@@ -239,6 +239,7 @@ export function AdminRevisionModulesTab() {
       mcqCount: rm.mcqCount || 50,
       selectionMode: rm.selectionMode || "random",
       isActive: rm.isActive !== undefined ? rm.isActive : true,
+      platform: rm.platform || "both",
     });
     setShowModal(true);
   };
@@ -300,14 +301,14 @@ export function AdminRevisionModulesTab() {
 
   const filteredModules = revisionModules.filter((rm) => {
     const q = searchQuery.toLowerCase();
-      const displayedRevisionModules = revisionModules.filter(rm => platformFilter === "all" || (rm.platform || "both") === platformFilter);
-
-  return (
+    const matchPlatform =
+      platformFilter === "all" || (rm.platform || "both") === platformFilter;
+    const matchSearch =
       rm.title?.toLowerCase().includes(q) ||
       rm.branchName?.toLowerCase().includes(q) ||
       rm.subjectName?.toLowerCase().includes(q) ||
-      rm.topicName?.toLowerCase().includes(q)
-    );
+      rm.topicName?.toLowerCase().includes(q);
+    return matchPlatform && matchSearch;
   });
 
   return (
@@ -354,15 +355,18 @@ export function AdminRevisionModulesTab() {
       )}
 
       {/* Filter & Search Bar */}
-      <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <Search className="w-5 h-5 text-slate-400 ml-2" />
-        <input
-          type="text"
-          placeholder="Search by title, branch, subject, or topic..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-transparent border-none focus:outline-none text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400"
-        />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <PlatformFilterTabs selectedPlatform={platformFilter} onSelectPlatform={setPlatformFilter} />
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <Search className="w-5 h-5 text-slate-400 ml-2" />
+          <input
+            type="text"
+            placeholder="Search by title, branch, subject, or topic..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-transparent border-none focus:outline-none text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400"
+          />
+        </div>
       </div>
 
       {/* Table */}
@@ -375,6 +379,7 @@ export function AdminRevisionModulesTab() {
                 <th className="px-6 py-4">Topic / Source</th>
                 <th className="px-6 py-4">Target MCQs</th>
                 <th className="px-6 py-4">MCQ Pool Size</th>
+                <th className="px-6 py-4">Platform</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
@@ -570,6 +575,13 @@ export function AdminRevisionModulesTab() {
                     })}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <PlatformSelector
+                  value={formData.platform || "both"}
+                  onChange={(val) => setFormData({ ...formData, platform: val })}
+                />
               </div>
 
               {/* Title */}

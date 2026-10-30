@@ -11,6 +11,7 @@ class ModuleTestModel {
   final bool isLocked;
   final int? bestScore;
   final ModuleStatus status;
+  final String platform;
 
   const ModuleTestModel({
     required this.id,
@@ -22,6 +23,7 @@ class ModuleTestModel {
     this.isLocked = false,
     this.bestScore,
     this.status = ModuleStatus.notStarted,
+    this.platform = 'web',
   });
 
   factory ModuleTestModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,9 @@ class ModuleTestModel {
     final passPct = parseNum(json['passPercentage'], 60);
     final bestSc = json['bestScore'] != null ? parseNum(json['bestScore'], 0) : null;
 
+    final rawP = json['platform']?.toString().trim().toLowerCase();
+    final cleanPlatform = (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+
     return ModuleTestModel(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? 'Test Assessment',
@@ -54,7 +59,22 @@ class ModuleTestModel {
       isLocked: json['isLocked'] == true || json['isPremium'] == true,
       bestScore: bestSc,
       status: json['isLocked'] == true ? ModuleStatus.locked : ModuleStatus.notStarted,
+      platform: cleanPlatform,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'difficulty': difficulty.name,
+      'questionCount': questionCount,
+      'durationMinutes': durationMinutes,
+      'passPercentage': passPercentage,
+      'isLocked': isLocked,
+      'bestScore': bestScore,
+      'platform': platform,
+    };
   }
 }
 
@@ -82,7 +102,7 @@ class ModuleModel {
     required this.isPremium,
     required this.description,
     required this.tests,
-    this.platform = 'both',
+    this.platform = 'web',
   });
 
   factory ModuleModel.fromJson(Map<String, dynamic> json) {
@@ -158,7 +178,10 @@ class ModuleModel {
       isPremium: isPrem,
       description: json['description']?.toString() ?? 'Comprehensive placement module with speed tests.',
       tests: parsedTests,
-      platform: json['platform']?.toString() ?? 'both',
+      platform: (() {
+        final rawP = json['platform']?.toString().trim().toLowerCase();
+        return (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+      })(),
     );
   }
 }
@@ -179,7 +202,7 @@ class SubjectModel {
     required this.initial,
     required this.totalModules,
     required this.completedModules,
-    this.platform = 'both',
+    this.platform = 'web',
   });
 
   factory SubjectModel.fromJson(Map<String, dynamic> json) {
@@ -201,7 +224,10 @@ class SubjectModel {
       initial: name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'S',
       totalModules: parseNum(json['moduleCount'] ?? json['totalModules'], 10),
       completedModules: parseNum(json['completedCount'] ?? json['completedModules'], 4),
-      platform: json['platform']?.toString() ?? 'both',
+      platform: (() {
+        final rawP = json['platform']?.toString().trim().toLowerCase();
+        return (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+      })(),
     );
   }
 }
@@ -220,7 +246,7 @@ class TopicModel {
     required this.parentId,
     required this.type,
     this.totalModules = 0,
-    this.platform = 'both',
+    this.platform = 'web',
   });
 
   factory TopicModel.fromJson(Map<String, dynamic> json) {
@@ -230,7 +256,10 @@ class TopicModel {
       parentId: json['parentId']?.toString() ?? json['parent_id']?.toString() ?? '',
       type: json['type']?.toString() ?? 'general_topic',
       totalModules: (json['moduleCount'] is num) ? (json['moduleCount'] as num).toInt() : 0,
-      platform: json['platform']?.toString() ?? 'both',
+      platform: (() {
+        final rawP = json['platform']?.toString().trim().toLowerCase();
+        return (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+      })(),
     );
   }
 }

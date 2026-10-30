@@ -30,7 +30,7 @@ class AuthRepository {
 
   async findContentManagerByEmail(email) {
     const result = await pool.query(
-      `SELECT id, email, password, role, name, created_at FROM content_managers WHERE email = $1 LIMIT 1`,
+      `SELECT id, email, password, role, name, allowed_platforms, created_at FROM content_managers WHERE email = $1 LIMIT 1`,
       [email]
     );
     return result.rows[0] || null;
@@ -38,9 +38,9 @@ class AuthRepository {
 
   async findStaffByEmail(email) {
     const result = await pool.query(
-      `SELECT id, email, password, role, name, created_at FROM admin_users WHERE email = $1
+      `SELECT id, email, password, role, name, allowed_platforms, created_at FROM admin_users WHERE email = $1
        UNION ALL
-       SELECT id, email, password, role, name, created_at FROM content_managers WHERE email = $2
+       SELECT id, email, password, role, name, allowed_platforms, created_at FROM content_managers WHERE email = $2
        LIMIT 1`,
       [email, email]
     );

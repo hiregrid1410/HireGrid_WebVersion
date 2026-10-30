@@ -3,6 +3,7 @@ const router = express.Router();
 
 // Middlewares
 const authenticate = require("../middlewares/auth.middleware");
+const authorize = require("../middlewares/role.middleware");
 const { apiRateLimiter, sensitiveActionRateLimiter } = require("../middlewares/rateLimit.middleware");
 const { cacheResponse, invalidateCacheMiddleware } = require("../middlewares/cache.middleware");
 
@@ -38,10 +39,12 @@ router.post("/parse-mcq", (req, res, next) => parserController.parseMcq(req, res
 router.post("/attempts/start", sensitiveActionRateLimiter, (req, res, next) => examAttemptsController.startExamAttempt(req, res, next));
 router.post("/attempts/:id/sync", (req, res, next) => examAttemptsController.syncExamAttempt(req, res, next));
 router.post("/attempts/:id/submit", sensitiveActionRateLimiter, (req, res, next) => examAttemptsController.submitExamAttempt(req, res, next));
+router.get("/attempts/:id/review", (req, res, next) => examAttemptsController.getExamAttemptReview(req, res, next));
+router.get("/attempts/:id", (req, res, next) => examAttemptsController.getExamAttemptReview(req, res, next));
 
 // Security Logs
 router.post("/security-logs", (req, res, next) => miscController.logSecurityEvent(req, res, next));
-router.get("/security-logs", (req, res, next) => miscController.getSecurityLogs(req, res, next));
+router.get("/security-logs", authorize("admin"), (req, res, next) => miscController.getSecurityLogs(req, res, next));
 
 // Modules
 router.get("/modules", cacheResponse(30000), (req, res, next) => modulesController.getModules(req, res, next));
@@ -68,7 +71,7 @@ router.delete("/exams/:id", invalidateCacheMiddleware("/exams"), (req, res, next
 
 // Settings
 router.get("/settings/:id", cacheResponse(30000), (req, res, next) => miscController.getSettings(req, res, next));
-router.post("/settings/:id", invalidateCacheMiddleware("/settings"), (req, res, next) => miscController.saveSettings(req, res, next));
+router.post("/settings/:id", authorize("admin"), invalidateCacheMiddleware("/settings"), (req, res, next) => miscController.saveSettings(req, res, next));
 
 // Plans
 router.get("/plans", cacheResponse(60000), (req, res, next) => plansController.getPlans(req, res, next));
@@ -77,9 +80,9 @@ router.post("/plans", invalidateCacheMiddleware("/plans"), (req, res, next) => p
 router.delete("/plans/:id", invalidateCacheMiddleware("/plans"), (req, res, next) => plansController.deletePlan(req, res, next));
 
 // Payment Requests
-router.get("/payment-requests", (req, res, next) => plansController.getPaymentRequests(req, res, next));
+router.get("/payment-requests", authorize("admin"), (req, res, next) => plansController.getPaymentRequests(req, res, next));
 router.post("/payment-requests", (req, res, next) => plansController.createPaymentRequest(req, res, next));
-router.put("/payment-requests/:id", (req, res, next) => plansController.updatePaymentRequest(req, res, next));
+router.put("/payment-requests/:id", authorize("admin"), (req, res, next) => plansController.updatePaymentRequest(req, res, next));
 
 // Hierarchy Nodes
 router.get("/hierarchy-nodes", cacheResponse(30000), (req, res, next) => companiesController.getHierarchyNodes(req, res, next));
@@ -100,56 +103,62 @@ router.put("/branches/:id", invalidateCacheMiddleware("/branches"), (req, res, n
 router.delete("/branches/:id", invalidateCacheMiddleware("/branches"), (req, res, next) => branchesController.deleteBranch(req, res, next));
 
 router.get("/companies/:companyId/branches", (req, res, next) => branchesController.getCompanyBranches(req, res, next));
-router.put("/companies/:companyId/branches", (req, res, next) => branchesController.saveCompanyBranches(req, res, next));
-router.put("/companies-batch/branches", (req, res, next) => branchesController.saveCompanyBranchesBatch(req, res, next));
+router.put("/companies/:companyId/branches", authorize("admin", "content_manager"), (req, res, next) => branchesController.saveCompanyBranches(req, res, next));
+router.put("/companies-batch/branches", authorize("admin", "content_manager"), (req, res, next) => branchesController.saveCompanyBranchesBatch(req, res, next));
 
 router.get("/content-mappings/:contentType/:contentId", (req, res, next) => branchesController.getContentMappings(req, res, next));
-router.put("/content-mappings/:contentType/:contentId", (req, res, next) => branchesController.saveContentMappings(req, res, next));
-router.put("/content-mappings-batch/:contentType", (req, res, next) => branchesController.saveContentMappingsBatch(req, res, next));
+router.put("/content-mappings/:contentType/:contentId", authorize("admin", "content_manager"), (req, res, next) => branchesController.saveContentMappings(req, res, next));
+router.put("/content-mappings-batch/:contentType", authorize("admin", "content_manager"), (req, res, next) => branchesController.saveContentMappingsBatch(req, res, next));
 
 // User Management (Admin)
 router.post("/users", (req, res, next) => usersController.updateUser(req, res, next));
-router.get("/admin/questions", (req, res, next) => modulesController.getQuestionsAdmin(req, res, next));
-router.get("/users", (req, res, next) => usersController.getUsers(req, res, next));
+router.get("/admin/questions", authorize("admin", "content_manager"), (req, res, next) => modulesController.getQuestionsAdmin(req, res, next));
+router.get("/users", authorize("admin", "content_manager"), (req, res, next) => usersController.getUsers(req, res, next));
 router.get("/users/:id", (req, res, next) => usersController.getUserById(req, res, next));
 router.put("/users/:id", (req, res, next) => usersController.updateUser(req, res, next));
-router.delete("/users/:id", (req, res, next) => usersController.deleteUser(req, res, next));
+router.delete("/users/:id", authorize("admin"), (req, res, next) => usersController.deleteUser(req, res, next));
 
 // Admin User Management
-router.get("/admin_users", (req, res, next) => adminUsersController.getAdminUsers(req, res, next));
-router.post("/admin_users", (req, res, next) => adminUsersController.saveAdminUser(req, res, next));
-router.put("/admin_users/:id", (req, res, next) => adminUsersController.updateAdminUser(req, res, next));
-router.delete("/admin_users/:id", (req, res, next) => adminUsersController.deleteAdminUser(req, res, next));
+router.get("/admin_users", authorize("admin"), (req, res, next) => adminUsersController.getAdminUsers(req, res, next));
+router.post("/admin_users", authorize("admin"), (req, res, next) => adminUsersController.saveAdminUser(req, res, next));
+router.put("/admin_users/:id", authorize("admin"), (req, res, next) => adminUsersController.updateAdminUser(req, res, next));
+router.delete("/admin_users/:id", authorize("admin"), (req, res, next) => adminUsersController.deleteAdminUser(req, res, next));
 
 // Access & Device Requests
-router.get("/access-requests", (req, res, next) => miscController.getAccessRequests(req, res, next));
+router.get("/access-requests", authorize("admin"), (req, res, next) => miscController.getAccessRequests(req, res, next));
 router.post("/access-requests", (req, res, next) => miscController.createAccessRequest(req, res, next));
 
-router.get("/device-requests", (req, res, next) => usersController.getDeviceRequests(req, res, next));
+router.get("/device-requests", authorize("admin"), (req, res, next) => usersController.getDeviceRequests(req, res, next));
 router.post("/device-requests", (req, res, next) => usersController.createDeviceRequest(req, res, next));
-router.put("/device-requests/:id", (req, res, next) => usersController.updateDeviceRequest(req, res, next));
+router.put("/device-requests/:id", authorize("admin"), (req, res, next) => usersController.updateDeviceRequest(req, res, next));
 
 // Feedbacks
-router.get("/feedbacks", (req, res, next) => miscController.getFeedbacks(req, res, next));
+router.get("/feedbacks", authorize("admin", "content_manager"), (req, res, next) => miscController.getFeedbacks(req, res, next));
 router.post("/feedbacks", (req, res, next) => miscController.createFeedback(req, res, next));
-router.delete("/feedbacks/:id", (req, res, next) => miscController.deleteFeedback(req, res, next));
+router.delete("/feedbacks/:id", authorize("admin", "content_manager"), (req, res, next) => miscController.deleteFeedback(req, res, next));
 
 // Notifications, Purchases, Audit Logs (polling compatibility)
 router.get("/notifications", (req, res, next) => miscController.getNotifications(req, res, next));
+router.patch("/notifications/:id/read", (req, res, next) => miscController.markNotificationRead(req, res, next));
+router.put("/notifications/read-all", (req, res, next) => miscController.markAllNotificationsRead(req, res, next));
 router.get("/purchases", (req, res, next) => miscController.getPurchases(req, res, next));
-router.get("/audit-logs", (req, res, next) => miscController.getAuditLogs(req, res, next));
-router.get("/audit_logs", (req, res, next) => miscController.getAuditLogs(req, res, next));
+router.get("/audit-logs", authorize("admin"), (req, res, next) => miscController.getAuditLogs(req, res, next));
+router.get("/audit_logs", authorize("admin"), (req, res, next) => miscController.getAuditLogs(req, res, next));
 
 // Spaced Repetition Revision Modules (Admin)
-router.get("/admin/revision-modules", (req, res, next) => revisionController.getAdminRevisionModules(req, res, next));
-router.post("/admin/revision-modules", invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.saveAdminRevisionModule(req, res, next));
-router.delete("/admin/revision-modules/:id", invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.deleteAdminRevisionModule(req, res, next));
-router.get("/admin/revision-modules/pool-size", (req, res, next) => revisionController.getPoolSize(req, res, next));
+router.get("/admin/revision-modules", authorize("admin", "content_manager"), (req, res, next) => revisionController.getAdminRevisionModules(req, res, next));
+router.post("/admin/revision-modules", authorize("admin", "content_manager"), invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.saveAdminRevisionModule(req, res, next));
+router.delete("/admin/revision-modules/:id", authorize("admin", "content_manager"), invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.deleteAdminRevisionModule(req, res, next));
+router.get("/admin/revision-modules/pool-size", authorize("admin", "content_manager"), (req, res, next) => revisionController.getPoolSize(req, res, next));
+router.get("/admin/revision-questions", (req, res) => res.json({ success: true, questions: [] }));
+router.post("/admin/revision-questions", (req, res) => res.json({ success: true }));
+router.delete("/admin/revision-questions/:id", (req, res) => res.json({ success: true }));
 
 // Spaced Repetition Revision Modules (Student / App)
 router.get("/revisions/schedules", (req, res, next) => revisionController.getUserRevisionSchedules(req, res, next));
 router.post("/revisions/complete-topic", (req, res, next) => revisionController.completeTopic(req, res, next));
 router.get("/revisions/start/:topicId", (req, res, next) => revisionController.startRevisionTest(req, res, next));
+router.post("/revisions/start/:topicId", (req, res, next) => revisionController.startRevisionTest(req, res, next));
 router.post("/revisions/submit", sensitiveActionRateLimiter, (req, res, next) => revisionController.submitRevisionTest(req, res, next));
 
 module.exports = router;

@@ -58,6 +58,28 @@ class NotificationModel {
 
   bool get isRevision => type.startsWith('revision');
 
+  NotificationModel copyWith({
+    String? id,
+    String? title,
+    String? message,
+    String? timeAgo,
+    bool? isRead,
+    String? type,
+    String? topicId,
+    String? moduleId,
+  }) {
+    return NotificationModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      message: message ?? this.message,
+      timeAgo: timeAgo ?? this.timeAgo,
+      isRead: isRead ?? this.isRead,
+      type: type ?? this.type,
+      topicId: topicId ?? this.topicId,
+      moduleId: moduleId ?? this.moduleId,
+    );
+  }
+
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
       id: json['id']?.toString() ?? '',

@@ -200,16 +200,16 @@ class _BranchSelectionScreenState extends ConsumerState<BranchSelectionScreen> {
                     decoration: BoxDecoration(
                       gradient: AppColors.heroBlueGreenGradient,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
+                      border: Border.all(color: AppColors.softBeigeGrey),
                     ),
                     child: Stack(
                       children: [
                         Positioned.fill(
                           child: CustomPaint(
                             painter: MountainSilhouettePainter(
-                              primaryColor: AppColors.primaryGreenDark,
-                              secondaryColor: AppColors.deepBlueSlate,
-                              opacity: 0.8,
+                              primaryColor: AppColors.forestGreen,
+                              secondaryColor: AppColors.sandBeige,
+                              opacity: 0.35,
                             ),
                           ),
                         ),

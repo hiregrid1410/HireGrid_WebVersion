@@ -7,8 +7,8 @@ class MountainSilhouettePainter extends CustomPainter {
 
   MountainSilhouettePainter({
     this.primaryColor = const Color(0xFF14532D),
-    this.secondaryColor = const Color(0xFF0D1B2A),
-    this.opacity = 0.5,
+    this.secondaryColor = const Color(0xFFD6C7A1),
+    this.opacity = 0.25,
   });
 
   @override
@@ -45,7 +45,7 @@ class MountainSilhouettePainter extends CustomPainter {
 
     // Flagpole on highest peak
     final flagPaint = Paint()
-      ..color = const Color(0xFFFACC15)
+      ..color = const Color(0xFF14532D)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     canvas.drawLine(
@@ -55,7 +55,7 @@ class MountainSilhouettePainter extends CustomPainter {
     );
 
     final flagFill = Paint()
-      ..color = const Color(0xFFFACC15)
+      ..color = const Color(0xFFD6C7A1)
       ..style = PaintingStyle.fill;
     final flagPath = Path();
     flagPath.moveTo(size.width * 0.85, size.height * 0.42);

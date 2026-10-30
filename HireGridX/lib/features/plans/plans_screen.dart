@@ -32,19 +32,19 @@ class PlansScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                    colors: [AppColors.paleMint, AppColors.warmCream],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                  border: Border.all(color: AppColors.softBeigeGrey),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Choose Your Plan',
-                      style: AppTextStyles.h2.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: AppTextStyles.h2.copyWith(color: AppColors.forestGreen, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -67,6 +67,12 @@ class PlansScreen extends ConsumerWidget {
                 ),
                 error: (err, _) => EmptyStateWidget(title: 'Error', message: err.toString()),
                 data: (plans) {
+                  if (plans.isEmpty) {
+                    return const EmptyStateWidget(
+                      title: "No Plans Available",
+                      message: "There are currently no active plans for the mobile application. Please check back later.",
+                    );
+                  }
                   return ListView.separated(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -186,25 +192,10 @@ class PlansScreen extends ConsumerWidget {
 
                 // Select CTA
                 isPopular
-                    ? Container(
+                    ? PrimaryButton(
+                        text: 'Select Premium',
                         height: 48,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.premiumGoldGradient,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () => context.push('/plans/checkout/${plan.id}'),
-                            child: Center(
-                              child: Text(
-                                'Select Premium',
-                                style: AppTextStyles.button.copyWith(color: Colors.black, fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ),
-                        ),
+                        onPressed: () => context.push('/plans/checkout/${plan.id}'),
                       )
                     : SecondaryButton(
                         text: 'Select Plan',
@@ -220,13 +211,13 @@ class PlansScreen extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: const BoxDecoration(
-                  gradient: AppColors.premiumGoldGradient,
+                  color: AppColors.sandBeige,
                   borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
                 ),
                 child: Text(
                   'MOST POPULAR',
                   style: AppTextStyles.label.copyWith(
-                    color: Colors.black,
+                    color: AppColors.forestGreen,
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                   ),

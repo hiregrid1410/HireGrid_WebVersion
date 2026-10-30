@@ -360,7 +360,7 @@ class _RevisionScreenState extends ConsumerState<RevisionScreen> with SingleTick
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: item.totalModules > 0 ? (item.completedModules / item.totalModules).clamp(0.0, 1.0) : 1.0,
-                      backgroundColor: Colors.white.withOpacity(0.05),
+                      backgroundColor: AppColors.lightGrey,
                       valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accentYellow),
                       minHeight: 5,
                     ),
@@ -387,12 +387,12 @@ class _RevisionScreenState extends ConsumerState<RevisionScreen> with SingleTick
                   context.push('/exam/rev_$targetId');
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isDue ? AppColors.primaryGreen : AppColors.surfaceCardElevated,
-                  foregroundColor: isDue ? Colors.black : Colors.white,
+                  backgroundColor: isDue ? AppColors.forestGreen : AppColors.surfaceWhite,
+                  foregroundColor: isDue ? Colors.white : AppColors.forestGreen,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: isDue ? BorderSide.none : const BorderSide(color: AppColors.borderSubtle),
+                    side: isDue ? BorderSide.none : const BorderSide(color: AppColors.softBeigeGrey),
                   ),
                 ),
                 child: Row(
@@ -401,13 +401,13 @@ class _RevisionScreenState extends ConsumerState<RevisionScreen> with SingleTick
                     Icon(
                       isDue ? Icons.play_arrow_rounded : Icons.flash_on_rounded,
                       size: 18,
-                      color: isDue ? Colors.black : AppColors.primaryGreen,
+                      color: isDue ? Colors.white : AppColors.forestGreen,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       isDue ? 'Start Revision Test' : 'Early Practice (${item.stageLabel})',
                       style: AppTextStyles.button.copyWith(
-                        color: isDue ? Colors.black : Colors.white,
+                        color: isDue ? Colors.white : AppColors.forestGreen,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

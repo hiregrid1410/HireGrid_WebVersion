@@ -23,7 +23,7 @@ class PlanModel {
     required this.subtitle,
     required this.features,
     this.isPopular = false,
-    this.platform = 'both',
+    this.platform = 'web',
   });
 
   factory PlanModel.fromJson(Map<String, dynamic> json) {
@@ -88,8 +88,25 @@ class PlanModel {
       subtitle: json['description']?.toString() ?? 'Full Access to Placement Series & Tests',
       features: feats,
       isPopular: popular || json['isPopular'] == true,
-      platform: json['platform']?.toString() ?? 'both',
+      platform: (() {
+        final rawP = json['platform']?.toString().trim().toLowerCase();
+        return (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+      })(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': title,
+      'title': title,
+      'price': priceInr,
+      'duration': billingPeriod,
+      'description': subtitle,
+      'features': features,
+      'isPopular': isPopular,
+      'platform': platform,
+    };
   }
 }
 

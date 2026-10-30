@@ -24,6 +24,8 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isEnabled = onPressed != null && !isLoading;
+
     final buttonChild = isLoading
         ? const SizedBox(
             height: 20,
@@ -43,7 +45,9 @@ class PrimaryButton extends StatelessWidget {
               ],
               Text(
                 text,
-                style: AppTextStyles.button,
+                style: AppTextStyles.button.copyWith(
+                  color: isEnabled ? Colors.white : AppColors.greyDisabled,
+                ),
               ),
             ],
           );
@@ -51,15 +55,14 @@ class PrimaryButton extends StatelessWidget {
     final widget = Container(
       height: height ?? 52,
       decoration: BoxDecoration(
-        gradient: onPressed != null ? AppColors.greenGradient : null,
-        color: onPressed == null ? AppColors.surfaceCardElevated : null,
+        color: isEnabled ? AppColors.forestGreen : AppColors.lightGrey,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: onPressed != null
+        boxShadow: isEnabled
             ? [
                 BoxShadow(
-                  color: AppColors.primaryGreen.withOpacity(0.35),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
+                  color: AppColors.forestGreen.withOpacity(0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ]
             : null,
@@ -68,7 +71,7 @@ class PrimaryButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: isLoading ? null : onPressed,
+          onTap: isEnabled ? onPressed : null,
           child: Padding(
             padding: padding ?? const EdgeInsets.symmetric(horizontal: 24),
             child: Center(child: buttonChild),
@@ -91,6 +94,7 @@ class SecondaryButton extends StatelessWidget {
   final bool isFullWidth;
   final Color? borderColor;
   final Color? textColor;
+  final Color? backgroundColor;
 
   const SecondaryButton({
     super.key,
@@ -100,22 +104,28 @@ class SecondaryButton extends StatelessWidget {
     this.isFullWidth = true,
     this.borderColor,
     this.textColor,
+    this.backgroundColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool isEnabled = onPressed != null;
+
     final widget = Container(
       height: 52,
       decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        border: Border.all(color: borderColor ?? AppColors.borderSubtle, width: 1),
+        color: backgroundColor ?? AppColors.surfaceWhite,
+        border: Border.all(
+          color: isEnabled ? (borderColor ?? AppColors.softBeigeGrey) : AppColors.lightGrey,
+          width: 1,
+        ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: onPressed,
+          onTap: isEnabled ? onPressed : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -129,7 +139,9 @@ class SecondaryButton extends StatelessWidget {
                 Text(
                   text,
                   style: AppTextStyles.button.copyWith(
-                    color: textColor ?? AppColors.textPrimary,
+                    color: isEnabled
+                        ? (textColor ?? AppColors.forestGreen)
+                        : AppColors.greyDisabled,
                   ),
                 ),
               ],
@@ -161,8 +173,8 @@ class SocialButton extends StatelessWidget {
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        border: Border.all(color: AppColors.borderSubtle),
+        color: AppColors.surfaceWhite,
+        border: Border.all(color: AppColors.softBeigeGrey),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Material(
@@ -180,13 +192,13 @@ class SocialButton extends StatelessWidget {
                   height: 24,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white,
+                    color: AppColors.paleMint,
                   ),
                   child: Center(
                     child: Text(
                       'G',
                       style: AppTextStyles.h3.copyWith(
-                        color: Colors.blueAccent,
+                        color: AppColors.forestGreen,
                         fontWeight: FontWeight.w900,
                         fontSize: 14,
                       ),

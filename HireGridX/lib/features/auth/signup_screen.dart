@@ -219,7 +219,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   Checkbox(
                     value: _agreedToTerms,
                     activeColor: AppColors.primaryGreen,
-                    checkColor: Colors.black,
+                    checkColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     onChanged: (v) => setState(() => _agreedToTerms = v ?? false),
                   ),

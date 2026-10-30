@@ -680,12 +680,12 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                colors: [AppColors.paleMint, AppColors.warmCream],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+              border: Border.all(color: AppColors.softBeigeGrey),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -694,12 +694,12 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.2),
+                    color: AppColors.forestGreen.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                    border: Border.all(color: AppColors.forestGreen.withOpacity(0.2)),
                   ),
                   child: const Center(
-                    child: Icon(Icons.auto_stories_rounded, color: Color(0xFF10B981), size: 26),
+                    child: Icon(Icons.auto_stories_rounded, color: AppColors.forestGreen, size: 26),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -709,7 +709,7 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                     children: [
                       Text(
                         'Revision Engine',
-                        style: AppTextStyles.h2.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: AppTextStyles.h2.copyWith(color: AppColors.forestGreen, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -764,7 +764,7 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                     decoration: BoxDecoration(
                       color: AppColors.surfaceCard,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                      border: Border.all(color: AppColors.softBeigeGrey),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -775,12 +775,12 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withOpacity(0.15),
+                                color: AppColors.paleMint,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 notif.title,
-                                style: AppTextStyles.label.copyWith(color: const Color(0xFF10B981), fontWeight: FontWeight.bold),
+                                style: AppTextStyles.label.copyWith(color: AppColors.forestGreen, fontWeight: FontWeight.bold),
                               ),
                             ),
                             Text(
@@ -799,15 +799,15 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryGreen,
-                              foregroundColor: Colors.black,
+                              backgroundColor: AppColors.forestGreen,
+                              foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                             icon: const Icon(Icons.play_arrow_rounded, size: 20),
                             label: Text(
                               'Start Revision Assessment',
-                              style: AppTextStyles.button.copyWith(color: Colors.black, fontWeight: FontWeight.bold),
+                              style: AppTextStyles.button.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                             ),
                             onPressed: () {
                               if (notif.topicId != null && notif.topicId!.isNotEmpty) {
@@ -900,7 +900,7 @@ class _MyLearningScreenState extends ConsumerState<MyLearningScreen> with Single
           const SizedBox(height: 6),
           Text(
             day,
-            style: AppTextStyles.bodySm.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+            style: AppTextStyles.bodySm.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 2),
           Text(

@@ -570,7 +570,7 @@ export function AdminModulesTab({
           parsed = JSON.parse(sanitizedText);
         } catch (e2) {
           try {
-            parsed = eval(`(${rawText})`);
+            parsed = Function("return (" + rawText + ")")();
           } catch (e3) {
             throw new Error(`JSON Syntax Error: Invalid JSON text.\nReason: ${err.message}\nMake sure your text is a valid JSON array starting with '[' and ending with ']'.`);
           }
@@ -782,6 +782,7 @@ export function AdminModulesTab({
         moduleType,
         parentId,
         branchId: moduleType === "company" ? branchId : undefined,
+        platform: platform || "both",
       }),
     );
 
@@ -871,6 +872,7 @@ export function AdminModulesTab({
         moduleType,
         parentId,
         branchId: moduleType === "company" ? branchId : undefined,
+        platform: platform || "both",
       }),
     );
 

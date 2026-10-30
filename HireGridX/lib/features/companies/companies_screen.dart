@@ -72,10 +72,10 @@ class _CompaniesScreenState extends ConsumerState<CompaniesScreen> {
                     child: ChoiceChip(
                       label: Text(f),
                       selected: isSelected,
-                      selectedColor: AppColors.primaryGreen,
-                      backgroundColor: AppColors.surfaceCard,
+                      selectedColor: AppColors.paleMint,
+                      backgroundColor: AppColors.surfaceWhite,
                       labelStyle: AppTextStyles.bodySm.copyWith(
-                        color: isSelected ? Colors.black : AppColors.textSecondary,
+                        color: isSelected ? AppColors.forestGreen : AppColors.textSecondary,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                       ),
                       shape: RoundedRectangleBorder(

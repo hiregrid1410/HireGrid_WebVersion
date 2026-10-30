@@ -251,7 +251,7 @@ class BranchModel {
     required this.iconName,
     this.isGeneral = false,
     this.status = 'ACTIVE',
-    this.platform = 'both',
+    this.platform = 'web',
   });
 
   factory BranchModel.fromJson(Map<String, dynamic> json) {
@@ -276,7 +276,10 @@ class BranchModel {
       iconName: icon,
       isGeneral: json['isGeneral'] == true || json['is_general'] == true,
       status: json['status']?.toString() ?? 'ACTIVE',
-      platform: json['platform']?.toString() ?? 'both',
+      platform: (() {
+        final rawP = json['platform']?.toString().trim().toLowerCase();
+        return (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+      })(),
     );
   }
 

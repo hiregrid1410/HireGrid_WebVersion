@@ -8,12 +8,27 @@ import '../../shared/widgets/stat_widgets.dart';
 import '../../shared/widgets/card_widgets.dart';
 import '../../shared/widgets/utility_widgets.dart';
 import '../../providers/app_providers.dart';
+import '../../core/notifications/notification_permission_service.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationPermissionService.promptPermissionOnStartup(context);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     final userAsync = ref.watch(currentUserProvider);
     final continueModuleAsync = ref.watch(continueLearningProvider);
     final companiesAsync = ref.watch(companiesListProvider);
@@ -31,6 +46,7 @@ class DashboardScreen extends ConsumerWidget {
             ref.refresh(companiesListProvider);
             ref.refresh(currentMissionProvider);
             ref.refresh(leaderboardProvider);
+            ref.refresh(notificationsListProvider);
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -52,7 +68,7 @@ class DashboardScreen extends ConsumerWidget {
                         // Compact User Avatar Button (Tapping pushes to Profile)
                         InkWell(
                           borderRadius: BorderRadius.circular(20),
-                          onTap: () => context.push('/profile'),
+                          onTap: () => context.go('/profile'),
                           child: CircleAvatar(
                             radius: 20,
                             backgroundColor: AppColors.surfaceCardElevated,
@@ -78,10 +94,43 @@ class DashboardScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.notifications_outlined, size: 24, color: AppColors.textPrimary),
-                          onPressed: () => context.push('/notifications'),
-                        ),
+                        (() {
+                          final notifsAsync = ref.watch(notificationsListProvider);
+                          final unreadCount = notifsAsync.valueOrNull?.where((n) => !n.isRead).length ?? 0;
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.notifications_outlined, size: 24, color: AppColors.textPrimary),
+                                onPressed: () => context.push('/notifications'),
+                              ),
+                              if (unreadCount > 0)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.primaryGreen,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                    child: Center(
+                                      child: Text(
+                                        unreadCount > 9 ? '9+' : '$unreadCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          height: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        })(),
                       ],
                     );
                   },
@@ -131,7 +180,7 @@ class DashboardScreen extends ConsumerWidget {
                                 icon: Icons.menu_book_rounded,
                                 iconColor: AppColors.primaryGreen,
                                 title: 'Courses',
-                                value: '25+',
+                                value: '${(user?.grantedModuleAccess.length ?? 0) + (user?.grantedCompanyAccess.length ?? 0)}',
                                 subtitle: 'Enrolled',
                               ),
                             ),
@@ -288,6 +337,28 @@ class DashboardScreen extends ConsumerWidget {
                   loading: () => const ShimmerCard(height: 80, borderRadius: 16),
                   error: (_, __) => const SizedBox(),
                   data: (mission) {
+                    if (mission.id.isEmpty || mission.title == 'No Active Missions' || (mission.liveExams.isEmpty && mission.upcomingExams.isEmpty)) {
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceCard,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.borderSubtle),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.military_tech_outlined, color: AppColors.textMuted, size: 24),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                'No active placement missions for the application right now.',
+                                style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
                     return InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () => context.go('/missions'),
@@ -346,6 +417,29 @@ class DashboardScreen extends ConsumerWidget {
                   loading: () => const ShimmerCard(height: 60, borderRadius: 14),
                   error: (_, __) => const SizedBox(),
                   data: (companies) {
+                    if (companies.isEmpty) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceCard,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.borderSubtle),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.business_outlined, color: AppColors.textMuted, size: 22),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'No companies available for the application.',
+                                style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
                     return SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(

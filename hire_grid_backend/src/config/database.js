@@ -16,6 +16,10 @@ const pool = connectionString
       max: 10,
       idleTimeoutMillis: 15000,
       connectionTimeoutMillis: 20000,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
     })
   : new Pool({
       host: env.DB_HOST,

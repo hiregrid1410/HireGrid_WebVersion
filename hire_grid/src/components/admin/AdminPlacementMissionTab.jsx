@@ -151,7 +151,7 @@ export function AdminPlacementMissionTab({ userName }) {
 
     try {
       setLoading(true);
-      const res = await api.post("/placement-mission/content-manager/cycles", { name: newCycleName, platform: cyclePlatform || "both" });
+      const res = await api.post("/placement-mission/content-manager/cycles", { name: newCycleName, platform: missionPlatform || "both" });
       if (res.success) {
         showToast(res.message || "New weekly cycle started!", "success");
         setNewCycleName("");

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "node tests/platform_control.test.js"
+    "test": "node tests/platform_control.test.js && node tests/cm_rbac_platform.test.js && node tests/e2e_platform_flow.test.js && node tests/phase7_8_reproducible_debug.test.js && node tests/rbac_security.test.js"
   },
   "keywords": [],
   "author": "",

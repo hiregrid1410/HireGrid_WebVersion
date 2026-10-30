@@ -1,3 +1,4 @@
+import '../../core/security/secure_screen_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +20,11 @@ class ModuleDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final moduleAsync = ref.watch(moduleDetailProvider(moduleId));
 
-    return Scaffold(
+    return SecureScreenWrapper(
+      screenTitle: 'Module Assessment',
+      isSensitive: true,
+      enableWatermark: true,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Module Detail'),
         leading: IconButton(
@@ -190,7 +195,7 @@ class ModuleDetailScreen extends ConsumerWidget {
                           if (isLocked)
                             IconButton(
                               icon: const Icon(Icons.lock_rounded, color: AppColors.accentYellow, size: 20),
-                              onPressed: () => context.push('/plans'),
+                              onPressed: () => context.go('/plans'),
                             )
                           else
                             IconButton(
@@ -208,6 +213,7 @@ class ModuleDetailScreen extends ConsumerWidget {
           },
         ),
       ),
+    ),
     );
   }
 }

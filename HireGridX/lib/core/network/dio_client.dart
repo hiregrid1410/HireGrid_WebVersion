@@ -62,6 +62,15 @@ class DioClient {
             '/auth/resend-otp',
           ];
 
+          // Dual platform enforcement: Ensure x-platform header and query parameter are always set to 'app'
+          options.headers['x-platform'] = 'app';
+          options.headers['X-Client-Platform'] = 'android';
+          if (options.method.toUpperCase() == 'GET') {
+            final qp = Map<String, dynamic>.from(options.queryParameters);
+            qp.putIfAbsent('platform', () => 'app');
+            options.queryParameters = qp;
+          }
+
           final isPublic = publicPaths.any((p) => options.path.contains(p));
           if (!isPublic) {
             final token = await _tokenStorage.readToken();

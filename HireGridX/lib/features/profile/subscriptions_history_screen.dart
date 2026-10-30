@@ -34,8 +34,13 @@ class SubscriptionsHistoryScreen extends ConsumerWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: AppColors.premiumGoldGradient,
+                  gradient: const LinearGradient(
+                    colors: [AppColors.paleMint, AppColors.warmCream],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.softBeigeGrey),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,17 +50,17 @@ class SubscriptionsHistoryScreen extends ConsumerWidget {
                       children: [
                         Text(
                           'ACTIVE PLAN',
-                          style: AppTextStyles.label.copyWith(color: Colors.black, fontWeight: FontWeight.w900),
+                          style: AppTextStyles.label.copyWith(color: AppColors.forestGreen, fontWeight: FontWeight.w900),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.2),
+                            color: AppColors.forestGreen.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             'Renews in 42 Days',
-                            style: AppTextStyles.label.copyWith(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 10),
+                            style: AppTextStyles.label.copyWith(color: AppColors.forestGreen, fontWeight: FontWeight.w800, fontSize: 10),
                           ),
                         ),
                       ],
@@ -63,12 +68,12 @@ class SubscriptionsHistoryScreen extends ConsumerWidget {
                     const SizedBox(height: 8),
                     Text(
                       'Premium Access (3 Months)',
-                      style: AppTextStyles.h1.copyWith(color: Colors.black, fontWeight: FontWeight.w800),
+                      style: AppTextStyles.h1.copyWith(color: AppColors.forestGreen, fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Full access to 20+ Tech Companies, Gate Mocks & Diagnostic Reports.',
-                      style: AppTextStyles.bodySm.copyWith(color: Colors.black.withOpacity(0.8)),
+                      style: AppTextStyles.bodySm.copyWith(color: AppColors.textSecondary),
                     ),
                   ],
                 ),

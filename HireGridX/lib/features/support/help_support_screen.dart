@@ -128,7 +128,7 @@ class HelpSupportScreen extends StatelessWidget {
                   _buildFaqItem('How do I unlock company mock tests?', 'You can upgrade to a Premium plan under the Plans tab to unlock 20+ company test series.'),
                   _buildFaqItem('How is my score and accuracy calculated?', 'Score is based on correct answers. Accuracy is the ratio of correct answers to total attempted questions.'),
                   _buildFaqItem('Can I retake tests?', 'Yes! You can retake practice tests as many times as you want to sharpen your speed and accuracy.'),
-                  _buildFaqItem('How does Device Verification work?', 'For exam integrity, your account is bound to your primary verified device. You can request approval for additional devices under Settings.'),
+                  _buildFaqItem('How do I track my learning progress?', 'Your performance stats, tests attempted, and accuracy trends are automatically updated on your Dashboard and Learning screens.'),
                 ],
               ),
             );

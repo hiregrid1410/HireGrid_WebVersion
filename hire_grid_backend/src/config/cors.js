@@ -44,6 +44,8 @@ const corsOptions = {
     "Authorization",
     "x-platform",
     "x-app-key",
+    "x-client-platform",
+    "X-Client-Platform",
   ],
   exposedHeaders: ["x-platform", "X-Cache-Status", "Vary"],
 };

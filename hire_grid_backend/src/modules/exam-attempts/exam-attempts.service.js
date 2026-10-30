@@ -574,6 +574,71 @@ class ExamAttemptsService {
       xpEarned
     };
   }
+  async getExamAttemptReview(userId, id) {
+    if (!userId) {
+      throw new ApiError(401, "Authentication required.");
+    }
+    const attemptRes = await pool.query(
+      "SELECT * FROM exam_attempts WHERE id = $1 AND user_id = $2",
+      [id, userId]
+    );
+    if (attemptRes.rows.length === 0) {
+      throw new ApiError(404, "Exam session not found.");
+    }
+
+    const attempt = attemptRes.rows[0];
+    const moduleId = attempt.module_id;
+
+    const modRes = await pool.query("SELECT * FROM modules WHERE id = $1", [moduleId]);
+    const moduleTitle = modRes.rows.length > 0 ? modRes.rows[0].title : "Assessment Test";
+
+    let questionsRes = await pool.query(
+      `SELECT q.id, q.question, q.options, q.correct_answer_index AS "correctAnswerIndex", q.svg_code AS "svgCode", q.explanation, eq.question_order AS "displayOrder"
+       FROM questions q
+       INNER JOIN exam_questions eq ON q.id = eq.question_id
+       WHERE eq.exam_id = $1`,
+      [moduleId]
+    );
+    if (questionsRes.rows.length === 0) {
+      questionsRes = await pool.query(
+        `SELECT id, question, options, correct_answer_index AS "correctAnswerIndex", svg_code AS "svgCode", explanation, display_order AS "displayOrder"
+         FROM questions
+         WHERE module_id = $1`,
+        [moduleId]
+      );
+    }
+
+    let questionsList = questionsRes.rows;
+    const answers = attempt.answers || {};
+    const shuffledQuestionIds = answers._question_order || [];
+
+    if (shuffledQuestionIds.length > 0) {
+      const qMap = new Map(questionsList.map(q => [q.id, q]));
+      questionsList = shuffledQuestionIds
+        .map(qid => qMap.get(qid))
+        .filter(q => q !== undefined);
+    }
+
+    const correctAnswersMap = {};
+    questionsList.forEach(q => {
+      correctAnswersMap[q.id] = q.correctAnswerIndex;
+    });
+
+    return {
+      success: true,
+      attemptId: attempt.id,
+      moduleId,
+      testTitle: moduleTitle,
+      status: attempt.status,
+      score: answers._score !== undefined ? answers._score : (attempt.score || 0),
+      correctCount: answers._correctCount !== undefined ? answers._correctCount : 0,
+      totalQuestions: questionsList.length,
+      xpEarned: answers._xpEarned !== undefined ? answers._xpEarned : 0,
+      userAnswers: answers,
+      correctAnswers: correctAnswersMap,
+      questions: questionsList
+    };
+  }
 }
 
 module.exports = new ExamAttemptsService();

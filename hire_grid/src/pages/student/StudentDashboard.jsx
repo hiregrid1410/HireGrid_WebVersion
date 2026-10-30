@@ -1,3 +1,9 @@
+
+const isWebAllowedItem = (item) => {
+  if (!item) return false;
+  const p = (item.platform || "both").toString().trim().toLowerCase();
+  return p === "web" || p === "both";
+};
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, Navigate, useNavigate } from "react-router-dom";
 import {
@@ -28,6 +34,7 @@ import {
   AlertTriangle,
   X,
   ListFilter,
+  Loader2,
 } from "lucide-react";
 import { ThemeToggle } from "../../components/common/ThemeToggle";
 import { useTheme } from "../../ThemeContext";
@@ -107,6 +114,7 @@ export default function StudentDashboard() {
 
   // Anti-Cheating & Auto-Fullscreen System
     const [showNavigator, setShowNavigator] = useState(false);
+  const [fullscreenRequiredModal, setFullscreenRequiredModal] = useState(false);
   const [visitedQuestions, setVisitedQuestions] = useState(new Set());
 
   useEffect(() => {
@@ -601,12 +609,12 @@ export default function StudentDashboard() {
         const freshPlans = plansSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const freshBranches = branchesRes.success && branchesRes.branches ? branchesRes.branches : [];
 
-        setModules(freshModules);
-        setCompanies(freshCompanies);
-        setExams(freshExams);
-        setPlans(freshPlans);
+        setModules(freshModules.filter(isWebAllowedItem));
+        setCompanies(freshCompanies.filter(isWebAllowedItem));
+        setExams(freshExams.filter(isWebAllowedItem));
+        setPlans(freshPlans.filter(isWebAllowedItem));
         if (freshBranches.length > 0) {
-          setActiveBranches(freshBranches);
+          setActiveBranches(freshBranches.filter(isWebAllowedItem));
         }
 
         // Cache the master data
@@ -754,8 +762,6 @@ export default function StudentDashboard() {
       setIsStartingModule(false);
     }
   };
-
-  const [fullscreenRequiredModal, setFullscreenRequiredModal] = useState(false);
 
   const handleStartActualTest = async () => {
     if (isStartingExamRef) isStartingExamRef.current = true;

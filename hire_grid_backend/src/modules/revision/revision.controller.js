@@ -121,6 +121,12 @@ class RevisionController {
       return res.status(400).json({ error: "Invalid platform value. Must be 'web', 'app', or 'both'." });
     }
 
+    let existingPlatform = null;
+    if (id) {
+      const existing = await pool.query("SELECT platform FROM revision_modules WHERE id = $1", [id]);
+      if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+    }
+    validateContentManagerPlatformAccess(req.user, platform, existingPlatform);
     const rmId = id || crypto.randomUUID();
     const count = parseInt(mcqCount, 10) || 50;
     const active = isActive !== undefined ? Boolean(isActive) : true;
@@ -135,8 +141,8 @@ class RevisionController {
         `INSERT INTO revision_modules (
           id, branch_id, subject_id, topic_id, title,
           source_topic_id, source_module_ids, mcq_count, selection_mode,
-          is_active, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+          is_active, platform, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
         ON CONFLICT (id) DO UPDATE SET
           branch_id = EXCLUDED.branch_id,
           subject_id = EXCLUDED.subject_id,
@@ -147,6 +153,7 @@ class RevisionController {
           mcq_count = EXCLUDED.mcq_count,
           selection_mode = EXCLUDED.selection_mode,
           is_active = EXCLUDED.is_active,
+          platform = EXCLUDED.platform,
           updated_at = NOW()`,
         [
           rmId,
@@ -173,6 +180,10 @@ class RevisionController {
   async deleteAdminRevisionModule(req, res) {
     const { id } = req.params;
     try {
+      let existingPlatform = null;
+      const existing = await pool.query("SELECT platform FROM revision_modules WHERE id = $1", [id]);
+      if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      validateContentManagerPlatformAccess(req.user, null, existingPlatform);
       await pool.query("DELETE FROM revision_modules WHERE id = $1", [id]);
       res.json({ success: true, message: "Revision module deleted." });
     } catch (err) {

@@ -15,7 +15,7 @@ class AuthService {
       throw new ApiError(500, "Server authentication error: JWT_SECRET not configured.");
     }
     return jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role, allowed_platforms: user.allowed_platforms || user.allowedPlatforms || "all" },
       jwtSecret,
       { expiresIn: config.jwt.expire }
     );
@@ -82,8 +82,11 @@ class AuthService {
     };
   }
 
-  async validateAndRegisterDevice(user, deviceId, deviceName) {
+  async validateAndRegisterDevice(user, deviceId, deviceName, bypassLimit = false) {
     if (!deviceId) return { allowed: true };
+    if (bypassLimit) {
+      return { allowed: true };
+    }
 
     const maxDevices = user.max_devices !== undefined && user.max_devices !== null ? Number(user.max_devices) : 1;
     let allowedDevices = Array.isArray(user.allowed_devices)
@@ -104,11 +107,12 @@ class AuthService {
       return { allowed: true };
     }
 
-    if (allowedDevices.length < maxDevices) {
+    // If bypassLimit is true (mobile app), always allow and register without device limitation
+    if (bypassLimit || allowedDevices.length < maxDevices) {
       const newDevObj = {
         id: deviceId,
         deviceId: deviceId,
-        name: deviceName || "Browser Session",
+        name: deviceName || (bypassLimit ? "App Session" : "Browser Session"),
         addedAt: Date.now(),
         lastLoginAt: Date.now(),
       };
@@ -142,7 +146,7 @@ class AuthService {
     };
   }
 
-  async login({ email, password, isAdminLogin = false, deviceId, deviceName, isTrustedApp = false }) {
+  async login({ email, password, isAdminLogin = false, deviceId, deviceName, isTrustedApp = false, platform, isApp = false }) {
     if (!password || (!isAdminLogin && (!email || email.trim() === ""))) {
       throw new ApiError(400, isAdminLogin ? "Password is required." : "Email and password are required.");
     }
@@ -214,14 +218,19 @@ class AuthService {
 
       user = foundUser;
 
-      // A2: Bypass device limit only when isTrustedApp is true
-      if (user.role === "student" && !isTrustedApp) {
-        const deviceCheck = await this.validateAndRegisterDevice(user, deviceId, deviceName);
+      // Device limitations: Never enforced for the mobile application
+      const bypassDeviceLimit = isTrustedApp === true || isApp === true || platform === "app";
+      if (user.role === "student" && !bypassDeviceLimit) {
+        const deviceCheck = await this.validateAndRegisterDevice(user, deviceId, deviceName, false);
         if (!deviceCheck.allowed) {
           const err = new ApiError(403, deviceCheck.message);
           err.deviceLimitReached = true;
           err.maxDevices = deviceCheck.maxDevices;
           throw err;
+        }
+      } else if (user.role === "student" && bypassDeviceLimit) {
+        if (deviceId) {
+          await this.validateAndRegisterDevice(user, deviceId, deviceName, true);
         }
       }
     }
@@ -251,7 +260,7 @@ class AuthService {
     return formatUserResponse(user);
   }
 
-  async googleLogin({ credential, deviceId, deviceName, isTrustedApp = false }) {
+  async googleLogin({ credential, deviceId, deviceName, isTrustedApp = false, platform, isApp = false }) {
     if (!credential) {
       throw new ApiError(400, "Google credential is required.");
     }
@@ -291,14 +300,19 @@ class AuthService {
       });
     }
 
-    // A2: Bypass device limit only when isTrustedApp is true
-    if (!isTrustedApp) {
-      const deviceCheck = await this.validateAndRegisterDevice(user, deviceId, deviceName);
+    // Device limitations: Never enforced for the mobile application
+    const bypassDeviceLimit = isTrustedApp === true || isApp === true || platform === "app";
+    if (user.role === "student" && !bypassDeviceLimit) {
+      const deviceCheck = await this.validateAndRegisterDevice(user, deviceId, deviceName, false);
       if (!deviceCheck.allowed) {
         const err = new ApiError(403, deviceCheck.message);
         err.deviceLimitReached = true;
         err.maxDevices = deviceCheck.maxDevices;
         throw err;
+      }
+    } else if (user.role === "student" && bypassDeviceLimit) {
+      if (deviceId) {
+        await this.validateAndRegisterDevice(user, deviceId, deviceName, true);
       }
     }
 

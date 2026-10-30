@@ -122,13 +122,20 @@ class _MissionsLeaderboardScreenState extends ConsumerState<MissionsLeaderboardS
                 title: 'PREMIUM CONTENT LOCKED',
                 description:
                     'Placement Missions are exclusively for Premium Members. Upgrade now to attempt weekly placement missions, test your skills under real-time constraints, and compete on the global leaderboard.',
-                onUpgrade: () => context.push('/plans'),
+                onUpgrade: () => context.go('/plans'),
               ).animate().fadeIn(duration: 400.ms),
             ] else ...[
               missionAsync.when(
                 loading: () => const ShimmerCard(height: 180, borderRadius: 18),
                 error: (err, _) => EmptyStateWidget(title: 'Mission Error', message: err.toString()),
                 data: (mission) {
+                  if (mission.id.isEmpty || mission.title == 'No Active Missions' || (mission.liveExams.isEmpty && mission.upcomingExams.isEmpty)) {
+                    return const EmptyStateWidget(
+                      icon: Icons.military_tech_outlined,
+                      title: 'No Active Missions',
+                      message: 'There are currently no placement missions scheduled for the mobile application. Please check back later.',
+                    );
+                  }
                   return Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -262,6 +269,13 @@ class _MissionsLeaderboardScreenState extends ConsumerState<MissionsLeaderboardS
                 message: err.toString(),
               ),
               data: (entries) {
+                if (entries.isEmpty) {
+                  return const EmptyStateWidget(
+                    icon: Icons.emoji_events_outlined,
+                    title: 'No Rankings Yet',
+                    message: 'Be the first student to participate in placement missions to rank on the leaderboard.',
+                  );
+                }
                 final user = userAsync.value;
 
                 return ListView.separated(

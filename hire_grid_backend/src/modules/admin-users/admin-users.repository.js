@@ -5,15 +5,16 @@ const { ApiError } = require("../../utils/ApiError");
 
 class AdminUsersRepository {
   async getAdminUsers() {
-    const admins = await pool.query("SELECT id, name, email, role, created_at FROM admin_users ORDER BY created_at DESC");
-    const managers = await pool.query("SELECT id, name, email, role, created_at FROM content_managers ORDER BY created_at DESC");
+    const admins = await pool.query("SELECT id, name, email, role, allowed_platforms AS \"allowedPlatforms\", created_at FROM admin_users ORDER BY created_at DESC");
+    const managers = await pool.query("SELECT id, name, email, role, allowed_platforms AS \"allowedPlatforms\", created_at FROM content_managers ORDER BY created_at DESC");
     
     const combined = [...admins.rows, ...managers.rows];
     combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     return combined;
   }
 
-  async saveAdminUser({ id, name, email, password, role }) {
+  async saveAdminUser({ id, name, email, password, role, allowedPlatforms, allowed_platforms }) {
+    const rawAllowed = allowedPlatforms || allowed_platforms || "all";
     const adminId = id || crypto.randomUUID();
     const targetTable = role === "content_manager" ? "content_managers" : "admin_users";
     const alternativeTable = role === "content_manager" ? "admin_users" : "content_managers";
@@ -23,24 +24,25 @@ class AdminUsersRepository {
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
       await pool.query(
-        `INSERT INTO ${targetTable} (id, name, email, password, role)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO ${targetTable} (id, name, email, password, role, allowed_platforms)
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (id) DO UPDATE
-         SET name = EXCLUDED.name, email = EXCLUDED.email, password = EXCLUDED.password, role = EXCLUDED.role`,
-        [adminId, name, email, hashedPassword, role || "content_manager"]
+         SET name = EXCLUDED.name, email = EXCLUDED.email, password = EXCLUDED.password, role = EXCLUDED.role, allowed_platforms = EXCLUDED.allowed_platforms`,
+        [adminId, name, email, hashedPassword, role || "content_manager", rawAllowed]
       );
     } else {
       await pool.query(
-        `INSERT INTO ${targetTable} (id, name, email, role)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO ${targetTable} (id, name, email, role, allowed_platforms)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (id) DO UPDATE
-         SET name = EXCLUDED.name, email = EXCLUDED.email, role = EXCLUDED.role`,
-        [adminId, name, email, role || "content_manager"]
+         SET name = EXCLUDED.name, email = EXCLUDED.email, role = EXCLUDED.role, allowed_platforms = EXCLUDED.allowed_platforms`,
+        [adminId, name, email, role || "content_manager", rawAllowed]
       );
     }
   }
 
-  async updateAdminUser(id, { name, email, password, role }) {
+  async updateAdminUser(id, { name, email, password, role, allowedPlatforms, allowed_platforms }) {
+    const targetAllowed = allowedPlatforms !== undefined ? allowedPlatforms : (allowed_platforms !== undefined ? allowed_platforms : undefined);
     let currentTable = "admin_users";
     let currentUserResult = await pool.query("SELECT * FROM admin_users WHERE id = $1", [id]);
     if (currentUserResult.rows.length === 0) {
@@ -92,8 +94,12 @@ class AdminUsersRepository {
         values.push(role);
       }
       if (password) {
-        setClauses.push(`password = $${paramIndex++}`);
+        setClauses.push(`password = ${paramIndex++}`);
         values.push(hashedPassword);
+      }
+      if (targetAllowed !== undefined) {
+        setClauses.push(`allowed_platforms = ${paramIndex++}`);
+        values.push(targetAllowed);
       }
 
       if (setClauses.length > 0) {

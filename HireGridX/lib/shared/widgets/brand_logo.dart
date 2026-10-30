@@ -9,7 +9,7 @@ class HireGridLogo extends StatelessWidget {
 
   const HireGridLogo({
     super.key,
-    this.size = 56,
+    this.size = 40,
     this.showText = true,
     this.subtitle,
   });
@@ -23,52 +23,41 @@ class HireGridLogo extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // HX Mark
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'H',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: size * 0.75,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.primaryGreen,
-                      letterSpacing: -1,
-                    ),
-                  ),
-                  Text(
-                    'X',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: size * 0.75,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.accentYellow,
-                      letterSpacing: -1,
-                    ),
-                  ),
-                ],
+            // Application Logo Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(size * 0.2),
+              child: Image.asset(
+                'assets/images/Application logo.png',
+                width: size,
+                height: size,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Image.asset(
+                    'assets/images/app_logo.png',
+                    width: size,
+                    height: size,
+                    fit: BoxFit.contain,
+                  );
+                },
               ),
             ),
             if (showText) ...[
-              const SizedBox(width: 4),
+              const SizedBox(width: 10),
               RichText(
                 text: TextSpan(
                   children: [
                     TextSpan(
                       text: 'HireGrid',
                       style: AppTextStyles.displayLg.copyWith(
-                        fontSize: size * 0.55,
+                        fontSize: size * 0.52,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: AppColors.primaryGreen,
                       ),
                     ),
                     TextSpan(
                       text: 'X',
                       style: AppTextStyles.displayLg.copyWith(
-                        fontSize: size * 0.55,
+                        fontSize: size * 0.52,
                         fontWeight: FontWeight.w800,
                         color: AppColors.accentYellow,
                       ),
@@ -80,7 +69,7 @@ class HireGridLogo extends StatelessWidget {
           ],
         ),
         if (subtitle != null) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             subtitle!,
             style: AppTextStyles.bodySm.copyWith(

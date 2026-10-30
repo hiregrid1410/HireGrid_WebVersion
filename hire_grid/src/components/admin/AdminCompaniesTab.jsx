@@ -63,9 +63,7 @@ export function AdminCompaniesTab({
           const orderA = a.displayOrder ?? 999999;
           const orderB = b.displayOrder ?? 999999;
           if (orderA !== orderB) return orderA - orderB;
-            const displayedCompanies = companies.filter(c => platformFilter === "all" || (c.platform || "both") === platformFilter);
-
-  return (a.createdAt || 0) - (b.createdAt || 0);
+          return (a.createdAt || 0) - (b.createdAt || 0);
         });
 
         setCompanies(fetchedCompanies);
@@ -266,6 +264,10 @@ export function AdminCompaniesTab({
       console.error("Failed to load mappings:", err);
     }
   };
+
+  const displayedCompanies = companies.filter(
+    (c) => platformFilter === "all" || (c.platform || "both") === platformFilter
+  );
 
   if (activeCompany) {
     return (
@@ -626,7 +628,11 @@ export function AdminCompaniesTab({
         </div>
       )}{" "}
       {!isCreating && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <PlatformFilterTabs selectedPlatform={platformFilter} onSelectPlatform={setPlatformFilter} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <SortableList
             items={displayedCompanies}
             collectionName="companies"
@@ -639,7 +645,8 @@ export function AdminCompaniesTab({
                 className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center cursor-pointer hover:shadow-md hover:border-emerald-500 transition-all group h-full"
               >
                 <div className="w-full flex justify-between mb-2">
-                  <div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <PlatformBadge platform={c.platform} />
                     {c.accessType === "demo" ? (
                       <span className="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 px-2 py-1 rounded">
                         Demo
@@ -720,6 +727,7 @@ export function AdminCompaniesTab({
               No companies added yet. Click "Add Company" to get started.
             </div>
           )}
+        </div>
         </div>
       )}
       <ConfirmDialog

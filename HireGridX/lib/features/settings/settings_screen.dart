@@ -1,6 +1,7 @@
+import 'package:permission_handler/permission_handler.dart';
+import '../../core/notifications/notification_permission_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/text_styles.dart';
 import '../../shared/widgets/utility_widgets.dart';
@@ -14,9 +15,22 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _emailNotifications = true;
-  bool _darkMode = true; // Locked ON per spec
+  bool _pushNotifications = false;
   bool _screenshotBlocker = true;
   bool _appLock = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermission();
+  }
+
+  Future<void> _checkPermission() async {
+    final status = await NotificationPermissionService.getStatus();
+    if (mounted) {
+      setState(() => _pushNotifications = status.isGranted);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +58,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => context.push('/forgot-password'),
               ),
               SettingsTile(
-                icon: Icons.notifications_none_rounded,
+                icon: Icons.notifications_active_outlined,
+                title: 'Push Notifications',
+                subtitle: _pushNotifications ? 'Allowed by operating system' : 'Disabled (Tap to enable)',
+                trailing: Switch.adaptive(
+                  value: _pushNotifications,
+                  activeColor: AppColors.primaryGreen,
+                  onChanged: (v) async {
+                    if (v) {
+                      final granted = await NotificationPermissionService.requestDirectly();
+                      setState(() => _pushNotifications = granted);
+                    } else {
+                      await openAppSettings();
+                    }
+                  },
+                ),
+              ),
+              SettingsTile(
+                icon: Icons.mail_outline_rounded,
                 title: 'Email Notifications',
                 trailing: Switch.adaptive(
                   value: _emailNotifications,
@@ -52,12 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (v) => setState(() => _emailNotifications = v),
                 ),
               ),
-              SettingsTile(
-                icon: Icons.devices_rounded,
-                title: 'Device Management',
-                subtitle: 'Manage active logged-in devices',
-                onTap: () => context.push('/settings/devices'),
-              ),
+
               const SizedBox(height: 24),
 
               // Section 2: App Preferences
@@ -65,13 +91,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
 
               SettingsTile(
-                icon: Icons.dark_mode_outlined,
-                title: 'Dark Mode',
-                subtitle: 'Optimized for focus (Locked ON)',
-                trailing: Switch.adaptive(
-                  value: _darkMode,
-                  activeColor: AppColors.primaryGreen,
-                  onChanged: null, // Locked ON
+                icon: Icons.palette_outlined,
+                title: 'Theme',
+                subtitle: 'Forest Green & Cream (Light)',
+                trailing: Text(
+                  'Light',
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.forestGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               SettingsTile(

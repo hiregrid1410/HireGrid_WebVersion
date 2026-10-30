@@ -325,6 +325,11 @@ class MockProfileRepository implements ProfileRepository {
   }
 
   @override
+  Future<void> markNotificationRead(String id) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+  }
+
+  @override
   Future<bool> submitFeedback({
     required String category,
     required String message,

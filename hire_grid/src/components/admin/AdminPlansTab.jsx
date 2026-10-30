@@ -95,9 +95,7 @@ export function AdminPlansTab({ userName }) {
       (error) => handleFirestoreError(error, OperationType.LIST, "companies")
     );
 
-      const displayedPlans = plans.filter(p => platformFilter === "all" || (p.platform || "both") === platformFilter);
-
-  return () => {
+    return () => {
       unsubPlans();
       unsubComp();
     };
@@ -273,6 +271,7 @@ export function AdminPlansTab({ userName }) {
     setCompanyBranches(plan.companyBranches || plan.company_branches || []);
     setPaymentNumber(plan.paymentNumber || plan.payment_number || "");
     setQrCode(plan.qrCode || plan.qr_code || "");
+    setPlatform(plan.platform || "both");
     setActiveFrom(plan.activeFrom || plan.active_from ? formatForInput(plan.activeFrom || plan.active_from) : "");
     setActiveUntil(plan.activeUntil || plan.active_until ? formatForInput(plan.activeUntil || plan.active_until) : "");
     setFormStep(1);
@@ -365,6 +364,10 @@ export function AdminPlansTab({ userName }) {
     );
   };
 
+  const displayedPlans = plans.filter(
+    (p) => platformFilter === "all" || (p.platform || "both") === platformFilter
+  );
+
   return (
     <div className="space-y-6">
       {/* Header Panel */}
@@ -450,6 +453,9 @@ export function AdminPlansTab({ userName }) {
             {formStep === 1 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <PlatformSelector value={platform} onChange={setPlatform} />
+                  </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase text-slate-450 dark:text-slate-500 font-mono">Plan Name</label>
                     <input
@@ -752,7 +758,7 @@ export function AdminPlansTab({ userName }) {
             No active subscription packages created yet.
           </div>
         ) : (
-          plans.map((plan) => {
+          displayedPlans.map((plan) => {
             const active = isPlanActive(plan);
             return (
               <div
@@ -762,9 +768,11 @@ export function AdminPlansTab({ userName }) {
                 }`}
               >
                 <div className="space-y-4">
-                <PlatformSelector value={platform} onChange={setPlatform} />
                   <div className="flex justify-between items-start">
                     <div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <PlatformBadge platform={plan.platform} />
+                      </div>
                       <h3 className="font-bold text-slate-800 dark:text-white text-base tracking-wide line-clamp-1">{plan.name}</h3>
                       <span className="text-xs text-slate-400 mt-1 inline-block capitalize">
                         {plan.duration.replace("_", " ")}

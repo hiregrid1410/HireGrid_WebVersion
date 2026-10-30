@@ -806,6 +806,78 @@ async function initDb() {
         console.error("Failed to run Module Revision migration v7:", errV7.message);
       }
     }
+
+    // v10_allowed_platforms migration
+    const v10Check = await pool.query("SELECT 1 FROM schema_migrations WHERE version = 'v10_allowed_platforms'");
+    if (v10Check.rows.length === 0) {
+      try {
+        await pool.query(`
+          ALTER TABLE content_managers ADD COLUMN IF NOT EXISTS allowed_platforms VARCHAR(20) NOT NULL DEFAULT 'all';
+          ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS allowed_platforms VARCHAR(20) NOT NULL DEFAULT 'all';
+          INSERT INTO schema_migrations (version) VALUES ('v10_allowed_platforms') ON CONFLICT DO NOTHING;
+        `);
+        console.log("Allowed Platforms (v10) migrations run successfully.");
+      } catch (errV10) {
+        console.error("Failed to run Allowed Platforms migration v10:", errV10.message);
+      }
+    }
+
+    // v9_platform_control migration
+    const v9Check = await pool.query("SELECT 1 FROM schema_migrations WHERE version = 'v9_platform_control'");
+    if (v9Check.rows.length === 0) {
+      try {
+        await pool.query(`
+          ALTER TABLE companies ADD COLUMN IF NOT EXISTS platform VARCHAR(10) NOT NULL DEFAULT 'web';
+          ALTER TABLE branches ADD COLUMN IF NOT EXISTS platform VARCHAR(10) NOT NULL DEFAULT 'web';
+          ALTER TABLE hierarchy_nodes ADD COLUMN IF NOT EXISTS platform VARCHAR(10) NOT NULL DEFAULT 'web';
+          ALTER TABLE modules ADD COLUMN IF NOT EXISTS platform VARCHAR(10) NOT NULL DEFAULT 'web';
+          ALTER TABLE plans ADD COLUMN IF NOT EXISTS platform VARCHAR(10) NOT NULL DEFAULT 'web';
+          ALTER TABLE exams ADD COLUMN IF NOT EXISTS platform VARCHAR(10) NOT NULL DEFAULT 'web';
+          ALTER TABLE placement_mission_cycles ADD COLUMN IF NOT EXISTS platform VARCHAR(10) NOT NULL DEFAULT 'web';
+          ALTER TABLE revision_modules ADD COLUMN IF NOT EXISTS platform VARCHAR(10) NOT NULL DEFAULT 'web';
+          ALTER TABLE users ALTER COLUMN max_devices SET DEFAULT 999;
+
+          CREATE INDEX IF NOT EXISTS idx_companies_platform ON companies(platform);
+          CREATE INDEX IF NOT EXISTS idx_branches_platform ON branches(platform);
+          CREATE INDEX IF NOT EXISTS idx_hierarchy_nodes_platform ON hierarchy_nodes(platform);
+          CREATE INDEX IF NOT EXISTS idx_modules_platform ON modules(platform);
+          CREATE INDEX IF NOT EXISTS idx_plans_platform ON plans(platform);
+          CREATE INDEX IF NOT EXISTS idx_exams_platform ON exams(platform);
+          CREATE INDEX IF NOT EXISTS idx_placement_mission_cycles_platform ON placement_mission_cycles(platform);
+          CREATE INDEX IF NOT EXISTS idx_revision_modules_platform ON revision_modules(platform);
+
+          INSERT INTO schema_migrations (version) VALUES ('v9_platform_control') ON CONFLICT DO NOTHING;
+        `);
+        console.log("Platform Control (v9) migrations run successfully.");
+      } catch (errV9) {
+        console.error("Failed to run Platform Control migration v9:", errV9.message);
+      }
+    }
+
+    // v11: One-time platform cleanup & missing indexes optimization (avoid repeating 8 full-table scans on every server boot)
+    const v11Check = await pool.query("SELECT 1 FROM schema_migrations WHERE version = 'v11_platform_cleanup_done'");
+    if (v11Check.rows.length === 0) {
+      try {
+        await pool.query(`
+          ALTER TABLE revision_modules ADD COLUMN IF NOT EXISTS platform VARCHAR(10) NOT NULL DEFAULT 'web';
+          CREATE INDEX IF NOT EXISTS idx_revision_modules_platform ON revision_modules(platform);
+          CREATE INDEX IF NOT EXISTS idx_companies_platform ON companies(platform);
+          CREATE INDEX IF NOT EXISTS idx_plans_platform ON plans(platform);
+          UPDATE companies SET platform = 'web' WHERE platform IS NULL OR platform = '';
+          UPDATE branches SET platform = 'web' WHERE platform IS NULL OR platform = '';
+          UPDATE hierarchy_nodes SET platform = 'web' WHERE platform IS NULL OR platform = '';
+          UPDATE modules SET platform = 'web' WHERE platform IS NULL OR platform = '';
+          UPDATE plans SET platform = 'web' WHERE platform IS NULL OR platform = '';
+          UPDATE exams SET platform = 'web' WHERE platform IS NULL OR platform = '';
+          UPDATE placement_mission_cycles SET platform = 'web' WHERE platform IS NULL OR platform = '';
+          UPDATE revision_modules SET platform = 'web' WHERE platform IS NULL OR platform = '';
+          INSERT INTO schema_migrations (version) VALUES ('v11_platform_cleanup_done') ON CONFLICT DO NOTHING;
+        `);
+        console.log("Database indexing & platform cleanup migration (v11) completed successfully.");
+      } catch (safeErr) {
+        console.warn("Safety platform sync warning:", safeErr.message);
+      }
+    }
   } catch (err) {
     console.error("Database initialization failed:", err.message);
   }

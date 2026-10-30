@@ -24,14 +24,22 @@ function safeCompare(a, b) {
  * - A8: Injects "Vary: x-platform, x-app-key" to ensure caches do not cross-serve responses.
  */
 function platformMiddleware(req, res, next) {
+  const queryPlatform = req.query?.platform;
   const rawPlatformHeader = req.headers["x-platform"];
+  const clientPlatformHeader = req.headers["x-client-platform"];
   const rawKeyHeader = req.headers["x-app-key"];
 
   let rawPlatform = null;
-  if (typeof rawPlatformHeader === "string") {
-    const p = rawPlatformHeader.trim().toLowerCase();
+  const candidate = queryPlatform || rawPlatformHeader;
+  if (typeof candidate === "string") {
+    const p = candidate.trim().toLowerCase();
     if (p === "web" || p === "app") {
       rawPlatform = p;
+    }
+  } else if (typeof clientPlatformHeader === "string") {
+    const cp = clientPlatformHeader.trim().toLowerCase();
+    if (cp === "android" || cp === "ios") {
+      rawPlatform = "app";
     }
   }
 

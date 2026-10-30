@@ -300,7 +300,7 @@ class YourProgressCard extends StatelessWidget {
                     CircularProgressIndicator(
                       value: completionRate,
                       strokeWidth: 7,
-                      backgroundColor: AppColors.surfaceInput,
+                      backgroundColor: AppColors.lightGrey,
                       valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
                     ),
                     Text(
@@ -355,7 +355,7 @@ class YourProgressCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: xpProgress,
               minHeight: 6,
-              backgroundColor: AppColors.surfaceInput,
+              backgroundColor: AppColors.lightGrey,
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accentYellow),
             ),
           ),
@@ -425,15 +425,15 @@ class LockedContentCard extends StatelessWidget {
             height: 48,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentYellow,
-                foregroundColor: Colors.black,
+                backgroundColor: AppColors.forestGreen,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
               onPressed: onUpgrade,
               child: Text(
                 'Upgrade to Premium Membership',
-                style: AppTextStyles.button.copyWith(color: Colors.black, fontWeight: FontWeight.w800),
+                style: AppTextStyles.button.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -578,21 +578,21 @@ class GradientBannerCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: gradient ??
-            LinearGradient(
+            const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF14532D).withOpacity(0.9),
-                const Color(0xFF0D1B2A).withOpacity(0.95),
+                AppColors.paleMint,
+                AppColors.warmCream,
               ],
             ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+        border: Border.all(color: AppColors.softBeigeGrey),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryGreen.withOpacity(0.12),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: AppColors.forestGreen.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -624,7 +624,7 @@ class GradientBannerCard extends StatelessWidget {
                       Text(
                         title,
                         style: AppTextStyles.h3.copyWith(
-                          color: AppColors.accentYellow,
+                          color: AppColors.forestGreen,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

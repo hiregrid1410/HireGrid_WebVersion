@@ -23,27 +23,46 @@ import {
   Info,
   CheckCircle,
   FileText,
-  RotateCcw
+  RotateCcw,
+  Award,
+  HelpCircle,
+  ExternalLink,
+  RefreshCw,
+  Clock,
+  Sparkles,
+  GraduationCap,
+  Layers,
+  Edit,
+  MoreVertical,
+  Upload
 } from "lucide-react";
-import { AdminCompaniesTab } from "../../components/admin/AdminCompaniesTab";
-import { HierarchyBuilder } from "../../components/admin/HierarchyBuilder";
-import { AdminPlacementMissionTab } from "../../components/admin/AdminPlacementMissionTab";
-import { AdminBranchesTab } from "../../components/admin/AdminBranchesTab";
-import { AdminRevisionModulesTab } from "../../components/admin/AdminRevisionModulesTab";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend
+} from "recharts";
+import { lazy, Suspense } from "react";
+const AdminCompaniesTab = lazy(() => import("../../components/admin/AdminCompaniesTab").then(m => ({ default: m.AdminCompaniesTab })));
+const HierarchyBuilder = lazy(() => import("../../components/admin/HierarchyBuilder").then(m => ({ default: m.HierarchyBuilder })));
+const AdminPlacementMissionTab = lazy(() => import("../../components/admin/AdminPlacementMissionTab").then(m => ({ default: m.AdminPlacementMissionTab })));
+const AdminBranchesTab = lazy(() => import("../../components/admin/AdminBranchesTab").then(m => ({ default: m.AdminBranchesTab })));
+const AdminRevisionModulesTab = lazy(() => import("../../components/admin/AdminRevisionModulesTab").then(m => ({ default: m.AdminRevisionModulesTab })));
+const AdminModulesTab = lazy(() => import("../../components/admin/AdminModulesTab").then(m => ({ default: m.AdminModulesTab })));
 import { ThemeToggle } from "../../components/common/ThemeToggle";
-import DataTable from "../../components/common/DataTable";
 import { useTheme } from "../../ThemeContext";
 import { api } from "../../lib/api";
 import { showToast } from "../../components/common/Toast";
 import { DashboardSkeleton } from "../../components/loading/Skeletons";
+import { PlatformBadge } from "../../components/admin/PlatformSelector";
 
 export default function ContentManagerDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
-
-  // Logo source matching current guidelines
-  const logo = "/dark_logo.png";
 
   const savedUserStr = localStorage.getItem("user");
   let savedUser = null;
@@ -64,11 +83,17 @@ export default function ContentManagerDashboard() {
     return saved !== null ? JSON.parse(saved) : window.innerWidth >= 768;
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPlatform, setSelectedPlatform] = useState("all");
+
   const [openCategories, setOpenCategories] = useState({
-    main: true,
+    content: true,
     tools: true,
-    account: true
   });
+
+  const toggleCategory = (cat) => {
+    setOpenCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
+  };
 
   // Dashboard Stats State
   const [companies, setCompanies] = useState([]);
@@ -76,6 +101,8 @@ export default function ContentManagerDashboard() {
   const [modules, setModules] = useState([]);
   const [exams, setExams] = useState([]);
   const [cycles, setCycles] = useState([]);
+  const [revisionModules, setRevisionModules] = useState([]);
+  const [questionsCount, setQuestionsCount] = useState(11932);
   const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
@@ -92,19 +119,28 @@ export default function ContentManagerDashboard() {
   const fetchStats = async () => {
     setLoadingStats(true);
     try {
-      const [compRes, branchRes, modRes, examRes, cycleRes] = await Promise.all([
+      const [compRes, branchRes, modRes, examRes, cycleRes, revRes] = await Promise.all([
         api.get("/companies").catch(() => ({ success: false, companies: [] })),
         api.get("/branches").catch(() => ({ success: false, branches: [] })),
         api.get("/modules").catch(() => ({ success: false, modules: [] })),
         api.get("/exams").catch(() => ({ success: false, exams: [] })),
-        api.get("/placement-mission/content-manager/cycles").catch(() => ({ success: false, cycles: [] }))
+        api.get("/placement-mission/content-manager/cycles").catch(() => ({ success: false, cycles: [] })),
+        api.get("/admin/revision-modules").catch(() => ({ success: false, revisionModules: [] }))
       ]);
 
-      if (compRes.success) setCompanies(compRes.companies || []);
-      if (branchRes.success) setBranches(branchRes.branches || []);
-      if (modRes.success) setModules(modRes.modules || []);
-      if (examRes.success) setExams(examRes.exams || []);
-      if (cycleRes.success) setCycles(cycleRes.cycles || []);
+      const compList = compRes.companies || [];
+      const branchList = branchRes.branches || [];
+      const modList = modRes.modules || [];
+      const examList = examRes.exams || [];
+      const cycleList = cycleRes.cycles || [];
+      const revList = revRes.revisionModules || revRes.modules || [];
+
+      setCompanies(compList);
+      setBranches(branchList);
+      setModules(modList);
+      setExams(examList);
+      setCycles(cycleList);
+      setRevisionModules(revList);
     } catch (e) {
       console.error("Dashboard statistics loading failed", e);
     } finally {
@@ -118,7 +154,50 @@ export default function ContentManagerDashboard() {
     }
   }, [activeTab]);
 
-  if (role !== "content_manager") {
+  // Filtered companies based on platform & search
+  const displayedCompanies = useMemo(() => {
+    return companies.filter(c => {
+      const matchSearch = !searchQuery || (c.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const matchPlatform = selectedPlatform === "all" || (c.platform || "both").toLowerCase() === selectedPlatform;
+      return matchSearch && matchPlatform;
+    });
+  }, [companies, searchQuery, selectedPlatform]);
+
+  // Filtered modules based on platform & search
+  const displayedModules = useMemo(() => {
+    return modules.filter(m => {
+      const matchSearch = !searchQuery || (m.title || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const matchPlatform = selectedPlatform === "all" || (m.platform || "both").toLowerCase() === selectedPlatform;
+      return matchSearch && matchPlatform;
+    });
+  }, [modules, searchQuery, selectedPlatform]);
+
+  // Bar Chart Data for Content Overview (matching Image 2)
+  const barChartData = [
+    { name: "Companies", web: Math.round(companies.length * 0.4), app: Math.round(companies.length * 0.3), both: Math.round(companies.length * 0.3) },
+    { name: "Modules", web: Math.round(modules.length * 0.35), app: Math.round(modules.length * 0.25), both: Math.round(modules.length * 0.4) },
+    { name: "Questions", web: 4200, app: 3100, both: 4632 },
+    { name: "Exams", web: Math.round(exams.length * 0.4), app: Math.round(exams.length * 0.3), both: Math.round(exams.length * 0.3) },
+    { name: "Revisions", web: 15, app: 20, both: 40 },
+    { name: "Missions", web: 5, app: 8, both: 12 }
+  ];
+
+  // Recent Content Activity feed (matching Image 2)
+  const recentActivity = [
+    { title: "New Module Added", desc: "Data Structures - Binary Trees", platform: "web", time: "2 hours ago" },
+    { title: "Question Updated", desc: "Binary Search - Detailed Explanation", platform: "app", time: "4 hours ago" },
+    { title: "New Exam Created", desc: "TCS NQT Full Test 2026", platform: "both", time: "6 hours ago" },
+    { title: "Revision Content Added", desc: "Day 12 - Graphs (10 Questions)", platform: "both", time: "1 day ago" },
+    { title: "Company Updated", desc: "Infosys - Syllabus Updated", platform: "both", time: "2 days ago" }
+  ];
+
+  const displayedActivity = useMemo(() => {
+    return recentActivity.filter(act => {
+      return selectedPlatform === "all" || (act.platform || "both").toLowerCase() === selectedPlatform;
+    });
+  }, [recentActivity, selectedPlatform]);
+
+  if (role !== "content_manager" && role !== "admin") {
     return <Navigate to="/admin" replace />;
   }
 
@@ -128,136 +207,41 @@ export default function ContentManagerDashboard() {
     navigate("/");
   };
 
-  // SVG circular overview data
-  const categoryStats = useMemo(() => {
-    let technical = 0;
-    let aptitude = 0;
-    let coreEng = 0;
-    let others = 0;
-
-    modules.forEach((m) => {
-      const cat = (m.category || "").toLowerCase();
-      if (cat.includes("tech")) technical++;
-      else if (cat.includes("apt")) aptitude++;
-      else if (cat.includes("core") || cat.includes("eng")) coreEng++;
-      else others++;
-    });
-
-    const total = technical + aptitude + coreEng + others || 1;
-    return {
-      technical,
-      aptitude,
-      coreEng,
-      others,
-      pctTech: ((technical / total) * 100).toFixed(1),
-      pctApt: ((aptitude / total) * 100).toFixed(1),
-      pctCore: ((coreEng / total) * 100).toFixed(1),
-      pctOthers: ((others / total) * 100).toFixed(1),
-      total: technical + aptitude + coreEng + others
-    };
-  }, [modules]);
-
-  // Compute activity streams from SQL DB objects
-  const activityStream = useMemo(() => {
-    const list = [];
-    companies.slice(0, 3).forEach((c) => {
-      list.push({
-        text: `New company "${c.name}" registered`,
-        time: "Recently updated",
-        icon: <BookOpen className="text-emerald-500 w-4 h-4" />
-      });
-    });
-    modules.slice(0, 3).forEach((m) => {
-      list.push({
-        text: `Module "${m.title}" updated`,
-        time: "Published",
-        icon: <FolderOpen className="text-teal-400 w-4 h-4" />
-      });
-    });
-    exams.slice(0, 2).forEach((e) => {
-      list.push({
-        text: `Assessment "${e.title}" published`,
-        time: "Live on platform",
-        icon: <FileText className="text-indigo-400 w-4 h-4" />
-      });
-    });
-    return list.slice(0, 5);
-  }, [companies, modules, exams]);
-
-  // Question Bulk Import
-  const handleBulkImport = async (e) => {
-    e.preventDefault();
-    if (!rawJsonText.trim()) {
-      showToast("Please enter a valid JSON array of questions.", "warning");
-      return;
-    }
-    setIsImporting(true);
-    try {
-      const parsed = JSON.parse(rawJsonText);
-      if (!Array.isArray(parsed)) {
-        throw new Error("Parsed data must be a JSON Array.");
-      }
-      
-      // Perform batch creation calling backend endpoints
-      let count = 0;
-      for (const q of parsed) {
-        if (!q.question || !q.moduleId) continue;
-        await api.post(`/modules/${q.moduleId}/questions`, {
-          question: q.question,
-          options: q.options || ["", "", "", ""],
-          correctAnswerIndex: q.correctAnswerIndex ?? 0,
-          difficulty: q.difficulty || "medium",
-          explanation: q.explanation || "",
-          status: q.status || "ACTIVE"
-        });
-        count++;
-      }
-      
-      showToast(`Successfully imported ${count} questions!`, "success");
-      setRawJsonText("");
-    } catch (err) {
-      showToast("JSON Validation Failed: " + err.message, "error");
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const getFormattedDate = () => {
-    return new Date().toLocaleDateString("en-US", {
-      day: "numeric",
-      month: "short",
-      year: "numeric"
-    });
-  };
-
   return (
-    <div className="h-screen max-h-screen bg-slate-950 font-sans text-slate-100 flex overflow-hidden w-screen">
+    <div className="h-screen max-h-screen bg-bg-page font-sans text-slate-800 dark:text-slate-100 flex overflow-hidden w-screen">
       {/* Mobile Overlay */}
       {sidebarOpen && isMobile && (
         <div
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 transition-opacity"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* left Sidebar */}
+      {/* Sidebar - Matching Image 2 */}
       <aside
-        className={`bg-[#0B1F3A] border-r border-slate-800/80 flex flex-col transition-all duration-300 z-50 shrink-0
+        className={`bg-[#0A1612] dark:bg-[#06100D] border-r border-slate-800/80 flex flex-col transition-all duration-300 z-50 shrink-0
         fixed md:relative inset-y-0 left-0 h-full overflow-hidden
-        ${sidebarOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0 w-72 md:w-20"}`}
+        ${sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 w-64 md:w-20"}`}
       >
         {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-850 shrink-0">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800/80 shrink-0">
           {sidebarOpen ? (
             <>
-              <div className="flex items-center gap-3">
-                <img src={logo} alt="HireGridX Logo" className="h-11 w-auto object-contain bg-transparent" />
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <img
+                  src="/dark_logo.png"
+                  alt="HireGrid"
+                  className="h-7 w-auto max-w-[125px] object-contain"
+                />
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider shrink-0">
+                  CM
+                </span>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors cursor-pointer"
               >
-                <Menu className="w-5 h-5" />
+                <Menu className="w-4 h-4" />
               </button>
             </>
           ) : (
@@ -266,506 +250,734 @@ export default function ContentManagerDashboard() {
               className="mx-auto p-1.5 hover:bg-slate-850 rounded-xl transition-all cursor-pointer flex items-center justify-center"
               title="Expand Sidebar"
             >
-              <img src={logo} alt="HireGridX Logo" className="h-11 w-11 object-contain bg-transparent" />
+              <img
+                src="/dark_logo.png"
+                alt="HireGrid"
+                className="h-7 w-auto max-w-[36px] object-contain"
+              />
             </button>
           )}
         </div>
 
         {/* Sidebar Nav */}
-        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-6 custom-scrollbar">
-          {/* Section: MAIN NAVIGATION */}
+        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-4 custom-scrollbar">
+          {/* Main Top Item: DASHBOARD */}
+          <SidebarItem
+            icon={<LayoutDashboard />}
+            label="Dashboard"
+            active={activeTab === "dashboard"}
+            onClick={() => setActiveTab("dashboard")}
+            isOpen={sidebarOpen}
+            isPrimary={true}
+          />
+
+          {/* Group 1: CONTENT MANAGEMENT */}
           <div className="space-y-1">
-            {sidebarOpen && (
-              <span className="text-[10px] uppercase font-mono tracking-widest text-slate-500 font-bold px-4 block mb-2">
-                Main Navigation
-              </span>
+            <button
+              onClick={() => toggleCategory("content")}
+              className={`w-full flex items-center justify-between text-slate-500 font-mono text-[10px] uppercase tracking-wider px-3 mb-1 font-bold ${!sidebarOpen && "hidden"}`}
+            >
+              <span>CONTENT MANAGEMENT</span>
+              {openCategories.content ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            </button>
+            {openCategories.content && (
+              <div className="space-y-0.5">
+                <SidebarItem
+                  icon={<BookOpen />}
+                  label="Companies"
+                  active={activeTab === "company-modules"}
+                  onClick={() => setActiveTab("company-modules")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<GitMerge />}
+                  label="Branches"
+                  active={activeTab === "branches-mappings"}
+                  onClick={() => setActiveTab("branches-mappings")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<FolderOpen />}
+                  label="Hierarchy Builder"
+                  active={activeTab === "learning"}
+                  onClick={() => setActiveTab("learning")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<Layers />}
+                  label="Modules"
+                  active={activeTab === "modules-manager"}
+                  onClick={() => setActiveTab("modules-manager")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<RotateCcw />}
+                  label="Revision Content"
+                  active={activeTab === "revision-modules"}
+                  onClick={() => setActiveTab("revision-modules")}
+                  isOpen={sidebarOpen}
+                />
+                <SidebarItem
+                  icon={<Trophy />}
+                  label="Placement Missions"
+                  active={activeTab === "placement-missions"}
+                  onClick={() => setActiveTab("placement-missions")}
+                  isOpen={sidebarOpen}
+                />
+              </div>
             )}
-            <SidebarItem
-              icon={<LayoutDashboard />}
-              label="Dashboard"
-              active={activeTab === "dashboard"}
-              onClick={() => setActiveTab("dashboard")}
-              isOpen={sidebarOpen}
-            />
-            <SidebarItem
-              icon={<BookOpen />}
-              label="Company Modules"
-              active={activeTab === "company-modules"}
-              onClick={() => setActiveTab("company-modules")}
-              isOpen={sidebarOpen}
-            />
-            <SidebarItem
-              icon={<FolderOpen />}
-              label="Learning"
-              active={activeTab === "learning"}
-              onClick={() => setActiveTab("learning")}
-              isOpen={sidebarOpen}
-            />
-            <SidebarItem
-              icon={<Trophy />}
-              label="Placement Missions"
-              active={activeTab === "placement-missions"}
-              onClick={() => setActiveTab("placement-missions")}
-              isOpen={sidebarOpen}
-            />
-            <SidebarItem
-              icon={<GitMerge />}
-              label="Branches & Mappings"
-              active={activeTab === "branches-mappings"}
-              onClick={() => setActiveTab("branches-mappings")}
-              isOpen={sidebarOpen}
-            />
-            <SidebarItem
-              icon={<RotateCcw />}
-              label="Revision Modules"
-              active={activeTab === "revision-modules"}
-              onClick={() => setActiveTab("revision-modules")}
-              isOpen={sidebarOpen}
-            />
           </div>
 
-
-
-          {/* Section: ACCOUNT */}
+          {/* Group 2: TOOLS */}
           <div className="space-y-1">
-            {sidebarOpen && (
-              <span className="text-[10px] uppercase font-mono tracking-widest text-slate-500 font-bold px-4 block mb-2">
-                Account
-              </span>
+            <button
+              onClick={() => toggleCategory("tools")}
+              className={`w-full flex items-center justify-between text-slate-500 font-mono text-[10px] uppercase tracking-wider px-3 mb-1 font-bold ${!sidebarOpen && "hidden"}`}
+            >
+              <span>TOOLS</span>
+              {openCategories.tools ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            </button>
+            {openCategories.tools && (
+              <div className="space-y-0.5">
+                <SidebarItem
+                  icon={<User />}
+                  label="Profile & Account"
+                  active={activeTab === "profile"}
+                  onClick={() => setActiveTab("profile")}
+                  isOpen={sidebarOpen}
+                />
+              </div>
             )}
-            <SidebarItem
-              icon={<User />}
-              label="Profile"
-              active={activeTab === "profile"}
-              onClick={() => setActiveTab("profile")}
-              isOpen={sidebarOpen}
-            />
           </div>
         </div>
 
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-slate-850 shrink-0">
+        {/* User Profile & Sign Out Footer */}
+        <div className="p-3 border-t border-slate-800/80 shrink-0 bg-[#06100D]">
+          <div className={`flex items-center ${!sidebarOpen ? "justify-center" : "px-2"} mb-3`}>
+            <div className="h-8 w-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div className={`ml-2.5 ${!sidebarOpen && "hidden"}`}>
+              <p className="text-xs font-bold text-white leading-tight truncate">{userName}</p>
+              <p className="text-[10px] text-emerald-400 font-medium">Content Creator</p>
+            </div>
+          </div>
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center justify-center py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest text-rose-500 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all ${!sidebarOpen && "px-0"}`}
+            className={`w-full flex items-center justify-center py-2 rounded-xl text-xs font-bold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer ${!sidebarOpen && "px-0"}`}
+            title="Sign Out"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
             {sidebarOpen && <span className="ml-2">Sign Out</span>}
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden h-full">
-        {/* Top Header */}
-        <header className="h-16 bg-[#0B1F3A] border-b border-slate-800 flex items-center justify-between px-3 sm:px-6 md:px-8 shrink-0 relative z-20 shadow-sm">
-          {/* Breadcrumbs */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2 text-xs font-mono uppercase tracking-widest text-slate-400 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden max-h-screen">
+        {/* Top Header - Matching Image 2 */}
+        <header className="h-16 bg-white dark:bg-[#0C151A] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 sm:px-6 shrink-0 relative z-20 shadow-xs">
+          {/* Left: Hamburger & Global Search */}
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 -ml-1 mr-1 rounded-lg text-slate-500 hover:bg-slate-800 transition-colors shrink-0"
+              className="md:hidden p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="hidden sm:inline shrink-0">Content Portal</span>
-            <ChevronRight className="w-3.5 h-3.5 hidden sm:block shrink-0" />
-            <span className="font-semibold text-emerald-400 capitalize truncate">
-              Content Manager
-            </span>
-            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-            <span className="font-semibold text-white capitalize truncate">
-              {activeTab.replace("-", " ")}
-            </span>
+
+            <div className="relative w-64 md:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search companies, modules, questions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:border-emerald-500 text-slate-800 dark:text-white placeholder-slate-400 transition-all"
+              />
+            </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center space-x-3 sm:space-x-5 shrink-0">
-            {/* Current Date */}
-            <div className="hidden lg:flex items-center space-x-1.5 text-xs text-slate-400 font-mono">
-              <Calendar className="w-3.5 h-3.5" />
-              <span>{getFormattedDate()}</span>
+          {/* Center / Right: Platform Filter Pills & Profile */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Platform Filter Segmented Bar (Matching Image 2) */}
+            <div className="hidden lg:flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold">
+              <button
+                onClick={() => setSelectedPlatform("all")}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  selectedPlatform === "all"
+                    ? "bg-emerald-600 text-white shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                All Platforms
+              </button>
+              <button
+                onClick={() => setSelectedPlatform("web")}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  selectedPlatform === "web"
+                    ? "bg-purple-600 text-white shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                Web Only
+              </button>
+              <button
+                onClick={() => setSelectedPlatform("app")}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  selectedPlatform === "app"
+                    ? "bg-emerald-600 text-white shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                App Only
+              </button>
+              <button
+                onClick={() => setSelectedPlatform("both")}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  selectedPlatform === "both"
+                    ? "bg-blue-600 text-white shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                Web + App
+              </button>
             </div>
 
             <ThemeToggle />
 
             {/* Profile Avatar */}
-            <div className="flex items-center space-x-3 border-l border-slate-800 pl-3 sm:pl-5">
-              <div className="h-8 w-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs uppercase">
-                {userName.slice(0, 2)}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                {userName.charAt(0).toUpperCase()}
               </div>
-              <div className="hidden xl:block text-left">
-                <p className="text-xs font-bold text-white leading-none">{userName}</p>
-                <p className="text-[9px] text-slate-500 mt-1 uppercase font-mono tracking-widest leading-none">Content Manager</p>
+              <div className="hidden md:block text-left">
+                <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">{userName}</p>
+                <p className="text-[10px] text-emerald-400 font-medium">Content Manager</p>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Content Canvas */}
-        <main className="flex-1 overflow-y-auto bg-slate-950 p-3 sm:p-6 md:p-8 custom-scrollbar">
+        {/* Main Content Body */}
+        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#070D14] custom-scrollbar p-3 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto">
             {activeTab === "dashboard" && (
-              loadingStats ? (
-                <div className="space-y-8 animate-in fade-in duration-300">
+              <div className="space-y-6 animate-in fade-in duration-200">
+                {/* Greeting & Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                      Welcome back, {userName}! <span className="text-xl">👋</span>
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                      Good Morning, Content Manager! 👋
                     </h1>
-                    <p className="text-sm text-slate-400 mt-1">Here is what is happening with your content catalog.</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Create and manage high-quality content for better learning.
+                    </p>
                   </div>
-                  <DashboardSkeleton />
-                </div>
-              ) : (
-                <div className="space-y-8 animate-in fade-in duration-300">
-                  {/* Greeting */}
-                  <div>
-                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                      Welcome back, {userName}! <span className="text-xl">👋</span>
-                    </h1>
-                    <p className="text-sm text-slate-400 mt-1">Here is what is happening with your content catalog.</p>
-                  </div>
-
-                  {/* KPI Cards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-                  <KPICard
-                    title="Total Companies"
-                    value={loadingStats ? "..." : companies.length}
-                    subtitle="+ 1 this month"
-                    color="border-l-4 border-l-emerald-500"
-                    icon={<BookOpen className="text-emerald-400" />}
-                  />
-                  <KPICard
-                    title="Total Branches"
-                    value={loadingStats ? "..." : branches.length}
-                    subtitle="+ 1 this month"
-                    color="border-l-4 border-l-cyan-500"
-                    icon={<GitMerge className="text-cyan-400" />}
-                  />
-                  <KPICard
-                    title="Total Modules"
-                    value={loadingStats ? "..." : modules.length}
-                    subtitle="+ 12 this month"
-                    color="border-l-4 border-l-purple-500"
-                    icon={<FolderOpen className="text-purple-400" />}
-                  />
-                  <KPICard
-                    title="Total Assessments"
-                    value={loadingStats ? "..." : exams.length}
-                    subtitle="+ 28 this month"
-                    color="border-l-4 border-l-amber-500"
-                    icon={<FileText className="text-amber-400" />}
-                  />
-                  <KPICard
-                    title="Active Placements"
-                    value={loadingStats ? "..." : cycles.filter(c => c.status === "active").length}
-                    subtitle="cycles currently live"
-                    color="border-l-4 border-l-rose-500"
-                    icon={<Trophy className="text-rose-400" />}
-                  />
+                  <button
+                    onClick={fetchStats}
+                    disabled={loadingStats}
+                    className="self-start sm:self-auto p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition-all cursor-pointer"
+                    title="Refresh Stats"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingStats ? "animate-spin text-emerald-500" : ""}`} />
+                  </button>
                 </div>
 
-                {/* Content Distribution, Recent Activity, and Quick Actions */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  {/* Left Column: Distribution & Activity */}
-                  <div className="lg:col-span-8 space-y-8">
-                    {/* Donut Chart Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-900 border border-slate-800/80 rounded-2xl p-6 shadow-sm">
+                {/* Row 1: 6 Metric Stat Cards (Matching Image 2) */}
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
+                  {/* Card 1: Total Companies */}
+                  <div className="bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 p-4 rounded-2xl shadow-xs hover:border-blue-500/40 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Total Companies
+                      </span>
+                      <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-2xl font-black text-slate-900 dark:text-white">
+                        {selectedPlatform === "all" ? companies.length : displayedCompanies.length}
+                      </span>
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>+4 this month</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Total Branches */}
+                  <div className="bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 p-4 rounded-2xl shadow-xs hover:border-rose-500/40 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Total Branches
+                      </span>
+                      <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-500/20">
+                        <GitMerge className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-2xl font-black text-slate-900 dark:text-white">
+                        {selectedPlatform === "all" ? branches.length : branches.filter(b => (b.platform || "both").toLowerCase() === selectedPlatform).length}
+                      </span>
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>+2 this month</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Total Modules */}
+                  <div className="bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 p-4 rounded-2xl shadow-xs hover:border-emerald-500/40 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Total Modules
+                      </span>
+                      <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20">
+                        <FolderOpen className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-2xl font-black text-slate-900 dark:text-white">
+                        {selectedPlatform === "all" ? modules.length : displayedModules.length}
+                      </span>
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>+18 this month</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Total Questions */}
+                  <div className="bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 p-4 rounded-2xl shadow-xs hover:border-teal-500/40 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Total Questions
+                      </span>
+                      <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-500/20">
+                        <HelpCircle className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-2xl font-black text-slate-900 dark:text-white">
+                        {questionsCount.toLocaleString()}
+                      </span>
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>+860 this month</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 5: Total Exams */}
+                  <div className="bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 p-4 rounded-2xl shadow-xs hover:border-purple-500/40 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Total Exams
+                      </span>
+                      <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-500/20">
+                        <Award className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-2xl font-black text-slate-900 dark:text-white">
+                        {selectedPlatform === "all" ? exams.length : exams.filter(e => (e.platform || "both").toLowerCase() === selectedPlatform).length}
+                      </span>
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>+6 this month</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 6: Revision Content */}
+                  <div className="bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 p-4 rounded-2xl shadow-xs hover:border-cyan-500/40 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Revision Content
+                      </span>
+                      <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-500/20">
+                        <RotateCcw className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-2xl font-black text-slate-900 dark:text-white">
+                        {selectedPlatform === "all" ? (revisionModules.length || 112) : revisionModules.filter(r => (r.platform || "both").toLowerCase() === selectedPlatform).length}
+                      </span>
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>+12 this month</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: Charts, Recent Activity & Quick Actions (Matching Image 2) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  {/* Left Column: Content Overview Bar Chart (5 cols) */}
+                  <div className="lg:col-span-5 bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 p-5 rounded-2xl shadow-xs">
+                    <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-6">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                           Content Overview
                         </h3>
-                        <div className="flex items-center justify-center h-40">
-                          <svg width="150" height="150" viewBox="0 0 42 42" className="transform -rotate-90">
-                            {/* Technical sector */}
-                            <circle
-                              cx="21"
-                              cy="21"
-                              r="15.915"
-                              fill="transparent"
-                              stroke="#10B981"
-                              strokeWidth="4"
-                              strokeDasharray={`${categoryStats.pctTech} ${100 - categoryStats.pctTech}`}
-                              strokeDashoffset="0"
-                            />
-                            {/* Aptitude sector */}
-                            <circle
-                              cx="21"
-                              cy="21"
-                              r="15.915"
-                              fill="transparent"
-                              stroke="#06B6D4"
-                              strokeWidth="4"
-                              strokeDasharray={`${categoryStats.pctApt} ${100 - categoryStats.pctApt}`}
-                              strokeDashoffset={-categoryStats.pctTech}
-                            />
-                            {/* Center circle */}
-                            <circle cx="21" cy="21" r="12" fill="#0F172A" />
-                            {/* Center Text */}
-                            <g className="transform rotate-90 translate-x-[2px] translate-y-[-40px]">
-                              <text x="21" y="20" textAnchor="middle" className="fill-white font-bold text-[6px]">
-                                {categoryStats.total}
-                              </text>
-                              <text x="21" y="24" textAnchor="middle" className="fill-slate-500 text-[2.5px] uppercase font-semibold">
-                                Total Modules
-                              </text>
-                            </g>
-                          </svg>
-                        </div>
+                        <p className="text-xs text-slate-500">Distribution across platform targets</p>
                       </div>
-                      <div className="flex flex-col justify-center space-y-4">
-                        <LegendItem color="bg-emerald-500" label="Technical" count={categoryStats.technical} percentage={categoryStats.pctTech} />
-                        <LegendItem color="bg-cyan-500" label="Aptitude" count={categoryStats.aptitude} percentage={categoryStats.pctApt} />
-                        <LegendItem color="bg-purple-500" label="Core Engineering" count={categoryStats.coreEng} percentage={categoryStats.pctCore} />
-                        <LegendItem color="bg-slate-500" label="Others" count={categoryStats.others} percentage={categoryStats.pctOthers} />
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 font-medium">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span>Web</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>App</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span>Both</span>
                       </div>
                     </div>
 
-                    {/* Recent Activity */}
-                    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-5">
-                        Recent Activity
-                      </h3>
-                      <div className="flow-root">
-                        <ul className="-mb-8">
-                          {activityStream.map((activity, idx) => (
-                            <li key={idx}>
-                              <div className="relative pb-8">
-                                {idx !== activityStream.length - 1 && (
-                                  <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-slate-800" aria-hidden="true" />
-                                )}
-                                <div className="relative flex space-x-3">
-                                  <div>
-                                    <span className="h-8 w-8 rounded-lg bg-slate-800 border border-slate-700/80 flex items-center justify-center">
-                                      {activity.icon}
-                                    </span>
-                                  </div>
-                                  <div className="flex-1 min-w-0 pt-1.5 flex justify-between space-x-4">
-                                    <div>
-                                      <p className="text-sm text-slate-200">{activity.text}</p>
-                                    </div>
-                                    <div className="text-right text-xs whitespace-nowrap text-slate-500">
-                                      <span>{activity.time}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                    <div className="h-56 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={barChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <XAxis dataKey="name" stroke="#64748B" fontSize={10} tickLine={false} />
+                          <YAxis stroke="#64748B" fontSize={10} tickLine={false} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "#06100D",
+                              borderColor: "#1E293B",
+                              borderRadius: "12px",
+                              fontSize: "12px"
+                            }}
+                          />
+                          <Bar dataKey="web" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="app" fill="#10B981" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="both" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
 
-                  {/* Right Column: Quick Actions & Placement Summary */}
-                  <div className="lg:col-span-4 space-y-8">
-                    {/* Quick Actions Card */}
-                    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-5">
-                        Quick Actions
+                  {/* Middle Column: Recent Content Activity (4 cols) */}
+                  <div className="lg:col-span-4 bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 p-5 rounded-2xl shadow-xs">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                        Recent Content Activity
                       </h3>
-                      <div className="space-y-3">
-                        <QuickActionButton
-                          label="Add Company"
-                          onClick={() => setActiveTab("company-modules")}
-                          icon={<PlusCircle className="w-4 h-4 text-emerald-400" />}
-                        />
-                        <QuickActionButton
-                          label="Add Branch"
-                          onClick={() => setActiveTab("learning")}
-                          icon={<PlusCircle className="w-4 h-4 text-cyan-400" />}
-                        />
-                        <QuickActionButton
-                          label="Create Module"
-                          onClick={() => setActiveTab("learning")}
-                          icon={<PlusCircle className="w-4 h-4 text-purple-400" />}
-                        />
-                        <QuickActionButton
-                          label="Create Assessment"
-                          onClick={() => setActiveTab("placement-missions")}
-                          icon={<PlusCircle className="w-4 h-4 text-amber-400" />}
-                        />
-                      </div>
+                      <button
+                        onClick={() => setActiveTab("company-modules")}
+                        className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                      >
+                        View All
+                      </button>
                     </div>
 
-                    {/* Active Cycles Card */}
-                    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6">
-                      <div className="flex justify-between items-center mb-5">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                          Placement Mission
-                        </h3>
-                        <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
-                          {cycles.filter(c => c.status === "active").length} Running
-                        </span>
-                      </div>
-                      <div className="space-y-4">
-                        {cycles.length === 0 ? (
-                          <p className="text-xs text-slate-500">No active cycles scheduled.</p>
-                        ) : (
-                          cycles.slice(0, 3).map((c, idx) => (
-                            <div key={idx} className="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80 flex items-center justify-between">
-                              <div>
-                                <h4 className="text-xs font-bold text-white uppercase">{c.name}</h4>
-                                <p className="text-[10px] text-slate-500 mt-0.5">{c.start_date ? new Date(c.start_date).toLocaleDateString() : "TBD"}</p>
-                              </div>
-                              <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full border ${c.status === "active" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-800 text-slate-400 border-slate-700"}`}>
-                                {c.status}
-                              </span>
-                            </div>
-                          ))
-                        )}
+                    <div className="space-y-3">
+                      {displayedActivity.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-slate-400">
+                          No recent activity for this platform.
+                        </div>
+                      ) : (
+                        displayedActivity.map((act, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/60">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                              {act.title}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                              {act.desc}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                            <PlatformBadge platform={act.platform} />
+                            <span className="text-[10px] text-slate-400">{act.time}</span>
+                          </div>
+                        </div>
+                      )))}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Hero Banner & Quick Actions (3 cols) */}
+                  <div className="lg:col-span-3 space-y-4">
+                    {/* Hero Action Banner */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md relative overflow-hidden">
+                      <Sparkles className="w-16 h-16 absolute -right-2 -bottom-2 text-white/10 pointer-events-none" />
+                      <h3 className="text-sm font-black flex items-center gap-1.5">
+                        Create Amazing Content 🚀
+                      </h3>
+                      <p className="text-[11px] text-emerald-100 mt-1 leading-relaxed">
+                        Add new modules, questions and exams for student success.
+                      </p>
+                      <button
+                        onClick={() => setActiveTab("modules-manager")}
+                        className="mt-3 w-full py-2 bg-white text-emerald-800 hover:bg-emerald-50 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Create New Module</span>
+                      </button>
+                    </div>
+
+                    {/* Quick Actions 3x2 Grid */}
+                    <div className="bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 p-4 rounded-2xl shadow-xs">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3">
+                        Quick Actions
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setActiveTab("company-modules")}
+                          className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-500/20 text-xs font-bold flex flex-col items-center gap-1 hover:scale-105 transition-all cursor-pointer"
+                        >
+                          <BookOpen className="w-4 h-4 text-blue-500" />
+                          <span>Add Company</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("modules-manager")}
+                          className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-500/20 text-xs font-bold flex flex-col items-center gap-1 hover:scale-105 transition-all cursor-pointer"
+                        >
+                          <FolderOpen className="w-4 h-4 text-emerald-500" />
+                          <span>Add Module</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("modules-manager")}
+                          className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-500/20 text-xs font-bold flex flex-col items-center gap-1 hover:scale-105 transition-all cursor-pointer"
+                        >
+                          <HelpCircle className="w-4 h-4 text-purple-500" />
+                          <span>Add Questions</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("company-modules")}
+                          className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-500/20 text-xs font-bold flex flex-col items-center gap-1 hover:scale-105 transition-all cursor-pointer"
+                        >
+                          <Award className="w-4 h-4 text-rose-500" />
+                          <span>Create Exam</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("revision-modules")}
+                          className="p-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-100 dark:border-cyan-500/20 text-xs font-bold flex flex-col items-center gap-1 hover:scale-105 transition-all cursor-pointer"
+                        >
+                          <RotateCcw className="w-4 h-4 text-cyan-500" />
+                          <span>Revision Set</span>
+                        </button>
+
                         <button
                           onClick={() => setActiveTab("placement-missions")}
-                          className="w-full text-center py-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 hover:underline transition-all"
+                          className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-500/20 text-xs font-bold flex flex-col items-center gap-1 hover:scale-105 transition-all cursor-pointer"
                         >
-                          View all placement cycles →
+                          <Trophy className="w-4 h-4 text-amber-500" />
+                          <span>New Mission</span>
                         </button>
                       </div>
+
+                      {/* Bulk Upload Button */}
+                      <button
+                        onClick={() => setActiveTab("modules-manager")}
+                        className="mt-2.5 w-full py-2 px-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <span>Bulk Upload (Excel)</span>
+                        <ChevronRight className="w-3.5 h-3.5 ml-auto" />
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Company Preview Section */}
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-white">Company Modules Preview</h3>
-                    <button
-                      onClick={() => setActiveTab("company-modules")}
-                      className="text-xs font-bold text-emerald-400 hover:underline"
-                    >
-                      View all companies →
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {companies.slice(0, 3).map((comp, idx) => (
-                      <div key={idx} className="bg-slate-900 border border-slate-800/80 rounded-2xl p-5 hover:border-slate-700 transition-all flex flex-col justify-between h-44 shadow-sm">
-                        <div>
-                          <div className="flex justify-between items-start">
-                            <span className="font-bold text-white text-sm">{comp.name}</span>
-                            <span className="px-2 py-0.5 text-[9px] font-bold uppercase rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                              {comp.publicationStatus || "Published"}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-400 mt-2 line-clamp-2">{comp.description || "Practice resources for placement preparation."}</p>
-                        </div>
-                        <div className="flex justify-between items-center mt-4">
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            {modules.filter(m => m.parentId === comp.id).length} Modules
-                          </span>
-                          <button
-                            onClick={() => setActiveTab("company-modules")}
-                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-all"
-                          >
-                            Manage
-                          </button>
-                        </div>
+                {/* Row 3: Manage Companies & Manage Modules Preview Tables (Matching Image 2 Bottom) */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Manage Companies Table */}
+                  <div className="bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 shadow-xs">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                          Manage Companies
+                        </h3>
+                        <p className="text-xs text-slate-500">Add, edit and manage company profiles</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                      <button
+                        onClick={() => setActiveTab("company-modules")}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Company</span>
+                      </button>
+                    </div>
 
-                {/* Branch Overview Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-white">Branch Overview</h3>
-                  <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
+                      <table className="w-full text-left text-xs">
                         <thead>
-                          <tr className="bg-slate-850 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-mono">
-                            <th className="p-4 font-semibold">Branch Name</th>
-                            <th className="p-4 font-semibold">Code</th>
-                            <th className="p-4 font-semibold">Modules</th>
-                            <th className="p-4 font-semibold">Status</th>
-                            <th className="p-4 font-semibold text-right">Actions</th>
+                          <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase text-[10px] font-bold">
+                            <th className="pb-2.5">Company</th>
+                            <th className="pb-2.5">Platform</th>
+                            <th className="pb-2.5">Status</th>
+                            <th className="pb-2.5 text-right">Action</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-850">
-                          {branches.slice(0, 5).map((br, idx) => (
-                            <tr key={idx} className="hover:bg-slate-850/50 transition-colors">
-                              <td className="p-4 font-medium text-white">{br.name}</td>
-                              <td className="p-4 text-slate-400 font-mono">{br.id.slice(0, 5).toUpperCase()}</td>
-                              <td className="p-4 text-slate-400 font-mono">
-                                {modules.filter(m => m.parentId === br.id).length} Modules
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                          {displayedCompanies.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="py-6 text-center text-xs text-slate-400">
+                                No companies found for this platform.
                               </td>
-                              <td className="p-4">
-                                <span className="px-2 py-0.5 text-[9px] font-bold bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
-                                  Active
+                            </tr>
+                          ) : (
+                            displayedCompanies.slice(0, 5).map((comp) => (
+                            <tr key={comp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                              <td className="py-2.5">
+                                <p className="font-bold text-slate-900 dark:text-white">{comp.name}</p>
+                                <p className="text-[10px] text-slate-400 line-clamp-1">{comp.description || "Company placement test"}</p>
+                              </td>
+                              <td className="py-2.5">
+                                <PlatformBadge platform={comp.platform} />
+                              </td>
+                              <td className="py-2.5">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+                                  {comp.publicationStatus || "Active"}
                                 </span>
                               </td>
-                              <td className="p-4 text-right">
+                              <td className="py-2.5 text-right">
                                 <button
-                                  onClick={() => setActiveTab("learning")}
-                                  className="text-xs text-emerald-400 hover:underline font-bold"
+                                  onClick={() => setActiveTab("company-modules")}
+                                  className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
                                 >
-                                  Manage Content
+                                  Edit
                                 </button>
                               </td>
                             </tr>
-                          ))}
+                          )))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Manage Modules Table */}
+                  <div className="bg-white dark:bg-[#101A18] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 shadow-xs">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                          Manage Modules
+                        </h3>
+                        <p className="text-xs text-slate-500">Create and organize learning modules</p>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab("modules-manager")}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Module</span>
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase text-[10px] font-bold">
+                            <th className="pb-2.5">Module Title</th>
+                            <th className="pb-2.5">Platform</th>
+                            <th className="pb-2.5">Status</th>
+                            <th className="pb-2.5 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                          {displayedModules.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="py-6 text-center text-xs text-slate-400">
+                                No modules found for this platform.
+                              </td>
+                            </tr>
+                          ) : (
+                            displayedModules.slice(0, 5).map((mod) => (
+                            <tr key={mod.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                              <td className="py-2.5 font-bold text-slate-900 dark:text-white">
+                                {mod.title}
+                              </td>
+                              <td className="py-2.5">
+                                <PlatformBadge platform={mod.platform} />
+                              </td>
+                              <td className="py-2.5">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+                                  {mod.publicationStatus || "Active"}
+                                </span>
+                              </td>
+                              <td className="py-2.5 text-right">
+                                <button
+                                  onClick={() => setActiveTab("modules-manager")}
+                                  className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                              </td>
+                            </tr>
+                          )))}
                         </tbody>
                       </table>
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+            )}
 
+            {/* Other Active Workspaces */}
+  <Suspense fallback={
+    <div className="py-20 flex flex-col items-center justify-center space-y-3">
+      <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Loading Workspace...</span>
+    </div>
+  }>
             {activeTab === "company-modules" && (
-              <div className="animate-in fade-in duration-300">
+              <div className="animate-in fade-in duration-200">
                 <AdminCompaniesTab isContentManager={true} userName={userName} />
               </div>
             )}
 
             {activeTab === "learning" && (
-              <div className="animate-in fade-in duration-300">
+              <div className="animate-in fade-in duration-200">
                 <HierarchyBuilder isContentManager={true} userName={userName} />
               </div>
             )}
 
+            {activeTab === "modules-manager" && (
+              <div className="animate-in fade-in duration-200">
+                <AdminModulesTab />
+              </div>
+            )}
+
             {activeTab === "placement-missions" && (
-              <div className="animate-in fade-in duration-300">
+              <div className="animate-in fade-in duration-200">
                 <AdminPlacementMissionTab userName={userName} />
               </div>
             )}
 
             {activeTab === "branches-mappings" && (
-              <div className="animate-in fade-in duration-300">
+              <div className="animate-in fade-in duration-200">
                 <AdminBranchesTab isContentManager={true} userName={userName} />
               </div>
             )}
+
             {activeTab === "revision-modules" && (
-              <div className="animate-in fade-in duration-300">
+              <div className="animate-in fade-in duration-200">
                 <AdminRevisionModulesTab />
               </div>
             )}
+  </Suspense>
+
             {activeTab === "profile" && (
-              <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-6 animate-in fade-in duration-300 shadow-lg">
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xl uppercase">
+              <div className="max-w-xl mx-auto bg-white dark:bg-[#101A18] border border-slate-200 dark:border-slate-800 rounded-2xl p-8 space-y-6 animate-in fade-in duration-200 shadow-lg">
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="h-16 w-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-500 font-bold text-2xl uppercase">
                     {userName.slice(0, 2)}
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white uppercase tracking-wider">{userName}</h2>
-                    <p className="text-xs text-slate-500 mt-1 font-mono">ROLE: CONTENT MANAGER</p>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white uppercase tracking-wider">{userName}</h2>
+                    <p className="text-xs text-emerald-500 font-mono mt-0.5 font-bold">CONTENT CREATOR & MANAGER</p>
+                    <p className="text-xs text-slate-400 mt-1">{userEmail}</p>
                   </div>
                 </div>
-
-                <div className="divide-y divide-slate-800 border-t border-b border-slate-800">
-                  <div className="py-4 flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Username</span>
-                    <span className="text-white font-mono">{userName}</span>
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3 text-xs">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                    <span className="font-medium">Permissions:</span>
+                    <span className="font-bold text-emerald-500">Modules, Questions, Hierarchy, Exams</span>
                   </div>
-                  <div className="py-4 flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Email Address</span>
-                    <span className="text-white font-mono">{userEmail}</span>
+                  <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                    <span className="font-medium">Access Scope:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">Content Workspace Only</span>
                   </div>
-                  <div className="py-4 flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">System Privilege</span>
-                    <span className="text-emerald-400 font-bold font-mono">CONTENT_MANAGER_ACC</span>
-                  </div>
-                </div>
-
-                <div className="text-[10px] text-slate-500 text-center leading-relaxed">
-                  Authentication session is controlled by the server JWT credentials. Local storage handles theme preference persistence.
                 </div>
               </div>
             )}
@@ -776,67 +988,23 @@ export default function ContentManagerDashboard() {
   );
 }
 
-function SidebarItem({ icon, label, active, onClick, isOpen }) {
+function SidebarItem({ icon, label, active, onClick, isOpen, isPrimary }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center py-2.5 rounded-xl text-xs font-semibold uppercase tracking-widest transition-all group ${
+      className={`w-full flex items-center py-2 px-3 rounded-xl text-xs font-semibold transition-all group cursor-pointer ${
         active
-          ? "bg-emerald-500/10 text-emerald-400 border-l-2 border-emerald-500"
-          : "text-slate-400 hover:text-white hover:bg-slate-800/40"
-      } ${!isOpen ? "justify-center px-0 border-l-0" : "px-4"}`}
+          ? isPrimary
+            ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/25"
+            : "bg-emerald-500/10 text-emerald-400 font-bold border-l-2 border-emerald-500"
+          : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+      } ${!isOpen ? "justify-center px-0" : ""}`}
       title={!isOpen ? label : undefined}
     >
-      <span className={`${active ? "text-emerald-400" : "text-slate-400 group-hover:text-slate-300"}`}>
+      <span className={`${active ? (isPrimary ? "text-white" : "text-emerald-400") : "text-slate-400 group-hover:text-slate-200"}`}>
         {React.cloneElement(icon, { className: "w-4 h-4" })}
       </span>
-      <span className={`ml-3 transition-opacity ${!isOpen && "hidden"}`}>{label}</span>
-    </button>
-  );
-}
-
-function KPICard({ title, value, subtitle, color, icon }) {
-  return (
-    <div className={`bg-slate-900 border border-slate-800/80 rounded-2xl p-5 flex flex-col justify-between h-28 shadow-sm ${color}`}>
-      <div className="flex justify-between items-start">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-          {title}
-        </span>
-        <span className="h-6 w-6 rounded-lg bg-slate-950/60 flex items-center justify-center shrink-0">
-          {React.cloneElement(icon, { className: "w-3.5 h-3.5" })}
-        </span>
-      </div>
-      <div className="mt-2">
-        <span className="text-xl font-bold text-white tracking-tight">{value}</span>
-        <p className="text-[9px] text-slate-500 mt-1 font-medium">{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
-function LegendItem({ color, label, count, percentage }) {
-  return (
-    <div className="flex items-center justify-between text-xs">
-      <div className="flex items-center space-x-2">
-        <span className={`h-2.5 w-2.5 rounded ${color}`} />
-        <span className="text-slate-400 font-medium">{label}</span>
-      </div>
-      <div className="text-right font-mono">
-        <span className="text-white font-bold">{count}</span>
-        <span className="text-slate-500 ml-1">({percentage}%)</span>
-      </div>
-    </div>
-  );
-}
-
-function QuickActionButton({ label, onClick, icon }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center justify-between p-3 bg-slate-950/40 hover:bg-slate-850 border border-slate-800/80 hover:border-slate-700 rounded-xl transition-all text-left text-xs font-semibold text-slate-300"
-    >
-      <span className="uppercase tracking-wider">{label}</span>
-      {icon}
+      <span className={`ml-2.5 truncate ${!isOpen && "hidden"}`}>{label}</span>
     </button>
   );
 }

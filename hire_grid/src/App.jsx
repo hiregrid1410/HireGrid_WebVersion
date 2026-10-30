@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import StudentAuth from "./pages/student/StudentAuth";
 import AdminAuth from "./pages/admin/AdminAuth";
-import { ToastContainer } from "./components/common/Toast";
+import { ToastContainer, showToast } from "./components/common/Toast";
 import { isAuthenticated, getStoredRole } from "./lib/authGuard";
 import { ProgressCircuitLoader } from "./components/loading/ProgressCircuitLoader";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
@@ -55,8 +55,8 @@ function ProtectedContentManager() {
 }
 
 export default function App() {
-  // App initialization state machine: BOOTING -> READY (or ERROR/OFFLINE)
-  const [appState, setAppState] = useState("BOOTING"); // 'BOOTING' | 'READY' | 'OFFLINE'
+  // Instant hydration: Start READY by default so public/login routes render immediately without a 2.5s blocking spinner
+  const [appState, setAppState] = useState(() => (typeof navigator !== "undefined" && !navigator.onLine ? "OFFLINE" : "READY"));
   const [wakingStage, setWakingStage] = useState("connecting"); // 'connecting' | 'starting' | 'waking'
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 

@@ -3,68 +3,87 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Backgrounds
-  static const Color bgBase = Color(0xFF0A0E14);
-  static const Color bgGradientStart = Color(0xFF0A0E14);
-  static const Color bgGradientEnd = Color(0xFF0D1B2A);
+  // ===========================================================================
+  // EXACT FOREST GREEN + CREAM PALETTE
+  // ===========================================================================
+  static const Color forestGreen = Color(0xFF14532D); // Primary #14532D
+  static const Color warmCream = Color(0xFFFAF7F0); // Background #FAF7F0
+  static const Color sandBeige = Color(0xFFD6C7A1); // Secondary / Supporting #D6C7A1
+  static const Color slateCharcoal = Color(0xFF374151); // Primary text / Dark neutral #374151
+  static const Color surfaceWhite = Color(0xFFFFFFFF); // Card / Dialog surface #FFFFFF
+  static const Color mutedSlate = Color(0xFF6B7280); // Secondary text #6B7280
+  static const Color softBeigeGrey = Color(0xFFE7E1D5); // Borders / Dividers #E7E1D5
+  static const Color paleMint = Color(0xFFE8F3EC); // Light green surface #E8F3EC
+  static const Color deepForestGreen = Color(0xFF0F4224); // Hover / Pressed primary #0F4224
+  static const Color lightGrey = Color(0xFFE5E7EB); // Disabled background #E5E7EB
+  static const Color greyDisabled = Color(0xFF9CA3AF); // Disabled text #9CA3AF
+  static const Color success = Color(0xFF15803D); // Success #15803D
+  static const Color warning = Color(0xFFB45309); // Warning #B45309
+  static const Color error = Color(0xFFB91C1C); // Error #B91C1C
+
+  // ===========================================================================
+  // SEMANTIC ALIASES FOR COMPONENT COMPATIBILITY
+  // ===========================================================================
+  static const Color bgBase = warmCream;
+  static const Color bgGradientStart = warmCream;
+  static const Color bgGradientEnd = warmCream;
 
   // Surfaces
-  static const Color surfaceCard = Color(0xFF131A29);
-  static const Color surfaceCardElevated = Color(0xFF1B2436);
-  static const Color surfaceInput = Color(0xFF161F30);
-  static const Color borderSubtle = Color(0xFF232C40);
+  static const Color surfaceCard = surfaceWhite;
+  static const Color surfaceCardElevated = surfaceWhite;
+  static const Color surfaceInput = surfaceWhite;
+  static const Color borderSubtle = softBeigeGrey;
 
   // Primary Green Accents
-  static const Color primaryGreen = Color(0xFF22C55E);
-  static const Color primaryGreenDark = Color(0xFF16A34A);
-  static const Color primaryGreenLight = Color(0xFF4ADE80);
+  static const Color primaryGreen = forestGreen;
+  static const Color primaryGreenDark = deepForestGreen;
+  static const Color primaryGreenLight = paleMint;
 
-  // Yellow & Gold Accents
-  static const Color accentYellow = Color(0xFFFACC15);
-  static const Color accentYellowDeep = Color(0xFFEAB308);
+  // Secondary Accents
+  static const Color accentYellow = sandBeige;
+  static const Color accentYellowDeep = sandBeige;
 
-  // Blue Accents
-  static const Color deepBlue = Color(0xFF1E3A8A);
-  static const Color deepBlueSlate = Color(0xFF1D2B53);
+  // Blue / Dark Slate Mappings
+  static const Color deepBlue = forestGreen;
+  static const Color deepBlueSlate = forestGreen;
 
   // Typography Colors
-  static const Color textPrimary = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF5B6579);
+  static const Color textPrimary = slateCharcoal;
+  static const Color textSecondary = mutedSlate;
+  static const Color textMuted = greyDisabled;
 
   // Functional Status Colors
-  static const Color danger = Color(0xFFEF4444);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color info = Color(0xFF38BDF8);
+  static const Color danger = error;
+  static const Color info = forestGreen;
 
   // Custom Gradients
   static const LinearGradient greenGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primaryGreenDark, primaryGreenLight],
+    colors: [forestGreen, deepForestGreen],
   );
 
   static const LinearGradient heroBlueGreenGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF0D1B2A), Color(0xFF14532D)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [paleMint, warmCream],
   );
 
   static const LinearGradient premiumGoldGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [accentYellow, accentYellowDeep],
+    colors: [sandBeige, warmCream],
   );
 
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [surfaceCardElevated, surfaceCard],
+    colors: [surfaceWhite, surfaceWhite],
   );
 
   static const LinearGradient brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primaryGreen, accentYellow],
+    colors: [forestGreen, sandBeige],
   );
 }

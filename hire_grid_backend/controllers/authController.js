@@ -157,8 +157,11 @@ exports.signup = async (req, res) => {
   }
 };
 
-const validateAndRegisterDevice = async (user, deviceId, deviceName) => {
+const validateAndRegisterDevice = async (user, deviceId, deviceName, bypassLimit = false) => {
   if (!deviceId) return { allowed: true };
+  if (bypassLimit) {
+    return { allowed: true };
+  }
 
   const maxDevices = user.max_devices !== undefined && user.max_devices !== null ? Number(user.max_devices) : 1;
   let allowedDevices = Array.isArray(user.allowed_devices)
@@ -183,11 +186,11 @@ const validateAndRegisterDevice = async (user, deviceId, deviceName) => {
   }
 
   // Device not registered yet
-  if (allowedDevices.length < maxDevices) {
+  if (bypassLimit || allowedDevices.length < maxDevices) {
     const newDevObj = {
       id: deviceId,
       deviceId: deviceId,
-      name: deviceName || "Browser Session",
+      name: deviceName || (bypassLimit ? "App Session" : "Browser Session"),
       addedAt: Date.now(),
       lastLoginAt: Date.now(),
     };
@@ -377,7 +380,12 @@ exports.verifyLoginOtp = async (req, res) => {
 
     const activeDeviceId = deviceId || verification.deviceId;
     const activeDeviceName = deviceName || verification.deviceName;
-    const deviceCheck = await validateAndRegisterDevice(user, activeDeviceId, activeDeviceName);
+    const isApp = req.platform === "app" ||
+                  req.headers?.["x-platform"]?.trim()?.toLowerCase() === "app" ||
+                  req.headers?.["x-requested-with"] === "com.hiregridx.app" ||
+                  req.headers?.["x-client-platform"] === "android" ||
+                  req.headers?.["x-client-platform"] === "ios";
+    const deviceCheck = await validateAndRegisterDevice(user, activeDeviceId, activeDeviceName, isApp);
     if (!deviceCheck.allowed) {
       return res.status(403).json({
         error: deviceCheck.message,
@@ -538,7 +546,8 @@ exports.googleLogin = async (req, res) => {
 
     // Check device restrictions
     const { deviceId, deviceName } = req.body;
-    const deviceCheck = await validateAndRegisterDevice(user, deviceId, deviceName);
+    const isApp = req.platform === "app" || req.headers?.["x-platform"]?.trim()?.toLowerCase() === "app";
+    const deviceCheck = await validateAndRegisterDevice(user, deviceId, deviceName, isApp);
     if (!deviceCheck.allowed) {
       return res.status(403).json({
         error: deviceCheck.message,

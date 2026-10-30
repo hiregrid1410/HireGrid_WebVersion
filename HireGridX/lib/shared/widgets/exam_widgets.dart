@@ -20,28 +20,28 @@ class MCQOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color borderColor = AppColors.borderSubtle;
-    Color bgColor = AppColors.surfaceCard;
-    Color labelBgColor = AppColors.surfaceInput;
-    Color labelTextColor = AppColors.textSecondary;
+    Color borderColor = AppColors.softBeigeGrey;
+    Color bgColor = AppColors.surfaceWhite;
+    Color labelBgColor = AppColors.paleMint;
+    Color labelTextColor = AppColors.forestGreen;
 
     switch (state) {
       case MCQState.selected:
-        borderColor = AppColors.primaryGreen;
-        bgColor = AppColors.primaryGreen.withOpacity(0.08);
-        labelBgColor = AppColors.primaryGreen;
+        borderColor = AppColors.forestGreen;
+        bgColor = AppColors.paleMint;
+        labelBgColor = AppColors.forestGreen;
         labelTextColor = Colors.white;
         break;
       case MCQState.correct:
-        borderColor = AppColors.primaryGreen;
-        bgColor = AppColors.primaryGreen.withOpacity(0.15);
-        labelBgColor = AppColors.primaryGreen;
+        borderColor = AppColors.forestGreen;
+        bgColor = AppColors.paleMint;
+        labelBgColor = AppColors.forestGreen;
         labelTextColor = Colors.white;
         break;
       case MCQState.incorrect:
-        borderColor = AppColors.danger;
-        bgColor = AppColors.danger.withOpacity(0.12);
-        labelBgColor = AppColors.danger;
+        borderColor = AppColors.error;
+        bgColor = AppColors.error.withOpacity(0.08);
+        labelBgColor = AppColors.error;
         labelTextColor = Colors.white;
         break;
       case MCQState.defaultState:
@@ -182,9 +182,9 @@ class AvatarRing extends StatelessWidget {
           ),
           padding: const EdgeInsets.all(2),
           child: Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.surfaceCardElevated,
+              color: AppColors.paleMint,
             ),
             child: Center(
               child: Text(
@@ -198,9 +198,9 @@ class AvatarRing extends StatelessWidget {
           ),
         ),
         if (rank == 1)
-          Positioned(
+          const Positioned(
             top: -12,
-            child: const Icon(
+            child: Icon(
               Icons.emoji_events_rounded,
               color: AppColors.accentYellow,
               size: 20,

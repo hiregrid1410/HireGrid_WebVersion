@@ -105,7 +105,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surfaceCardElevated,
+      backgroundColor: AppColors.surfaceWhite,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -126,7 +126,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               final isCur = b.name == _selectedBranch;
               return ListTile(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                tileColor: isCur ? AppColors.primaryGreen.withOpacity(0.12) : null,
+                tileColor: isCur ? AppColors.paleMint : null,
                 leading: Icon(
                   isCur ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
                   color: isCur ? AppColors.primaryGreen : AppColors.textMuted,
@@ -171,7 +171,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               Center(
                 child: CircleAvatar(
                   radius: 40,
-                  backgroundColor: AppColors.surfaceCardElevated,
+                  backgroundColor: AppColors.surfaceWhite,
                   child: Text(
                     _nameController.text.isNotEmpty ? _nameController.text.substring(0, 1).toUpperCase() : 'S',
                     style: AppTextStyles.h1.copyWith(color: AppColors.primaryGreen, fontSize: 28),

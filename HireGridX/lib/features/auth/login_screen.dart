@@ -21,32 +21,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
-  void _showDeviceApprovalDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceCardElevated,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Row(
-          children: [
-            const Icon(Icons.devices_other_rounded, color: AppColors.warning, size: 24),
-            const SizedBox(width: 10),
-            Text('Device Limit Reached', style: AppTextStyles.h2),
-          ],
-        ),
-        content: Text(
-          '$message\n\nA device approval request has been submitted. Please contact platform support or login on your verified primary device.',
-          style: AppTextStyles.bodyMd.copyWith(height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Understood', style: AppTextStyles.bodyMd.copyWith(color: AppColors.primaryGreen)),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _handleLogin() async {
     final email = _emailController.text.trim();
@@ -80,17 +54,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        final errStr = e.toString();
-        if (errStr.contains('Device limit reached') || errStr.contains('multi-device')) {
-          _showDeviceApprovalDialog(errStr);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errStr, style: AppTextStyles.bodySm),
-              backgroundColor: AppColors.danger,
-            ),
-          );
-        }
+        final errStr = e.toString().replaceAll('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errStr, style: AppTextStyles.bodySm),
+            backgroundColor: AppColors.danger,
+          ),
+        );
       }
     }
   }

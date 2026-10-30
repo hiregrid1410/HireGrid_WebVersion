@@ -56,16 +56,16 @@ class _MissionDetailScreenState extends ConsumerState<MissionDetailScreen> with 
                     decoration: BoxDecoration(
                       gradient: AppColors.heroBlueGreenGradient,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.softBeigeGrey),
                     ),
                     child: Stack(
                       children: [
                         Positioned.fill(
                           child: CustomPaint(
                             painter: MountainSilhouettePainter(
-                              primaryColor: AppColors.primaryGreenDark,
-                              secondaryColor: AppColors.deepBlueSlate,
-                              opacity: 0.8,
+                              primaryColor: AppColors.forestGreen,
+                              secondaryColor: AppColors.sandBeige,
+                              opacity: 0.35,
                             ),
                           ),
                         ),
@@ -80,12 +80,12 @@ class _MissionDetailScreenState extends ConsumerState<MissionDetailScreen> with 
                                 children: [
                                   Text(
                                     mission.bannerSubtitle,
-                                    style: AppTextStyles.label.copyWith(color: AppColors.accentYellow),
+                                    style: AppTextStyles.label.copyWith(color: AppColors.forestGreen, fontWeight: FontWeight.w700),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     mission.title,
-                                    style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.w700),
+                                    style: AppTextStyles.h2.copyWith(color: AppColors.forestGreen, fontWeight: FontWeight.w700),
                                   ),
                                 ],
                               ),
@@ -94,14 +94,14 @@ class _MissionDetailScreenState extends ConsumerState<MissionDetailScreen> with 
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.4),
+                                      color: AppColors.surfaceWhite,
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: AppColors.accentYellow.withOpacity(0.5)),
+                                      border: Border.all(color: AppColors.softBeigeGrey),
                                     ),
                                     child: Text(
                                       mission.countdownText,
                                       style: AppTextStyles.bodySm.copyWith(
-                                        color: AppColors.accentYellow,
+                                        color: AppColors.forestGreen,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),

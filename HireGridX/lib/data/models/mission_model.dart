@@ -16,7 +16,7 @@ class MissionExamModel {
     required this.typeSubtitle,
     required this.endsInText,
     this.isLive = true,
-    this.platform = 'both',
+    this.platform = 'web',
   });
 
   factory MissionExamModel.fromJson(Map<String, dynamic> json) {
@@ -28,7 +28,10 @@ class MissionExamModel {
       typeSubtitle: json['description']?.toString() ?? 'Accuracy + Speed First',
       endsInText: 'Live Now',
       isLive: true,
-      platform: json['platform']?.toString() ?? 'both',
+      platform: (() {
+        final rawP = json['platform']?.toString().trim().toLowerCase();
+        return (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+      })(),
     );
   }
 }
@@ -53,7 +56,7 @@ class MissionModel {
     required this.participantCount,
     required this.liveExams,
     required this.upcomingExams,
-    this.platform = 'both',
+    this.platform = 'web',
   });
 
   factory MissionModel.fromBackendJson({
@@ -67,20 +70,13 @@ class MissionModel {
       bannerSubtitle: 'This Week\'s Mission',
       description: 'Compete with 2,400+ engineering students in real company-timed rounds. Top 10 win HireGridX Pro passes & verified recruiter badges.',
       countdownText: 'Active Cycle',
-      participantCount: 2450,
+      participantCount: live.isNotEmpty ? 2450 : 0,
       liveExams: live,
-      upcomingExams: [
-        const MissionExamModel(
-          id: 'upcoming_1',
-          title: 'Accenture Cloud & Pseudo-code',
-          companyName: 'Accenture',
-          companyLogo: 'accenture',
-          typeSubtitle: 'Starts Monday',
-          endsInText: 'Starts in 2d',
-          isLive: false,
-        ),
-      ],
-      platform: cycleJson['platform']?.toString() ?? 'both',
+      upcomingExams: const [],
+      platform: (() {
+        final rawP = cycleJson['platform']?.toString().trim().toLowerCase();
+        return (rawP == 'app' || rawP == 'both') ? rawP! : 'web';
+      })(),
     );
   }
 }

@@ -1,3 +1,9 @@
+
+const isWebAllowedNode = (item) => {
+  if (!item) return false;
+  const p = (item.platform || "both").toString().trim().toLowerCase();
+  return p === "web" || p === "both";
+};
 import React, { useState, useEffect } from "react";
 import { collection, db, doc, onSnapshot, query, setDoc, where } from "../../firebase";
 
@@ -115,7 +121,7 @@ export function StudentHierarchyView({
             ...d.data(),
           }));
           fetchedMods.sort((a, b) => a.createdAt - b.createdAt);
-          setModules(fetchedMods);
+          setModules(fetchedMods.filter(isWebAllowedNode));
         },
         (error) => console.error(error),
       );
@@ -150,7 +156,7 @@ export function StudentHierarchyView({
           }
 
           filteredNodes.sort((a, b) => a.createdAt - b.createdAt);
-          setNodes(filteredNodes);
+          setNodes(filteredNodes.filter(isWebAllowedNode));
         },
         (error) => console.error(error),
       );

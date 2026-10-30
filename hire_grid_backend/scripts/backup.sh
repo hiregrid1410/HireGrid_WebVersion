@@ -21,7 +21,7 @@ if [ -z "$TARGET_URL" ]; then
 fi
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BACKUP_DIR="$(pwd)/backups"
+BACKUP_DIR="${HOME}/hiregrid_backups"
 mkdir -p "$BACKUP_DIR"
 BACKUP_FILE="$BACKUP_DIR/hiregrid_backup_${TIMESTAMP}.dump"
 

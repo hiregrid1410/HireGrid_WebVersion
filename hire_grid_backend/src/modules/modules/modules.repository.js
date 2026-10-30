@@ -26,7 +26,7 @@ class ModulesRepository {
 
     let filterClause = "";
     if (role !== "admin" && role !== "content_manager") {
-      filterClause = " WHERE (m.publication_status = 'PUBLISHED' OR m.publication_status IS NULL)";
+      filterClause = " WHERE (UPPER(m.publication_status) = 'PUBLISHED' OR m.publication_status IS NULL)";
     }
 
     const baseQuery = `
@@ -77,9 +77,17 @@ class ModulesRepository {
     try {
       for (const m of modulesList) {
         const rawPlatform = m.platform;
-        const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
-        if (!isValidPlatform(platform)) {
-          throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+        let platform = "web";
+        if (rawPlatform !== undefined && rawPlatform !== null) {
+          platform = String(rawPlatform).toLowerCase();
+          if (!isValidPlatform(platform)) {
+            throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+          }
+        } else if (m.id) {
+          const existing = await pool.query("SELECT platform FROM modules WHERE id = ", [m.id]);
+          if (existing.rows.length > 0 && existing.rows[0].platform) {
+            platform = existing.rows[0].platform;
+          }
         }
         await pool.query(
           `INSERT INTO modules (
@@ -88,9 +96,10 @@ class ModulesRepository {
             marks_per_question, negative_marks, total_marks,
             access_mode, access_type, is_premium, price,
             display_order, is_master, sub_tests, created_by, branch_id,
-            publication_status
+            publication_status,
+            platform
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
            ON CONFLICT (id) DO UPDATE 
            SET title = EXCLUDED.title, 
                module_type = EXCLUDED.module_type, 
@@ -111,7 +120,8 @@ class ModulesRepository {
                sub_tests = EXCLUDED.sub_tests,
                created_by = COALESCE(modules.created_by, EXCLUDED.created_by),
                branch_id = EXCLUDED.branch_id,
-               publication_status = EXCLUDED.publication_status`,
+               publication_status = EXCLUDED.publication_status,
+               platform = EXCLUDED.platform`,
           [
             m.id || crypto.randomUUID(), 
             m.title, 

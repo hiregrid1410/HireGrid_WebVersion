@@ -201,7 +201,7 @@ class HttpAuthRepository implements AuthRepository {
 // =========================================================
 class HttpCompanyRepository implements CompanyRepository {
   final DioClient _client;
-  static const String _cacheKey = 'cached_companies_json';
+  static const String _cacheKey = 'content_cache_companies_app_v2';
 
   List<CompanyModel>? _memoryCache;
   DateTime? _lastFetchTime;
@@ -227,12 +227,18 @@ class HttpCompanyRepository implements CompanyRepository {
     final prefs = await SharedPreferences.getInstance();
 
     try {
+
       final res = await _client.deduplicatedGet('/companies');
       if (res.data['companies'] is List) {
         final list = res.data['companies'] as List;
-        await prefs.setString(_cacheKey, jsonEncode(list));
 
-        var companies = list.map((c) => CompanyModel.fromJson(c as Map<String, dynamic>)).toList();
+        var companies = list
+            .map((c) => CompanyModel.fromJson(c as Map<String, dynamic>))
+            .where((c) => c.platform == 'app' || c.platform == 'both')
+            .toList();
+
+        // Platform-specific cache: Store ONLY filtered app + both content
+        await prefs.setString(_cacheKey, jsonEncode(companies.map((c) => c.toJson()).toList()));
         _memoryCache = companies;
         _lastFetchTime = DateTime.now();
 
@@ -245,7 +251,7 @@ class HttpCompanyRepository implements CompanyRepository {
       }
     } catch (e) {
       if (_memoryCache != null) {
-        var companies = _memoryCache!;
+        var companies = _memoryCache!.where((c) => c.platform == 'app' || c.platform == 'both').toList();
         if (filter == 'premium') {
           return companies.where((c) => c.tier == CompanyTier.premium).toList();
         } else if (filter == 'free') {
@@ -257,7 +263,10 @@ class HttpCompanyRepository implements CompanyRepository {
       final cachedStr = prefs.getString(_cacheKey);
       if (cachedStr != null) {
         final list = jsonDecode(cachedStr) as List;
-        var companies = list.map((c) => CompanyModel.fromJson(c as Map<String, dynamic>)).toList();
+        var companies = list
+            .map((c) => CompanyModel.fromJson(c as Map<String, dynamic>))
+            .where((c) => c.platform == 'app' || c.platform == 'both')
+            .toList();
         _memoryCache = companies;
         if (filter == 'premium') {
           return companies.where((c) => c.tier == CompanyTier.premium).toList();
@@ -276,10 +285,8 @@ class HttpCompanyRepository implements CompanyRepository {
   Future<CompanyModel?> getCompanyById(String id) async {
     try {
       final companies = await getCompanies();
-      return companies.firstWhere(
-        (c) => c.id == id,
-        orElse: () => companies.isNotEmpty ? companies.first : CompanyModel.fromJson({'id': id, 'name': 'Company'}),
-      );
+      final matches = companies.where((c) => c.id == id && (c.platform == 'app' || c.platform == 'both')).toList();
+      return matches.isNotEmpty ? matches.first : null;
     } catch (e) {
       throw _client.mapDioException(e).message;
     }
@@ -291,7 +298,10 @@ class HttpCompanyRepository implements CompanyRepository {
       final res = await _client.dio.get('/modules', queryParameters: {'where_parentId': '==:$companyId'});
       if (res.data['modules'] is List) {
         final list = res.data['modules'] as List;
-        return list.map((m) => ModuleTestModel.fromJson(m as Map<String, dynamic>)).toList();
+        return list
+            .map((m) => ModuleTestModel.fromJson(m as Map<String, dynamic>))
+            .where((m) => m.platform == 'app' || m.platform == 'both')
+            .toList();
       }
     } catch (e) {
       throw _client.mapDioException(e).message;
@@ -305,7 +315,7 @@ class HttpCompanyRepository implements CompanyRepository {
 // =========================================================
 class HttpModuleRepository implements ModuleRepository {
   final DioClient _client;
-  static const String _branchesCacheKey = 'cached_branches_json';
+  static const String _branchesCacheKey = 'content_cache_branches_app_v2';
 
   List<BranchModel>? _branchesMemoryCache;
   final Map<String, List<SubjectModel>> _subjectsMemoryCache = {};
@@ -343,9 +353,11 @@ class HttpModuleRepository implements ModuleRepository {
             final isRoot = parentId == null || parentId.toString().isEmpty || parentId == 'null';
             if (isRoot && (type == 'general_branch' || type == null || type.isEmpty)) {
               final bm = BranchModel.fromJson(map);
-              final key = bm.name.trim().toUpperCase();
-              if (seenKeys.add(key)) {
-                combinedBranches.add(bm);
+              if (bm.platform == 'app' || bm.platform == 'both') {
+                final key = bm.name.trim().toUpperCase();
+                if (seenKeys.add(key)) {
+                  combinedBranches.add(bm);
+                }
               }
             }
           }
@@ -359,9 +371,11 @@ class HttpModuleRepository implements ModuleRepository {
           if (bRes.data['branches'] is List) {
             for (final b in bRes.data['branches'] as List) {
               final bm = BranchModel.fromJson(b as Map<String, dynamic>);
-              final key = bm.name.trim().toUpperCase();
-              if (seenKeys.add(key)) {
-                combinedBranches.add(bm);
+              if (bm.platform == 'app' || bm.platform == 'both') {
+                final key = bm.name.trim().toUpperCase();
+                if (seenKeys.add(key)) {
+                  combinedBranches.add(bm);
+                }
               }
             }
           }
@@ -380,7 +394,10 @@ class HttpModuleRepository implements ModuleRepository {
       final cachedStr = prefs.getString(_branchesCacheKey);
       if (cachedStr != null) {
         final list = jsonDecode(cachedStr) as List;
-        final branches = list.map((b) => BranchModel.fromJson(b as Map<String, dynamic>)).toList();
+        final branches = list
+            .map((b) => BranchModel.fromJson(b as Map<String, dynamic>))
+            .where((b) => b.platform == 'app' || b.platform == 'both')
+            .toList();
         _branchesMemoryCache = branches;
         return branches;
       }
@@ -399,7 +416,10 @@ class HttpModuleRepository implements ModuleRepository {
       final res = await _client.deduplicatedGet('/hierarchy-nodes', queryParameters: {'where_parentId': '==:$branchId'});
       if (res.data['nodes'] is List) {
         final list = res.data['nodes'] as List;
-        final subjects = list.map((s) => SubjectModel.fromJson(s as Map<String, dynamic>)).toList();
+        final subjects = list
+            .map((s) => SubjectModel.fromJson(s as Map<String, dynamic>))
+            .where((s) => s.platform == 'app' || s.platform == 'both')
+            .toList();
         _subjectsMemoryCache[branchId] = subjects;
         return subjects;
       }
@@ -422,7 +442,10 @@ class HttpModuleRepository implements ModuleRepository {
       final res = await _client.deduplicatedGet('/hierarchy-nodes', queryParameters: {'where_parentId': '==:$subjectId'});
       if (res.data['nodes'] is List) {
         final list = res.data['nodes'] as List;
-        final topics = list.map((t) => TopicModel.fromJson(t as Map<String, dynamic>)).toList();
+        final topics = list
+            .map((t) => TopicModel.fromJson(t as Map<String, dynamic>))
+            .where((t) => t.platform == 'app' || t.platform == 'both')
+            .toList();
         _topicsMemoryCache[subjectId] = topics;
         return topics;
       }
@@ -455,7 +478,10 @@ class HttpModuleRepository implements ModuleRepository {
       final res = await _client.deduplicatedGet('/modules', queryParameters: params);
       if (res.data['modules'] is List) {
         final list = res.data['modules'] as List;
-        final modules = list.map((m) => ModuleModel.fromJson(m as Map<String, dynamic>)).toList();
+        final modules = list
+            .map((m) => ModuleModel.fromJson(m as Map<String, dynamic>))
+            .where((m) => m.platform == 'app' || m.platform == 'both')
+            .toList();
 
         // If direct modules were empty for a subject, try checking child topics to fetch modules under them
         if (modules.isEmpty && subjectId != null && topicId == null) {
@@ -490,7 +516,11 @@ class HttpModuleRepository implements ModuleRepository {
     try {
       final res = await _client.dio.get('/modules', queryParameters: {'where_id': '==:$id'});
       if (res.data['modules'] is List && (res.data['modules'] as List).isNotEmpty) {
-        return ModuleModel.fromJson((res.data['modules'] as List).first as Map<String, dynamic>);
+        final mod = ModuleModel.fromJson((res.data['modules'] as List).first as Map<String, dynamic>);
+        if (mod.platform == 'app' || mod.platform == 'both') {
+          return mod;
+        }
+        return null;
       }
 
       // Query all modules and find by id
@@ -498,7 +528,11 @@ class HttpModuleRepository implements ModuleRepository {
       if (allRes.data['modules'] is List) {
         for (final m in allRes.data['modules']) {
           if (m['id'] == id) {
-            return ModuleModel.fromJson(m as Map<String, dynamic>);
+            final mod = ModuleModel.fromJson(m as Map<String, dynamic>);
+            if (mod.platform == 'app' || mod.platform == 'both') {
+              return mod;
+            }
+            return null;
           }
         }
       }
@@ -756,27 +790,37 @@ class HttpMissionRepository implements MissionRepository {
     try {
       final res = await _client.deduplicatedGet('/placement-mission/missions');
       final data = res.data;
-      final cycle = data['cycle'] as Map<String, dynamic>? ?? {'id': 'cycle_1', 'name': 'Weekly Challenge'};
-      final missions = data['missions'] as List? ?? [];
+      final cycle = data['cycle'] as Map<String, dynamic>?;
+      final rawMissions = data['missions'] as List? ?? [];
+      final missions = rawMissions
+          .where((m) {
+            if (m is! Map) return false;
+            final p = m['platform']?.toString().trim().toLowerCase();
+            return p == 'app' || p == 'both';
+          })
+          .toList();
 
-      final model = MissionModel.fromBackendJson(cycleJson: cycle, missionsList: missions);
-      _missionMemoryCache = model;
-      return model;
-    } catch (_) {
-      if (_missionMemoryCache != null) return _missionMemoryCache!;
-      return MissionModel.fromBackendJson(
-        cycleJson: {'id': 'cycle_1', 'name': 'Weekly Placement Challenge'},
-        missionsList: [
-          {
-            'id': 'mis_live_1',
-            'title': 'AllySoft Placement Assessment',
-            'companyName': 'AllySoft',
-            'companyLogo': 'allysoft',
-            'description': 'Speed + Quantitative Aptitude',
-          }
-        ],
-      );
-    }
+      final cyclePlatform = cycle?['platform']?.toString().trim().toLowerCase();
+      if (cycle != null && (cyclePlatform == 'app' || cyclePlatform == 'both')) {
+        final model = MissionModel.fromBackendJson(cycleJson: cycle, missionsList: missions);
+        _missionMemoryCache = model;
+        return model;
+      }
+    } catch (_) {}
+
+    if (_missionMemoryCache != null) return _missionMemoryCache!;
+
+    return const MissionModel(
+      id: '',
+      title: 'No Active Missions',
+      bannerSubtitle: 'Check Back Soon',
+      description: 'There are currently no active placement missions for the mobile application.',
+      countdownText: 'No Active Cycle',
+      participantCount: 0,
+      liveExams: [],
+      upcomingExams: [],
+      platform: 'app',
+    );
   }
 
   @override
@@ -800,14 +844,7 @@ class HttpMissionRepository implements MissionRepository {
 
     if (_leaderboardMemoryCache != null) return _leaderboardMemoryCache!;
 
-    // Clean leaderboard fallback for active cycle
-    return [
-      const LeaderboardEntryModel(rank: 1, userId: 'u1', name: 'Rahul Sharma', score: 980),
-      const LeaderboardEntryModel(rank: 2, userId: 'u2', name: 'Priya Patel', score: 940),
-      const LeaderboardEntryModel(rank: 3, userId: 'u3', name: 'Aman Verma', score: 890),
-      const LeaderboardEntryModel(rank: 4, userId: 'u4', name: 'Sneha Gupta', score: 850),
-      const LeaderboardEntryModel(rank: 5, userId: 'u5', name: 'Rohit Joshi', score: 820),
-    ];
+    return [];
   }
 }
 
@@ -816,7 +853,7 @@ class HttpMissionRepository implements MissionRepository {
 // =========================================================
 class HttpPlanRepository implements PlanRepository {
   final DioClient _client;
-  static const String _plansCacheKey = 'cached_plans_json';
+  static const String _plansCacheKey = 'content_cache_plans_app_v2';
 
   List<PlanModel>? _plansMemoryCache;
   DateTime? _plansLastFetch;
@@ -828,18 +865,26 @@ class HttpPlanRepository implements PlanRepository {
   Future<List<PlanModel>> getPlans({PlanCategory category = PlanCategory.company, bool forceRefresh = false}) async {
     if (!forceRefresh && _plansMemoryCache != null && _plansLastFetch != null) {
       if (DateTime.now().difference(_plansLastFetch!) < _cacheTtl) {
-        return _plansMemoryCache!;
+        return _plansMemoryCache!.where((p) => p.platform == 'app' || p.platform == 'both').toList();
       }
     }
 
     final prefs = await SharedPreferences.getInstance();
 
     try {
+      // Clean legacy cache keys if present
+      await prefs.remove('cached_plans_json');
+
       final res = await _client.deduplicatedGet('/plans');
-      if (res.data['plans'] is List && (res.data['plans'] as List).isNotEmpty) {
+      if (res.data['plans'] is List) {
         final list = res.data['plans'] as List;
-        await prefs.setString(_plansCacheKey, jsonEncode(list));
-        final plans = list.map((p) => PlanModel.fromJson(p as Map<String, dynamic>)).toList();
+        final plans = list
+            .map((p) => PlanModel.fromJson(p as Map<String, dynamic>))
+            .where((p) => p.platform == 'app' || p.platform == 'both')
+            .toList();
+
+        // Platform-specific cache: Store ONLY filtered app + both content
+        await prefs.setString(_plansCacheKey, jsonEncode(plans.map((p) => p.toJson()).toList()));
         _plansMemoryCache = plans;
         _plansLastFetch = DateTime.now();
         return plans;
@@ -849,63 +894,16 @@ class HttpPlanRepository implements PlanRepository {
     final cachedStr = prefs.getString(_plansCacheKey);
     if (cachedStr != null) {
       final list = jsonDecode(cachedStr) as List;
-      if (list.isNotEmpty) {
-        return list.map((p) => PlanModel.fromJson(p as Map<String, dynamic>)).toList();
+      final cachedPlans = list
+          .map((p) => PlanModel.fromJson(p as Map<String, dynamic>))
+          .where((p) => p.platform == 'app' || p.platform == 'both')
+          .toList();
+      if (cachedPlans.isNotEmpty) {
+        return cachedPlans;
       }
     }
 
-    // High quality fallback plans matching database & web app pricing schema
-    return [
-      const PlanModel(
-        id: 'plan_basic',
-        title: 'Basic Plan',
-        tierType: PlanTierType.basic,
-        category: PlanCategory.company,
-        priceInr: 499,
-        billingPeriod: '/ 1 Month',
-        subtitle: 'Access to Essential Placement Mocks',
-        features: [
-          'Access to 5+ Top Company Mock Assessments',
-          'Detailed Diagnostics & Score Breakdown',
-          'Unlimited Test Retakes',
-          'Standard Community Support',
-        ],
-        isPopular: false,
-      ),
-      const PlanModel(
-        id: 'plan_premium',
-        title: 'Premium Plan',
-        tierType: PlanTierType.premium,
-        category: PlanCategory.company,
-        priceInr: 1499,
-        billingPeriod: '/ 3 Months',
-        subtitle: 'Complete Placement & Company Mocks',
-        features: [
-          'Full Access to All Top Companies (TCS, AllySoft, etc.)',
-          'AI-Powered Diagnostic Reports & Speed Insights',
-          'Weekly Placement Missions & Global Leaderboard',
-          'Unlimited Retakes & Detailed Explanations',
-          'Priority Verified Recruiter Readiness Badge',
-        ],
-        isPopular: true,
-      ),
-      const PlanModel(
-        id: 'plan_ultimate',
-        title: 'Ultimate Pro Plan',
-        tierType: PlanTierType.ultimate,
-        category: PlanCategory.company,
-        priceInr: 2999,
-        billingPeriod: '/ 6 Months',
-        subtitle: 'All Companies + Comprehensive Bank',
-        features: [
-          'Lifetime Validity for Entire Placement Season',
-          'Complete Company + Core Subject Assessment Bank',
-          '1-on-1 Profile & Placement Strategy Session',
-          'Verified Recruiter Shareable Portfolio Badge',
-        ],
-        isPopular: false,
-      ),
-    ];
+    return [];
   }
 
   @override
@@ -1057,6 +1055,13 @@ class HttpProfileRepository implements ProfileRepository {
   Future<void> markNotificationsAsRead() async {
     try {
       await _client.dio.put('/notifications/read-all');
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> markNotificationRead(String id) async {
+    try {
+      await _client.dio.patch('/notifications/$id/read');
     } catch (_) {}
   }
 

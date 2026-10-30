@@ -831,6 +831,11 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
       ) : <span className="text-slate-400 text-xs">No</span>
     },
     {
+      label: "Platform",
+      key: "platform",
+      render: (row) => <PlatformBadge platform={row.platform} />
+    },
+    {
       label: "Status",
       key: "status",
       render: (row) => (
@@ -952,6 +957,13 @@ export function AdminBranchesTab({ isContentManager = false, userName = "" }) {
                   <option value="ACTIVE">ACTIVE (Accepting Students)</option>
                   <option value="INACTIVE">INACTIVE (Hidden)</option>
                 </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <PlatformSelector
+                  value={branchForm.platform || "both"}
+                  onChange={(val) => setBranchForm({ ...branchForm, platform: val })}
+                />
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-xl flex items-center space-x-2.5">

@@ -1,4 +1,6 @@
 const companiesService = require("./companies.service");
+const { pool } = require("../../database/connection");
+const { validateContentManagerPlatformAccess } = require("../../utils/platformHelper");
 
 class CompaniesController {
   async getCompanies(req, res, next) {
@@ -12,6 +14,12 @@ class CompaniesController {
 
   async saveCompany(req, res, next) {
     try {
+      let existingPlatform = null;
+      if (req.body.id) {
+        const existing = await pool.query("SELECT platform FROM companies WHERE id = $1", [req.body.id]);
+        if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      }
+      validateContentManagerPlatformAccess(req.user, req.body.platform, existingPlatform);
       const result = await companiesService.saveCompany(req.body);
       res.json(result);
     } catch (err) {
@@ -21,6 +29,10 @@ class CompaniesController {
 
   async deleteCompany(req, res, next) {
     try {
+      let existingPlatform = null;
+      const existing = await pool.query("SELECT platform FROM companies WHERE id = $1", [req.params.id]);
+      if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      validateContentManagerPlatformAccess(req.user, null, existingPlatform);
       const result = await companiesService.deleteCompany(req.params.id);
       res.json(result);
     } catch (err) {
@@ -39,6 +51,12 @@ class CompaniesController {
 
   async saveExam(req, res, next) {
     try {
+      let existingPlatform = null;
+      if (req.body.id) {
+        const existing = await pool.query("SELECT platform FROM exams WHERE id = $1", [req.body.id]);
+        if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      }
+      validateContentManagerPlatformAccess(req.user, req.body.platform, existingPlatform);
       const result = await companiesService.saveExam(req.body);
       res.json(result);
     } catch (err) {
@@ -48,6 +66,10 @@ class CompaniesController {
 
   async deleteExam(req, res, next) {
     try {
+      let existingPlatform = null;
+      const existing = await pool.query("SELECT platform FROM exams WHERE id = $1", [req.params.id]);
+      if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      validateContentManagerPlatformAccess(req.user, null, existingPlatform);
       const result = await companiesService.deleteExam(req.params.id);
       res.json(result);
     } catch (err) {
@@ -66,6 +88,12 @@ class CompaniesController {
 
   async saveHierarchyNode(req, res, next) {
     try {
+      let existingPlatform = null;
+      if (req.body.id) {
+        const existing = await pool.query("SELECT platform FROM hierarchy_nodes WHERE id = $1", [req.body.id]);
+        if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      }
+      validateContentManagerPlatformAccess(req.user, req.body.platform, existingPlatform);
       const result = await companiesService.saveHierarchyNode(req.body);
       res.json(result);
     } catch (err) {
@@ -75,6 +103,10 @@ class CompaniesController {
 
   async deleteHierarchyNode(req, res, next) {
     try {
+      let existingPlatform = null;
+      const existing = await pool.query("SELECT platform FROM hierarchy_nodes WHERE id = $1", [req.params.id]);
+      if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      validateContentManagerPlatformAccess(req.user, null, existingPlatform);
       const result = await companiesService.deleteHierarchyNode(req.params.id);
       res.json(result);
     } catch (err) {

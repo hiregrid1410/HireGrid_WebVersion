@@ -10,6 +10,7 @@ import '../../data/models/question_model.dart';
 import '../../shared/widgets/exam_widgets.dart';
 import '../../shared/widgets/app_buttons.dart';
 import '../../data/mock/mock_data.dart';
+import '../../core/security/secure_screen_wrapper.dart';
 
 class ExamScreen extends ConsumerStatefulWidget {
   final String attemptId;
@@ -330,7 +331,7 @@ class _ExamScreenState extends ConsumerState<ExamScreen> with WidgetsBindingObse
                 backgroundColor: AppColors.primaryGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              child: Text('Submit Now', style: AppTextStyles.button.copyWith(color: Colors.black)),
+              child: Text('Submit Now', style: AppTextStyles.button.copyWith(color: Colors.white)),
             ),
           ],
         );
@@ -422,7 +423,7 @@ class _ExamScreenState extends ConsumerState<ExamScreen> with WidgetsBindingObse
               ElevatedButton(
                 onPressed: () => context.pop(),
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen),
-                child: const Text('Go Back', style: TextStyle(color: Colors.black)),
+                child: const Text('Go Back', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -434,7 +435,11 @@ class _ExamScreenState extends ConsumerState<ExamScreen> with WidgetsBindingObse
     final selectedOption = _selectedAnswers[currentQ.id];
     final isMarked = _markedForReview.contains(currentQ.id);
 
-    return PopScope(
+    return SecureScreenWrapper(
+      screenTitle: _testTitle,
+      isSensitive: true,
+      enableWatermark: true,
+      child: PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;
@@ -538,15 +543,15 @@ class _ExamScreenState extends ConsumerState<ExamScreen> with WidgetsBindingObse
                         children: [
                           Checkbox(
                             value: isMarked,
-                            activeColor: AppColors.accentYellow,
-                            checkColor: Colors.black,
+                            activeColor: AppColors.forestGreen,
+                            checkColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                             onChanged: (_) => _toggleMarkForReview(currentQ.id),
                           ),
                           Text(
                             'Mark for Review',
                             style: AppTextStyles.bodyMd.copyWith(
-                              color: isMarked ? AppColors.accentYellow : AppColors.textSecondary,
+                              color: isMarked ? AppColors.forestGreen : AppColors.textSecondary,
                               fontWeight: isMarked ? FontWeight.w600 : FontWeight.w400,
                             ),
                           ),
@@ -601,6 +606,7 @@ class _ExamScreenState extends ConsumerState<ExamScreen> with WidgetsBindingObse
           ),
         ),
       ),
+    ),
     );
   }
 }

@@ -25,7 +25,7 @@ class CompaniesService {
 
     let filterClause = "";
     if (role !== "admin" && role !== "content_manager") {
-      filterClause = " WHERE (publication_status = 'PUBLISHED' OR publication_status IS NULL)";
+      filterClause = " WHERE (UPPER(publication_status) = 'PUBLISHED' OR publication_status IS NULL)";
     }
 
     const baseQuery = `
@@ -58,9 +58,17 @@ class CompaniesService {
     const { id, name, description, logoUrl, accessType, isPremium, price, sellType, displayOrder, createdAt, createdBy, publicationStatus, platform: rawPlatform } = body;
     const compId = id || crypto.randomUUID();
     const targetDisplayOrder = displayOrder !== undefined && displayOrder !== null ? displayOrder : Math.floor(Date.now() / 1000);
-    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
-    if (!isValidPlatform(platform)) {
-      throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+    let platform = "web";
+    if (rawPlatform !== undefined && rawPlatform !== null) {
+      platform = String(rawPlatform).toLowerCase();
+      if (!isValidPlatform(platform)) {
+        throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+      }
+    } else if (id) {
+      const existing = await pool.query("SELECT platform FROM companies WHERE id = ", [id]);
+      if (existing.rows.length > 0 && existing.rows[0].platform) {
+        platform = existing.rows[0].platform;
+      }
     }
 
     await pool.query(
@@ -91,7 +99,7 @@ class CompaniesService {
         price || 0,
         sellType || 'pack',
         targetDisplayOrder,
-        createdAt || Date.now(),
+        createdAt ? (isNaN(createdAt) ? createdAt : new Date(Number(createdAt))) : new Date(),
         createdBy || null,
         publicationStatus || 'PUBLISHED',
         platform
@@ -121,7 +129,7 @@ class CompaniesService {
     } else {
       const p = platform ? platform.toLowerCase() : "app";
       result = await pool.query(
-        "SELECT *, publication_status AS \"publicationStatus\", platform FROM exams WHERE (publication_status = 'PUBLISHED' OR publication_status IS NULL) AND (platform = 'both' OR platform = $1) ORDER BY created_at DESC",
+        "SELECT *, publication_status AS \"publicationStatus\", platform FROM exams WHERE (UPPER(publication_status) = 'PUBLISHED' OR publication_status IS NULL) AND (platform = 'both' OR platform = $1) ORDER BY created_at DESC",
         [p]
       );
     }
@@ -171,7 +179,7 @@ class CompaniesService {
 
     let filterClause = "";
     if (role !== "admin" && role !== "content_manager") {
-      filterClause = " WHERE (publication_status = 'PUBLISHED' OR publication_status IS NULL)";
+      filterClause = " WHERE (UPPER(publication_status) = 'PUBLISHED' OR publication_status IS NULL)";
     }
 
     const baseQuery = `
@@ -187,7 +195,8 @@ class CompaniesService {
         display_order AS "displayOrder",
         created_at AS "createdAt",
         created_by AS "createdBy",
-        publication_status AS "publicationStatus"
+        publication_status AS "publicationStatus",
+        platform
       FROM hierarchy_nodes
       ${filterClause}
     `;
@@ -202,9 +211,17 @@ class CompaniesService {
     const { id, name, type, parentId, description, accessType, isPremium, sellType, displayOrder, createdAt, createdBy, publicationStatus, platform: rawPlatform } = body;
     const nodeId = id || crypto.randomUUID();
     const targetDisplayOrder = displayOrder !== undefined && displayOrder !== null ? displayOrder : Math.floor(Date.now() / 1000);
-    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
-    if (!isValidPlatform(platform)) {
-      throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+    let platform = "web";
+    if (rawPlatform !== undefined && rawPlatform !== null) {
+      platform = String(rawPlatform).toLowerCase();
+      if (!isValidPlatform(platform)) {
+        throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
+      }
+    } else if (id) {
+      const existing = await pool.query("SELECT platform FROM hierarchy_nodes WHERE id = ", [id]);
+      if (existing.rows.length > 0 && existing.rows[0].platform) {
+        platform = existing.rows[0].platform;
+      }
     }
 
     await pool.query(

@@ -1,3 +1,4 @@
+import '../../core/security/secure_screen_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +16,7 @@ class ProfileScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceCardElevated,
+        backgroundColor: AppColors.surfaceWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text('Log Out?', style: AppTextStyles.h2),
         content: Text('Are you sure you want to log out of HireGridX?', style: AppTextStyles.bodyMd),
@@ -48,7 +49,11 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(currentUserProvider);
 
-    return Scaffold(
+    return SecureScreenWrapper(
+      screenTitle: 'Student Profile',
+      isSensitive: true,
+      enableWatermark: true,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Operator Profile'),
         actions: [
@@ -61,7 +66,7 @@ class ProfileScreen extends ConsumerWidget {
       body: SafeArea(
         child: RefreshIndicator(
           color: AppColors.primaryGreen,
-          backgroundColor: AppColors.surfaceCardElevated,
+          backgroundColor: AppColors.surfaceWhite,
           onRefresh: () async {
             ref.refresh(currentUserProvider);
           },
@@ -270,6 +275,13 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => context.push('/module-revision'),
                 ),
                 _buildActionTile(
+                  icon: Icons.notifications_none_rounded,
+                  title: 'Notification Center',
+                  subtitle: 'Placement challenges, review reminders & alerts',
+                  badgeText: 'ALERTS',
+                  onTap: () => context.push('/notifications'),
+                ),
+                _buildActionTile(
                   icon: Icons.person_outline_rounded,
                   title: 'Operator Profile Settings',
                   subtitle: 'Branch, Semester, College & University',
@@ -279,7 +291,7 @@ class ProfileScreen extends ConsumerWidget {
                   icon: Icons.workspace_premium_outlined,
                   title: 'Subscriptions & Plans',
                   subtitle: 'View entitlements and active membership',
-                  onTap: () => context.push('/plans'),
+                  onTap: () => context.go('/plans'),
                 ),
                 _buildActionTile(
                   icon: Icons.feedback_outlined,
@@ -287,12 +299,7 @@ class ProfileScreen extends ConsumerWidget {
                   subtitle: 'Report a bug or suggest improvements',
                   onTap: () => context.push('/support/feedback'),
                 ),
-                _buildActionTile(
-                  icon: Icons.devices_rounded,
-                  title: 'Device Management',
-                  subtitle: 'Authorized sessions and hardware devices',
-                  onTap: () => context.push('/settings/devices'),
-                ),
+
                 const SizedBox(height: 16),
 
                 // 5. Logout Button
@@ -328,6 +335,7 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ),
       ),
+    ),
     );
   }
 

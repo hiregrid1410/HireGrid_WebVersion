@@ -1,10 +1,10 @@
 -- ==============================================================================
 -- Verification Script: verify_platform_migration.sql
 -- Checks:
---   1. Column existence & default value for the 8 content tables
+--   1. Column existence & default value ('web') for the 8 content tables
 --   2. Check constraint existence on all 8 tables
 --   3. Index existence on all 8 tables
---   4. Row counts: total vs 'both' vs != 'both' (must be 0 non-'both' right after migration)
+--   4. Row counts: total vs 'web' vs 'app' vs 'both'
 -- ==============================================================================
 
 \echo '=== 1. VERIFYING COLUMN DEFINITIONS ==='
@@ -63,19 +63,22 @@ WHERE indexname IN (
 )
 ORDER BY tablename;
 
-\echo '=== 4. VERIFYING ROW COUNTS & DATA INTEGRITY ==='
-SELECT 'companies' AS table_name, COUNT(*) AS total_rows, COUNT(*) FILTER (WHERE platform = 'both') AS both_rows, COUNT(*) FILTER (WHERE platform != 'both') AS non_both_rows FROM companies
-UNION ALL
-SELECT 'branches', COUNT(*), COUNT(*) FILTER (WHERE platform = 'both'), COUNT(*) FILTER (WHERE platform != 'both') FROM branches
-UNION ALL
-SELECT 'hierarchy_nodes', COUNT(*), COUNT(*) FILTER (WHERE platform = 'both'), COUNT(*) FILTER (WHERE platform != 'both') FROM hierarchy_nodes
-UNION ALL
-SELECT 'modules', COUNT(*), COUNT(*) FILTER (WHERE platform = 'both'), COUNT(*) FILTER (WHERE platform != 'both') FROM modules
-UNION ALL
-SELECT 'plans', COUNT(*), COUNT(*) FILTER (WHERE platform = 'both'), COUNT(*) FILTER (WHERE platform != 'both') FROM plans
-UNION ALL
-SELECT 'revision_modules', COUNT(*), COUNT(*) FILTER (WHERE platform = 'both'), COUNT(*) FILTER (WHERE platform != 'both') FROM revision_modules
-UNION ALL
-SELECT 'exams', COUNT(*), COUNT(*) FILTER (WHERE platform = 'both'), COUNT(*) FILTER (WHERE platform != 'both') FROM exams
-UNION ALL
-SELECT 'placement_mission_cycles', COUNT(*), COUNT(*) FILTER (WHERE platform = 'both'), COUNT(*) FILTER (WHERE platform != 'both') FROM placement_mission_cycles;
+\echo '=== 4. VERIFYING ROW COUNTS & PLATFORM DISTRIBUTION ==='
+SELECT 
+    table_name,
+    COUNT(*) AS total_rows,
+    COUNT(*) FILTER (WHERE platform = 'web') AS web_rows,
+    COUNT(*) FILTER (WHERE platform = 'app') AS app_rows,
+    COUNT(*) FILTER (WHERE platform = 'both') AS both_rows
+FROM (
+    SELECT 'companies' AS table_name, platform FROM companies
+    UNION ALL SELECT 'branches', platform FROM branches
+    UNION ALL SELECT 'hierarchy_nodes', platform FROM hierarchy_nodes
+    UNION ALL SELECT 'modules', platform FROM modules
+    UNION ALL SELECT 'plans', platform FROM plans
+    UNION ALL SELECT 'revision_modules', platform FROM revision_modules
+    UNION ALL SELECT 'exams', platform FROM exams
+    UNION ALL SELECT 'placement_mission_cycles', platform FROM placement_mission_cycles
+) t
+GROUP BY table_name
+ORDER BY table_name;

@@ -1,14 +1,16 @@
 # Database backups and dumps (contain real production data, never commit)
 backups/
+project_resources/
 *.dump
 *.dump.sql
 hiregrid_*.dump
 
-# Restore working files
+# Restore working files & local scripts
 docs/counts_*.txt
 docs/restore_decisions.md
 hire_grid_backend/docs/counts_*.txt
 hire_grid_backend/docs/restore_decisions.md
+hire_grid_backend/scripts/make_test_schema.sh
 
 # Secrets
 .env

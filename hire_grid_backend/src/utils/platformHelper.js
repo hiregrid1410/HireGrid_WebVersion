@@ -59,9 +59,10 @@ function getPlatformSqlFilter(table, platform, paramIndex, tableAlias = null) {
           (${alias}.platform = 'both' OR ${alias}.platform = $${paramIndex})
           AND NOT EXISTS (
             WITH RECURSIVE anc AS (
-              SELECT id, parent_id, platform FROM hierarchy_nodes WHERE id = ${alias}.parent_id
+              SELECT id, parent_id, platform, ARRAY[id::text] AS path, 1 AS depth FROM hierarchy_nodes WHERE id = ${alias}.parent_id
               UNION ALL
-              SELECT hn.id, hn.parent_id, hn.platform FROM hierarchy_nodes hn INNER JOIN anc ON anc.parent_id = hn.id
+              SELECT hn.id, hn.parent_id, hn.platform, path || hn.id::text, depth + 1 FROM hierarchy_nodes hn INNER JOIN anc ON anc.parent_id = hn.id
+              WHERE NOT (hn.id::text = ANY(anc.path)) AND anc.depth < 10
             )
             SELECT 1 FROM anc WHERE anc.platform != 'both' AND anc.platform != $${paramIndex}
           )
@@ -86,9 +87,10 @@ function getPlatformSqlFilter(table, platform, paramIndex, tableAlias = null) {
               SELECT 1 FROM hierarchy_nodes hn WHERE hn.id = ${alias}.parent_id AND (hn.platform = 'both' OR hn.platform = $${paramIndex})
               AND NOT EXISTS (
                 WITH RECURSIVE anc AS (
-                  SELECT id, parent_id, platform FROM hierarchy_nodes WHERE id = hn.parent_id
+                  SELECT id, parent_id, platform, ARRAY[id::text] AS path, 1 AS depth FROM hierarchy_nodes WHERE id = hn.parent_id
                   UNION ALL
-                  SELECT h.id, h.parent_id, h.platform FROM hierarchy_nodes h INNER JOIN anc ON anc.parent_id = h.id
+                  SELECT h.id, h.parent_id, h.platform, path || h.id::text, depth + 1 FROM hierarchy_nodes h INNER JOIN anc ON anc.parent_id = h.id
+                  WHERE NOT (h.id::text = ANY(anc.path)) AND anc.depth < 10
                 )
                 SELECT 1 FROM anc WHERE anc.platform != 'both' AND anc.platform != $${paramIndex}
               )
@@ -236,7 +238,54 @@ async function assertItemPlatformAccess(table, itemId, platform, userRole = null
   return true;
 }
 
+
+/**
+ * Validates whether a user (Admin or Content Manager) has permission to manage content for a given platform.
+ * - Admin / Super Admin can manage ANY platform (web, app, both).
+ * - Content Manager can manage platforms according to their allowed_platforms setting:
+ *   - "all": can manage web, app, both
+ *   - "web": can only manage "web". Cannot manage "app" or "both".
+ *   - "app": can only manage "app". Cannot manage "web" or "both".
+ *   - "both": can manage "both".
+ * Throws ApiError(403) if unauthorized.
+ */
+function validateContentManagerPlatformAccess(user, targetPlatform = null, existingPlatform = null) {
+  if (!user) return true;
+  const role = user.role || "student";
+  if (role === "admin" || role === "super_admin") {
+    return true; // Super admins have unrestricted access across all platforms
+  }
+
+  if (role !== "content_manager") {
+    throw new ApiError(403, "Access denied. Insufficient permissions.");
+  }
+
+  const allowed = (user.allowed_platforms || user.allowedPlatforms || "all").toLowerCase();
+  if (allowed === "all") {
+    return true;
+  }
+
+  // If editing/deleting an existing item, verify user has permission for its current platform
+  if (existingPlatform) {
+    const existing = String(existingPlatform).toLowerCase();
+    if (allowed !== existing) {
+      throw new ApiError(403, `Forbidden: You only have permission to manage ${allowed.toUpperCase()} content, but this item belongs to ${existing.toUpperCase()}.`);
+    }
+  }
+
+  // If creating or updating to a new platform, verify user has permission for the target platform
+  if (targetPlatform) {
+    const target = String(targetPlatform).toLowerCase();
+    if (allowed !== target) {
+      throw new ApiError(403, `Forbidden: You only have permission to manage ${allowed.toUpperCase()} content.`);
+    }
+  }
+
+  return true;
+}
+
 module.exports = {
+  validateContentManagerPlatformAccess,
   WHITELISTED_PLATFORM_TABLES,
   VALID_PLATFORMS,
   isValidPlatform,

@@ -41,6 +41,7 @@ class PlacementMissionRepository {
     query += " LIMIT 1";
     const res = await pool.query(query, values);
     if (res.rows.length === 0) {
+      if (platform) return null;
       return { id: "cycle_1", name: "Cycle 1" };
     }
     return res.rows[0];
@@ -58,15 +59,15 @@ class PlacementMissionRepository {
               (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS "questionCount"
        FROM modules m
        WHERE m.is_placement_mission = TRUE AND m.is_active = TRUE AND m.cycle_id = $1
-         AND (m.publication_status = PUBLISHED OR m.publication_status IS NULL)
+         AND (UPPER(m.publication_status) = 'PUBLISHED' OR m.publication_status IS NULL)
          AND EXISTS (
            SELECT 1 FROM content_branch_mappings cobm
-           WHERE cobm.content_id = m.id AND cobm.content_type = module
-             AND (cobm.assignment_scope = ALL OR cobm.branch_id = $2)
+           WHERE cobm.content_id = m.id AND cobm.content_type = 'module'
+             AND (cobm.assignment_scope = 'ALL' OR cobm.branch_id = $2)
          )`;
     const values = [cycleId, branchId];
     if (platform) {
-      query += " AND (m.platform = both OR m.platform = $3)";
+      query += " AND (m.platform = 'both' OR m.platform = $3)";
       values.push(platform.toLowerCase());
     }
     query += " ORDER BY m.display_order ASC, m.created_at ASC";

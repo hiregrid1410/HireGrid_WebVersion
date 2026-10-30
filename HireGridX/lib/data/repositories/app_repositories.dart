@@ -102,6 +102,7 @@ abstract class ProfileRepository {
   Future<bool> requestDeviceApproval(String deviceId);
   Future<List<NotificationModel>> getNotifications();
   Future<void> markNotificationsAsRead();
+  Future<void> markNotificationRead(String id);
   Future<bool> submitFeedback({
     required String category,
     required String message,
