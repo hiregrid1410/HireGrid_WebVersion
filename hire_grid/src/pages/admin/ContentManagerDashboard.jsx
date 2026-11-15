@@ -527,16 +527,6 @@ export default function ContentManagerDashboard() {
             {/* Theme Toggle Button */}
             <ThemeToggle />
 
-            {/* Notification Bell */}
-            <button
-              onClick={() => showToast("No new notifications", "info")}
-              className="relative p-2 rounded-xl text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#B91C1C] dark:bg-[#F87171]"></span>
-            </button>
-
             {/* User Avatar & Info */}
             <div className="flex items-center gap-2.5 pl-2 border-l border-[#E7E1D5] dark:border-[#374151]">
               <div className="w-8 h-8 rounded-full bg-[#14532D] dark:bg-[#22C55E] flex items-center justify-center text-white dark:text-[#111827] font-bold text-xs">
@@ -555,28 +545,6 @@ export default function ContentManagerDashboard() {
           <div className="max-w-7xl mx-auto space-y-6">
             {activeTab === "dashboard" && (
               <div className="space-y-6 animate-in fade-in duration-200">
-                {/* 6. DASHBOARD HEADER */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h1 className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6] tracking-tight flex items-center gap-2">
-                      Good Morning, Content Manager! 👋
-                    </h1>
-                    <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
-                      Create and manage learning content, questions and exams.
-                    </p>
-                  </div>
-                  <button
-                    onClick={fetchStats}
-                    disabled={loadingStats}
-                    className="self-start sm:self-auto p-2 rounded-xl border border-[#E7E1D5] dark:border-[#374151] bg-white dark:bg-[#1F2937] text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-all cursor-pointer"
-                    title="Refresh Stats"
-                  >
-                    <RefreshCw
-                      className={`w-4 h-4 ${loadingStats ? "animate-spin text-[#14532D] dark:text-[#22C55E]" : ""}`}
-                    />
-                  </button>
-                </div>
-
                 {/* 7. STATISTICS CARDS - Exactly 6 Cards matching screenshot */}
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
                   {/* Card 1: Companies */}
