@@ -262,33 +262,21 @@ export function AdminOverviewTab({ onNavigateTab }) {
 
   return (
     <div className="space-y-6">
-      {/* 1. Dashboard Header - Forest Green + Cream Theme & Dark Mode */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-[#374151] dark:text-[#F3F4F6] tracking-tight flex items-center gap-2">
-            Good Morning, Admin! 👋
-          </h1>
-          <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-1 font-medium">
-            Here's what's happening with your platform today.
-          </p>
+      {/* 1. Dashboard Header Action Bar (Date & Refresh) */}
+      <div className="flex items-center justify-end gap-2.5">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-xl text-xs font-semibold text-[#374151] dark:text-[#F3F4F6] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+          <Calendar className="w-3.5 h-3.5 text-[#6B7280] dark:text-[#9CA3AF]" />
+          <span>{formattedCurrentDate}</span>
         </div>
 
-        {/* Right side: Current Date and Refresh Button */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-xl text-xs font-semibold text-[#374151] dark:text-[#F3F4F6] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-            <Calendar className="w-3.5 h-3.5 text-[#6B7280] dark:text-[#9CA3AF]" />
-            <span>{formattedCurrentDate}</span>
-          </div>
-
-          <button
-            onClick={fetchOverviewData}
-            disabled={loading}
-            className="p-2 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] rounded-xl text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.03)] cursor-pointer"
-            title="Refresh Live Data"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#14532D] dark:text-[#22C55E]" : ""}`} />
-          </button>
-        </div>
+        <button
+          onClick={fetchOverviewData}
+          disabled={loading}
+          className="p-2 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] rounded-xl text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.03)] cursor-pointer"
+          title="Refresh Live Data"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#14532D] dark:text-[#22C55E]" : ""}`} />
+        </button>
       </div>
 
       {/* 2. Statistics Cards - Exactly 5 in one row on desktop */}
