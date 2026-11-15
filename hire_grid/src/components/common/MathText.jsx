@@ -41,99 +41,71 @@ function MermaidChart({ chart }) {
   );
 }
 
-function formatAsciiMathToLatex(str) {
-  if (!str || typeof str !== "string") return str;
+/**
+ * Preprocesses text content to ensure mathematical expressions, LaTeX syntax,
+ * HTML formatting tags, and equations render properly across students and admins.
+ */
+function preprocessContent(content) {
+  if (!content || typeof content !== "string") return "";
+  let s = content;
 
-  // Already standard LaTeX delimiters present
-  if (str.includes("$")) {
-    return str;
-  }
+  // 1. Unescape JSON-serialized double backslashes before LaTeX keywords (e.g. \\frac -> \frac)
+  s = s.replace(/\\\\([a-zA-Z]+)/g, "\\$1");
 
-  function formatFormulaExpr(expr) {
-    let s = expr.trim();
+  // 2. Preprocess common HTML formatting tags to Markdown equivalents so they don't render as raw text
+  s = s.replace(/<\/?(b|strong)>/gi, "**");
+  s = s.replace(/<\/?(i|em)>/gi, "*");
+  s = s.replace(/<\/?u>/gi, "__");
+  s = s.replace(/<br\s*\/?>/gi, "\n\n");
+  s = s.replace(/<p>/gi, "\n\n").replace(/<\/p>/gi, "\n");
 
-    // 1. Greek symbols & common constants
-    s = s.replace(/\bpi\b/gi, "\\pi ");
-    s = s.replace(/\btheta\b/gi, "\\theta ");
-    s = s.replace(/\bomega\b/gi, "\\omega ");
-    s = s.replace(/\balpha\b/gi, "\\alpha ");
-    s = s.replace(/\bbeta\b/gi, "\\beta ");
-    s = s.replace(/\blambda\b/gi, "\\lambda ");
-    s = s.replace(/\bmu\b/gi, "\\mu ");
-    s = s.replace(/\bsigma\b/gi, "\\sigma ");
-    s = s.replace(/\bphi\b/gi, "\\phi ");
-    s = s.replace(/\bDelta\b/g, "\\Delta ");
-    s = s.replace(/\bdelta\b/g, "\\delta ");
-    s = s.replace(/\binfinity\b|\binf\b/gi, "\\infty ");
+  // 3. Normalize LaTeX display brackets \[ ... \] and inline \( ... \)
+  s = s.replace(/\\\[([\s\S]*?)\\\]/g, (m, inner) => `\n\n$$\n${inner.trim()}\n$$\n\n`);
+  s = s.replace(/\\\(([\s\S]*?)\\\)/g, (m, inner) => `$${inner.trim()}$`);
 
-    // 2. Square roots: sqrt(...) -> \sqrt{...}
-    let maxIter = 5;
-    while (/sqrt\s*\(([^()]+)\)/i.test(s) && maxIter-- > 0) {
-      s = s.replace(/sqrt\s*\(([^()]+)\)/gi, (m, inner) => {
-        let cleanInner = inner.trim();
-        if (cleanInner.includes("/")) {
-          const parts = cleanInner.split("/").map((p) => p.trim());
-          if (parts.length === 2) {
-            cleanInner = `\\frac{${formatFormulaExpr(parts[0])}}{${formatFormulaExpr(parts[1])}}`;
-          }
-        } else {
-          cleanInner = formatFormulaExpr(cleanInner);
-        }
-        return `\\sqrt{${cleanInner}}`;
-      });
+  // 4. Split by code blocks to avoid altering intentional code snippets
+  const codeBlockParts = s.split(/(```[\s\S]*?```|`[^`]+`)/g);
+
+  for (let i = 0; i < codeBlockParts.length; i++) {
+    // If inside a code block or inline code, leave strictly untouched
+    if (codeBlockParts[i].startsWith("`")) continue;
+
+    // Split by existing math blocks ($$...$$ and $...$)
+    const mathParts = codeBlockParts[i].split(/(\$\$[\s\S]*?\$\$|\$[^$]+?\$)/g);
+    for (let j = 0; j < mathParts.length; j++) {
+      // If already enclosed in math delimiters, leave untouched
+      if (mathParts[j].startsWith("$")) continue;
+
+      let part = mathParts[j];
+
+      // Auto-wrap unadorned standard LaTeX commands (e.g. \frac{a}{b}, \sqrt{x}, \alpha, \sum)
+      part = part.replace(
+        /(\\(?:frac\{[^{}]+\}\{[^{}]+\}|sqrt(?:\[[^\]]*\])?\{[^{}]+\}|sum|int|prod|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|tau|phi|omega|Delta|Sigma|Omega|infty|times|div|pm|leq|geq|neq|approx|to|rightarrow|partial|cdot)(?:[^{}\s$]+|\{[^{}]+\})*)/g,
+        (match) => `$${match.trim()}$`,
+      );
+
+      // Check for standalone formulas / MCQ options like "x^2 + y^2 = z^2" or "V_out / V_in"
+      const trimmed = part.trim();
+      const isEnglishSentence = /\b(the|is|are|was|were|and|or|of|which|what|where|when|find|calculate|following|in|at|on|for|with)\b/i.test(trimmed);
+      const isMathExpression =
+        /^[a-zA-Z0-9_().\s\/*+\-=^\\\[\]]+$/.test(trimmed) &&
+        (/[=]/.test(trimmed) || /\^|_|\/|\*/.test(trimmed)) &&
+        !isEnglishSentence;
+
+      if (isMathExpression && trimmed.length > 1) {
+        part = `$${trimmed}$`;
+      }
+
+      mathParts[j] = part;
     }
-
-    // 3. Multiplication * -> \cdot
-    s = s.replace(/\s*\*\s*/g, " \\cdot ");
-
-    // 4. Fractions: 1 / (...) or A / B
-    s = s.replace(/([0-9a-zA-Z_\\{}]+)\s*\/\s*\(([^()]+)\)/g, (m, num, den) => {
-      return `\\frac{${num}}{${formatFormulaExpr(den)}}`;
-    });
-    s = s.replace(/([0-9a-zA-Z_\\{}]+)\s*\/\s*([0-9a-zA-Z_\\{}]+)/g, "\\frac{$1}{$2}");
-
-    // 5. Subscripts: X_abc -> \text{X}_{abc}
-    s = s.replace(/([a-zA-Z0-9]+)_([a-zA-Z0-9]+)/g, (m, base, sub) => {
-      const baseFormatted = base.length > 2 && !base.startsWith("\\") ? `\\text{${base}}` : base;
-      const subFormatted = sub.length > 1 && !sub.startsWith("\\") ? `\\text{${sub}}` : sub;
-      return `${baseFormatted}_{${subFormatted}}`;
-    });
-
-    // 6. Superscripts: X^2 -> X^{2}
-    s = s.replace(/\^([a-zA-Z0-9\-+]+)/g, "^{$1}");
-
-    return s;
+    codeBlockParts[i] = mathParts.join("");
   }
 
-  // Detect pure formula/expression (like Option text: h_r = ..., or A / B, or math symbols)
-  const isPureFormula =
-    /^[a-zA-Z0-9_().\s\/*+\-=^\\\[\]]+$/.test(str) &&
-    (/[=]/.test(str) || /sqrt|pi|omega|theta|\^|_|\/|\*/.test(str));
-
-  if (isPureFormula) {
-    return `$${formatFormulaExpr(str)}$`;
-  }
-
-  // For mixed prose with math terms like (MVAr_C) or inline variable_names
-  let res = str.replace(/\(([a-zA-Z0-9_]+)\)/g, (m, inner) => {
-    if (inner.includes("_") || inner.includes("^")) {
-      return `$${formatFormulaExpr(inner)}$`;
-    }
-    return m;
-  });
-
-  return res;
+  return codeBlockParts.join("");
 }
 
 export function MathText({ content }) {
-  let processedContent = content || "";
-
-  // Replace common LaTeX delimiters with markdown-compatible ones
-  processedContent = processedContent.replace(/\\\((.*?)\\\)/g, "$$$1$$");
-  processedContent = processedContent.replace(/\\\[(.*?)\\\]/g, "$$$$$1$$$$");
-
-  // Format ASCII math formulas & raw equations into KaTeX
-  processedContent = formatAsciiMathToLatex(processedContent);
+  const processedContent = preprocessContent(content);
 
   const components = {
     code(props) {
@@ -154,7 +126,7 @@ export function MathText({ content }) {
   };
 
   return (
-    <div className="math-text prose prose-sm dark:prose-invert max-w-none">
+    <div className="math-text prose prose-sm dark:prose-invert max-w-none overflow-x-auto break-words">
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
         rehypePlugins={[rehypeKatex]}
@@ -165,3 +137,4 @@ export function MathText({ content }) {
     </div>
   );
 }
+export default MathText;

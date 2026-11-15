@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import { showToast } from "../common/Toast";
 import { SvgDiagram } from "../common/SvgDiagram";
+import { MathText } from "../common/MathText";
 import {
   Trophy,
   RefreshCw,
@@ -1043,7 +1044,10 @@ export function AdminPlacementMissionTab({ userName }) {
                             <div key={idx} className="text-xs space-y-2 border-b border-slate-200 dark:border-slate-800/80 pb-3 last:border-b-0">
                               <div className="flex justify-between gap-3">
                                 <div>
-                                  <p className="font-bold text-slate-800 dark:text-white">{idx + 1}. {q.question}</p>
+                                  <div className="font-bold text-slate-800 dark:text-white flex items-start gap-1">
+                                    <span>{idx + 1}.</span>
+                                    <MathText content={q.question} />
+                                  </div>
                                   {(q.image || q.svgCode || q.svg_code) && (
                                     <div className="max-w-[120px] my-1 border border-slate-200 dark:border-slate-800 rounded overflow-hidden">
                                       <SvgDiagram svgCode={q.image || q.svgCode || q.svg_code} />
@@ -1060,9 +1064,10 @@ export function AdminPlacementMissionTab({ userName }) {
                               </div>
                               <div className="grid grid-cols-2 gap-2 pl-2 text-[10px] text-slate-450">
                                 {q.options?.map((opt, oIdx) => (
-                                  <span key={oIdx} className={Number(q.correctAnswerIndex) === oIdx ? "text-emerald-500 font-bold" : ""}>
-                                    {String.fromCharCode(65 + oIdx)}) {opt}
-                                  </span>
+                                  <div key={oIdx} className={`flex items-start gap-1 ${Number(q.correctAnswerIndex) === oIdx ? "text-emerald-500 font-bold" : ""}`}>
+                                    <span>{String.fromCharCode(65 + oIdx)})</span>
+                                    <MathText content={opt} />
+                                  </div>
                                 ))}
                               </div>
                             </div>
