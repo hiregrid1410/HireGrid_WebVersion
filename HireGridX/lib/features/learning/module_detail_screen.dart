@@ -23,7 +23,7 @@ class ModuleDetailScreen extends ConsumerWidget {
     return SecureScreenWrapper(
       screenTitle: 'Module Assessment',
       isSensitive: true,
-      enableWatermark: true,
+      enableWatermark: false,
       child: Scaffold(
       appBar: AppBar(
         title: const Text('Module Detail'),

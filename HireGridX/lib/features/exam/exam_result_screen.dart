@@ -54,7 +54,7 @@ class _ExamResultScreenState extends ConsumerState<ExamResultScreen> {
     return SecureScreenWrapper(
       screenTitle: 'Exam Results',
       isSensitive: true,
-      enableWatermark: true,
+      enableWatermark: false,
       child: Scaffold(
       body: Stack(
         children: [

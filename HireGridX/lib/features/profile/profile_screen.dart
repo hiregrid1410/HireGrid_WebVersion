@@ -52,7 +52,7 @@ class ProfileScreen extends ConsumerWidget {
     return SecureScreenWrapper(
       screenTitle: 'Student Profile',
       isSensitive: true,
-      enableWatermark: true,
+      enableWatermark: false,
       child: Scaffold(
       appBar: AppBar(
         title: const Text('Operator Profile'),

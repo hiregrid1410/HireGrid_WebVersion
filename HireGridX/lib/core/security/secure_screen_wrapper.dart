@@ -25,7 +25,7 @@ class SecureScreenWrapper extends ConsumerStatefulWidget {
     required this.child,
     this.screenTitle = 'Protected Screen',
     this.isSensitive = true,
-    this.enableWatermark = true,
+    this.enableWatermark = false,
     this.watermarkOpacity = 0.12,
   });
 

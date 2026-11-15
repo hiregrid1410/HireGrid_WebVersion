@@ -438,7 +438,7 @@ class _ExamScreenState extends ConsumerState<ExamScreen> with WidgetsBindingObse
     return SecureScreenWrapper(
       screenTitle: _testTitle,
       isSensitive: true,
-      enableWatermark: true,
+      enableWatermark: false,
       child: PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
