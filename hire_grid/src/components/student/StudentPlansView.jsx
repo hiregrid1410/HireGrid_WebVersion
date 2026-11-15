@@ -56,7 +56,7 @@ export function StudentPlansView({
                     className="bg-white dark:bg-[#050B14] rounded-2xl p-6 shadow-md border border-slate-200 dark:border-slate-850 flex flex-col justify-between hover:border-slate-400 dark:hover:border-slate-750 hover:shadow-lg transition-all"
                   >
                     <div className="space-y-4">
-                      <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+                      <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide break-words">
                         {plan.name}
                       </h3>
                       <p className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">
