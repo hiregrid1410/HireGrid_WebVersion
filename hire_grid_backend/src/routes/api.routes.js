@@ -146,10 +146,10 @@ router.get("/audit-logs", authorize("admin"), (req, res, next) => miscController
 router.get("/audit_logs", authorize("admin"), (req, res, next) => miscController.getAuditLogs(req, res, next));
 
 // Spaced Repetition Revision Modules (Admin)
-router.get("/admin/revision-modules", authorize("admin", "content_manager"), (req, res, next) => revisionController.getAdminRevisionModules(req, res, next));
-router.post("/admin/revision-modules", authorize("admin", "content_manager"), invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.saveAdminRevisionModule(req, res, next));
-router.delete("/admin/revision-modules/:id", authorize("admin", "content_manager"), invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.deleteAdminRevisionModule(req, res, next));
-router.get("/admin/revision-modules/pool-size", authorize("admin", "content_manager"), (req, res, next) => revisionController.getPoolSize(req, res, next));
+router.get("/admin/revision-modules", authorize("admin", "content_manager"), (req, res, next) => revisionController.getAdminRevisionModules(req, res, next).catch(next));
+router.post("/admin/revision-modules", authorize("admin", "content_manager"), invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.saveAdminRevisionModule(req, res, next).catch(next));
+router.delete("/admin/revision-modules/:id", authorize("admin", "content_manager"), invalidateCacheMiddleware("/admin/revision-modules"), (req, res, next) => revisionController.deleteAdminRevisionModule(req, res, next).catch(next));
+router.get("/admin/revision-modules/pool-size", authorize("admin", "content_manager"), (req, res, next) => revisionController.getPoolSize(req, res, next).catch(next));
 router.get("/admin/revision-questions", (req, res) => res.json({ success: true, questions: [] }));
 router.post("/admin/revision-questions", (req, res) => res.json({ success: true }));
 router.delete("/admin/revision-questions/:id", (req, res) => res.json({ success: true }));

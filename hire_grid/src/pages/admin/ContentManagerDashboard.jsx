@@ -1107,7 +1107,7 @@ export default function ContentManagerDashboard() {
 
               {activeTab === "revision-modules" && (
                 <div className="animate-in fade-in duration-200">
-                  <AdminRevisionModulesTab />
+                  <AdminRevisionModulesTab isContentManager={true} userName={userName} />
                 </div>
               )}
             </Suspense>

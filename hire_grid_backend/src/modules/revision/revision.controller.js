@@ -1,6 +1,6 @@
 const { pool } = require("../../database/connection");
 const crypto = require("crypto");
-const { isValidPlatform, checkItemPlatformAccess } = require("../../utils/platformHelper");
+const { isValidPlatform, checkItemPlatformAccess, validateContentManagerPlatformAccess } = require("../../utils/platformHelper");
 
 class RevisionController {
   // ==========================================
@@ -103,40 +103,40 @@ class RevisionController {
   }
 
   async saveAdminRevisionModule(req, res) {
-    const {
-      id,
-      branchId,
-      subjectId,
-      topicId,
-      title,
-      sourceTopicId,
-      sourceModuleIds,
-      mcqCount,
-      selectionMode,
-      isActive,
-      platform: rawPlatform
-    } = req.body;
-    const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
-    if (!isValidPlatform(platform)) {
-      return res.status(400).json({ error: "Invalid platform value. Must be 'web', 'app', or 'both'." });
-    }
-
-    let existingPlatform = null;
-    if (id) {
-      const existing = await pool.query("SELECT platform FROM revision_modules WHERE id = $1", [id]);
-      if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
-    }
-    validateContentManagerPlatformAccess(req.user, platform, existingPlatform);
-    const rmId = id || crypto.randomUUID();
-    const count = parseInt(mcqCount, 10) || 50;
-    const active = isActive !== undefined ? Boolean(isActive) : true;
-    const formattedSourceModuleIds = JSON.stringify(Array.isArray(sourceModuleIds) ? sourceModuleIds : []);
-
-    if (!title) {
-      return res.status(400).json({ error: "Revision module title is required." });
-    }
-
     try {
+      const {
+        id,
+        branchId,
+        subjectId,
+        topicId,
+        title,
+        sourceTopicId,
+        sourceModuleIds,
+        mcqCount,
+        selectionMode,
+        isActive,
+        platform: rawPlatform
+      } = req.body;
+      const platform = rawPlatform !== undefined && rawPlatform !== null ? String(rawPlatform).toLowerCase() : "both";
+      if (!isValidPlatform(platform)) {
+        return res.status(400).json({ error: "Invalid platform value. Must be 'web', 'app', or 'both'." });
+      }
+
+      let existingPlatform = null;
+      if (id) {
+        const existing = await pool.query("SELECT platform FROM revision_modules WHERE id = $1", [id]);
+        if (existing.rows.length > 0) existingPlatform = existing.rows[0].platform;
+      }
+      validateContentManagerPlatformAccess(req.user, platform, existingPlatform);
+      const rmId = id || crypto.randomUUID();
+      const count = parseInt(mcqCount, 10) || 50;
+      const active = isActive !== undefined ? Boolean(isActive) : true;
+      const formattedSourceModuleIds = JSON.stringify(Array.isArray(sourceModuleIds) ? sourceModuleIds : []);
+
+      if (!title) {
+        return res.status(400).json({ error: "Revision module title is required." });
+      }
+
       await pool.query(
         `INSERT INTO revision_modules (
           id, branch_id, subject_id, topic_id, title,
@@ -173,7 +173,7 @@ class RevisionController {
       res.json({ success: true, message: "Revision module saved successfully.", id: rmId });
     } catch (err) {
       console.error("saveAdminRevisionModule error:", err);
-      res.status(500).json({ error: "Failed to save revision module." });
+      res.status(err.statusCode || 500).json({ error: err.message || "Failed to save revision module." });
     }
   }
 
@@ -188,7 +188,7 @@ class RevisionController {
       res.json({ success: true, message: "Revision module deleted." });
     } catch (err) {
       console.error("deleteAdminRevisionModule error:", err);
-      res.status(500).json({ error: "Failed to delete revision module." });
+      res.status(err.statusCode || 500).json({ error: err.message || "Failed to delete revision module." });
     }
   }
 

@@ -16,8 +16,9 @@ import {
   ChevronDown
 } from "lucide-react";
 import { api } from "../../lib/api";
+import { showToast } from "../common/Toast";
 
-export function AdminRevisionModulesTab() {
+export function AdminRevisionModulesTab({ userName, isContentManager } = {}) {
   const [revisionModules, setRevisionModules] = useState([]);
   const [hierarchyNodes, setHierarchyNodes] = useState([]);
   const [modules, setModules] = useState([]);
@@ -25,6 +26,18 @@ export function AdminRevisionModulesTab() {
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusMessage, setStatusMessage] = useState(null);
+
+  // Derive user allowed platform
+  const userAllowedPlatform = useMemo(() => {
+    try {
+      const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      return (savedUser?.allowed_platforms || savedUser?.allowedPlatforms || "all").toLowerCase();
+    } catch {
+      return "all";
+    }
+  }, []);
+
+  const defaultPlatform = userAllowedPlatform === "web" ? "web" : (userAllowedPlatform === "app" ? "app" : "both");
 
   // Form State
   const [showModal, setShowModal] = useState(false);
@@ -39,7 +52,7 @@ export function AdminRevisionModulesTab() {
     mcqCount: 50,
     selectionMode: "random",
     isActive: true,
-    platform: "both",
+    platform: defaultPlatform,
   });
   const [platformFilter, setPlatformFilter] = useState("all");
 
@@ -85,10 +98,10 @@ export function AdminRevisionModulesTab() {
   // Combine hierarchy_nodes branches with branches table
   const branches = useMemo(() => {
     const fromNodes = hierarchyNodes.filter(
-      (n) => n.type === "general_branch" || !n.parentId || n.parentId === "null"
+      (n) => n.type === "general_branch" || !(n.parentId || n.parent_id) || (n.parentId || n.parent_id) === "null"
     );
     const map = new Map();
-    fromNodes.forEach((b) => map.set(b.id, b));
+    fromNodes.forEach((b) => map.set(b.id, { ...b, parentId: b.parentId || b.parent_id }));
     branchesList.forEach((b) => {
       if (!map.has(b.id)) {
         map.set(b.id, { id: b.id, name: b.name, type: "general_branch" });
@@ -99,16 +112,16 @@ export function AdminRevisionModulesTab() {
 
   // All subjects
   const allSubjects = useMemo(() => {
-    return hierarchyNodes.filter(
-      (n) => n.type === "general_subject" || n.type === "subject"
-    );
+    return hierarchyNodes
+      .filter((n) => n.type === "general_subject" || n.type === "subject")
+      .map((s) => ({ ...s, parentId: s.parentId || s.parent_id }));
   }, [hierarchyNodes]);
 
   // Subjects filtered by selected branch
   const filteredSubjects = useMemo(() => {
     if (!formData.branchId) return allSubjects;
     return allSubjects.filter(
-      (n) => String(n.parentId) === String(formData.branchId)
+      (n) => String(n.parentId || n.parent_id) === String(formData.branchId)
     );
   }, [allSubjects, formData.branchId]);
 
@@ -118,7 +131,7 @@ export function AdminRevisionModulesTab() {
       (n) => n.type === "general_topic" || n.type === "topic"
     );
     const map = new Map();
-    topicNodes.forEach((t) => map.set(t.id, { ...t, isModule: false }));
+    topicNodes.forEach((t) => map.set(t.id, { ...t, parentId: t.parentId || t.parent_id, isModule: false }));
 
     modules.forEach((m) => {
       if (!map.has(m.id)) {
@@ -126,7 +139,7 @@ export function AdminRevisionModulesTab() {
           id: m.id,
           name: m.title || m.name || "Learning Module",
           type: "module",
-          parentId: m.parentId,
+          parentId: m.parentId || m.parent_id,
           isModule: true,
         });
       }
@@ -139,13 +152,13 @@ export function AdminRevisionModulesTab() {
   const filteredTopics = useMemo(() => {
     if (formData.subjectId) {
       const direct = allTopics.filter(
-        (t) => String(t.parentId) === String(formData.subjectId)
+        (t) => String(t.parentId || t.parent_id) === String(formData.subjectId)
       );
       return direct.length > 0 ? direct : allTopics;
     }
     if (formData.branchId) {
       const allowedSubjectIds = new Set(filteredSubjects.map((s) => s.id));
-      const direct = allTopics.filter((t) => allowedSubjectIds.has(t.parentId));
+      const direct = allTopics.filter((t) => allowedSubjectIds.has(t.parentId || t.parent_id));
       return direct.length > 0 ? direct : allTopics;
     }
     return allTopics;
@@ -155,8 +168,8 @@ export function AdminRevisionModulesTab() {
     if (!formData.topicId) return modules;
     return modules.filter(
       (m) =>
-        String(m.parentId) === String(formData.topicId) ||
-        (formData.subjectId && String(m.parentId) === String(formData.subjectId)) ||
+        String(m.parentId || m.parent_id) === String(formData.topicId) ||
+        (formData.subjectId && String(m.parentId || m.parent_id) === String(formData.subjectId)) ||
         m.id === formData.topicId
     );
   }, [modules, formData.topicId, formData.subjectId]);
@@ -203,10 +216,10 @@ export function AdminRevisionModulesTab() {
     if (firstPoolItem) {
       initialTopicId = firstPoolItem.id;
       initialTitle = `${firstPoolItem.name} - Spaced Revision`;
-      const parentSub = allSubjects.find((s) => s.id === firstPoolItem.parentId);
+      const parentSub = allSubjects.find((s) => s.id === (firstPoolItem.parentId || firstPoolItem.parent_id));
       if (parentSub) {
         initialSubjectId = parentSub.id;
-        initialBranchId = parentSub.parentId || initialBranchId;
+        initialBranchId = parentSub.parentId || parentSub.parent_id || initialBranchId;
       }
     } else {
       initialTitle = "Aptitude - Spaced Revision";
@@ -222,7 +235,7 @@ export function AdminRevisionModulesTab() {
       mcqCount: 50,
       selectionMode: "random",
       isActive: true,
-      platform: "both",
+      platform: defaultPlatform,
     });
     setShowModal(true);
   };
@@ -239,7 +252,7 @@ export function AdminRevisionModulesTab() {
       mcqCount: rm.mcqCount || 50,
       selectionMode: rm.selectionMode || "random",
       isActive: rm.isActive !== undefined ? rm.isActive : true,
-      platform: rm.platform || "both",
+      platform: rm.platform || defaultPlatform,
     });
     setShowModal(true);
   };
@@ -248,17 +261,21 @@ export function AdminRevisionModulesTab() {
     if (!window.confirm("Are you sure you want to delete this revision module?")) return;
     try {
       await api.delete(`/admin/revision-modules/${id}`);
-      showStatus("Revision module deleted successfully.");
+      showToast("Revision module deleted successfully.", "success");
+      showStatus("Revision module deleted successfully.", "success");
       loadData();
     } catch (err) {
       console.error("Delete error:", err);
-      showStatus("Failed to delete revision module.", "error");
+      const errMsg = err.response?.data?.error || err.message || "Failed to delete revision module.";
+      showToast(errMsg, "error");
+      showStatus(errMsg, "error");
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title.trim()) {
+      showToast("Title is required.", "warning");
       showStatus("Title is required.", "error");
       return;
     }
@@ -276,12 +293,15 @@ export function AdminRevisionModulesTab() {
         branchId: formData.branchId || branches[0]?.id || null,
         subjectId: formData.subjectId || null,
       });
-      showStatus(editingId ? "Revision module updated!" : "Revision module created!");
+      showToast(editingId ? "Revision module updated successfully!" : "Revision module created successfully!", "success");
+      showStatus(editingId ? "Revision module updated!" : "Revision module created!", "success");
       setShowModal(false);
       loadData();
     } catch (err) {
       console.error("Save error:", err);
-      showStatus("Failed to save revision module.", "error");
+      const errMsg = err.response?.data?.error || err.message || "Failed to save revision module.";
+      showToast(errMsg, "error");
+      showStatus(errMsg, "error");
     } finally {
       setSaving(false);
     }
