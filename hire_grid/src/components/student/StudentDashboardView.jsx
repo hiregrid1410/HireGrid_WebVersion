@@ -317,7 +317,7 @@ export function StudentDashboardView({
         </div>
       </div>
 
-      {/* ── 3. Middle Grid: Subjects & Practice (5 cols) + Upcoming Exams (3.5 cols) + Live Placement Missions (3.5 cols) ── */}
+      {/* ── 3. Middle Grid: Subjects & Practice (5 cols) + Upcoming Exams (3 cols) + Live Placement Missions (4 cols) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Subjects & Practice (5 cols) */}
         <div className="lg:col-span-5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs">
@@ -371,8 +371,8 @@ export function StudentDashboardView({
           </div>
         </div>
 
-        {/* Upcoming Exams (3.5 cols) */}
-        <div className="lg:col-span-3.5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
+        {/* Upcoming Exams (3 cols) */}
+        <div className="lg:col-span-3 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Upcoming Exams</h3>
@@ -414,8 +414,8 @@ export function StudentDashboardView({
           </div>
         </div>
 
-        {/* Live Placement Missions (3.5 cols) */}
-        <div className="lg:col-span-3.5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
+        {/* Live Placement Missions (4 cols) */}
+        <div className="lg:col-span-4 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Live Placement Missions</h3>
