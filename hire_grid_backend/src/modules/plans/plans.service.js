@@ -143,7 +143,7 @@ class PlansService {
         throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
       }
     } else if (id) {
-      const existing = await pool.query("SELECT platform FROM plans WHERE id = ", [id]);
+      const existing = await pool.query("SELECT platform FROM plans WHERE id = $1", [id]);
       if (existing.rows.length > 0 && existing.rows[0].platform) {
         platform = existing.rows[0].platform;
       }

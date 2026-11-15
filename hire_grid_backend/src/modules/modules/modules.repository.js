@@ -84,7 +84,7 @@ class ModulesRepository {
             throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
           }
         } else if (m.id) {
-          const existing = await pool.query("SELECT platform FROM modules WHERE id = ", [m.id]);
+          const existing = await pool.query("SELECT platform FROM modules WHERE id = $1", [m.id]);
           if (existing.rows.length > 0 && existing.rows[0].platform) {
             platform = existing.rows[0].platform;
           }

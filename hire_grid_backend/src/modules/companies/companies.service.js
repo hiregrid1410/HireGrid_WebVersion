@@ -65,9 +65,26 @@ class CompaniesService {
         throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
       }
     } else if (id) {
-      const existing = await pool.query("SELECT platform FROM companies WHERE id = ", [id]);
+      const existing = await pool.query("SELECT platform FROM companies WHERE id = $1", [id]);
       if (existing.rows.length > 0 && existing.rows[0].platform) {
         platform = existing.rows[0].platform;
+      }
+    }
+
+    let parsedCreatedAt = Date.now();
+    if (createdAt !== null && createdAt !== undefined && createdAt !== "") {
+      if (typeof createdAt === "number" && !isNaN(createdAt)) {
+        parsedCreatedAt = createdAt;
+      } else {
+        const num = Number(createdAt);
+        if (!isNaN(num) && num > 0) {
+          parsedCreatedAt = num;
+        } else {
+          const parsed = Date.parse(createdAt);
+          if (!isNaN(parsed)) {
+            parsedCreatedAt = parsed;
+          }
+        }
       }
     }
 
@@ -99,7 +116,7 @@ class CompaniesService {
         price || 0,
         sellType || 'pack',
         targetDisplayOrder,
-        createdAt ? (isNaN(createdAt) ? createdAt : new Date(Number(createdAt))) : new Date(),
+        parsedCreatedAt,
         createdBy || null,
         publicationStatus || 'PUBLISHED',
         platform
@@ -218,9 +235,26 @@ class CompaniesService {
         throw new ApiError(400, "Invalid platform value. Must be 'web', 'app', or 'both'.");
       }
     } else if (id) {
-      const existing = await pool.query("SELECT platform FROM hierarchy_nodes WHERE id = ", [id]);
+      const existing = await pool.query("SELECT platform FROM hierarchy_nodes WHERE id = $1", [id]);
       if (existing.rows.length > 0 && existing.rows[0].platform) {
         platform = existing.rows[0].platform;
+      }
+    }
+
+    let parsedCreatedAt = Date.now();
+    if (createdAt !== null && createdAt !== undefined && createdAt !== "") {
+      if (typeof createdAt === "number" && !isNaN(createdAt)) {
+        parsedCreatedAt = createdAt;
+      } else {
+        const num = Number(createdAt);
+        if (!isNaN(num) && num > 0) {
+          parsedCreatedAt = num;
+        } else {
+          const parsed = Date.parse(createdAt);
+          if (!isNaN(parsed)) {
+            parsedCreatedAt = parsed;
+          }
+        }
       }
     }
 
@@ -252,7 +286,7 @@ class CompaniesService {
         isPremium !== undefined ? isPremium : false, 
         sellType || 'pack', 
         targetDisplayOrder,
-        createdAt || Date.now(),
+        parsedCreatedAt,
         createdBy || null,
         publicationStatus || 'PUBLISHED',
         platform
