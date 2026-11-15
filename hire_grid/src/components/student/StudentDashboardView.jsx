@@ -1,33 +1,24 @@
 import React, { useState } from "react";
 import {
-  Layout,
-  BookOpen,
-  Building2,
-  Award,
-  Zap,
-  Star,
-  Flame,
-  ArrowRight,
-  Play,
-  CheckCircle2,
-  CheckCircle,
-  Circle,
-  FileText,
-  Timer,
-  ChevronRight,
   Trophy,
-  Sparkles,
   Target,
   BarChart3,
+  Star,
+  Play,
+  RotateCcw,
+  Sparkles,
+  BookOpen,
+  ArrowRight,
   Check,
-  Clock,
-  Lock,
-  ExternalLink,
-  ChevronLeft,
-  GraduationCap,
-  Layers,
+  Building2,
+  Calendar,
+  ChevronRight,
   Crown,
-  RotateCcw
+  Bell,
+  Code2,
+  Layers,
+  Database,
+  Monitor
 } from "lucide-react";
 
 export function StudentDashboardView({
@@ -40,409 +31,380 @@ export function StudentDashboardView({
   activeBranches = [],
   placementMissions = [],
   leaderboard = [],
+  plans = [],
   onTabChange,
   onStartModule,
 }) {
-  const [selectedCompanyCategory, setSelectedCompanyCategory] = useState("all");
   const [todayGoals, setTodayGoals] = useState([
     { id: 1, text: "Solve 20 Aptitude Questions", completed: true },
     { id: 2, text: "Complete 1 Mock Test", completed: true },
     { id: 3, text: "Revise weak topics", completed: false },
     { id: 4, text: "Take 1 Practice Assessment", completed: false },
-    { id: 5, text: "Maintain study streak", completed: true }
+    { id: 5, text: "Maintain study streak", completed: true },
   ]);
 
   const toggleGoal = (id) => {
-    setTodayGoals(prev => prev.map(g => g.id === id ? { ...g, completed: !g.completed } : g));
+    setTodayGoals((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g))
+    );
   };
 
-  const completedGoalsCount = todayGoals.filter(g => g.completed).length;
+  const completedGoalsCount = todayGoals.filter((g) => g.completed).length;
   const goalProgress = Math.round((completedGoalsCount / todayGoals.length) * 100);
 
-  // Student metrics
-  const testsAttempted = Object.keys(moduleScores).length;
+  // Dynamic user metrics
+  const testsAttempted = Object.keys(moduleScores).length || (stats?.testsTaken ?? 3);
   const scoreValues = Object.values(moduleScores);
   const averageScore = scoreValues.length > 0
     ? Math.round(scoreValues.reduce((sum, s) => sum + s, 0) / scoreValues.length)
-    : 78;
+    : (stats?.avgScore ?? 1);
 
-  const xpEarned = stats?.xp || user?.xp || 4560;
-  const streakCount = stats?.streak || 12;
+  const xpEarned = stats?.xp || user?.xp || 10;
 
-  // Rank
+  // Rank calculation
   const userRankEntry = leaderboard.find(
     (item) => item.userId === user?.id || item.userEmail === user?.email
   );
-  const userRank = userRankEntry ? `#${userRankEntry.rank}` : "#342";
+  const userRank = userRankEntry ? `#${userRankEntry.rank}` : (stats?.globalRank ? `#${stats.globalRank}` : "#342");
 
-  // Filter companies
-  const displayedCompanies = companies.slice(0, 8);
-
-  // Core Subjects list
+  // Core Subjects list matching reference
   const subjects = [
-    { id: "dsa", name: "Data Structures", modules: "45 Modules", progress: 75, color: "text-blue-500", stroke: "#3B82F6" },
-    { id: "algo", name: "Algorithms", modules: "38 Modules", progress: 60, color: "text-rose-500", stroke: "#F43F5E" },
-    { id: "os", name: "Operating Systems", modules: "28 Modules", progress: 40, color: "text-purple-500", stroke: "#A855F7" },
-    { id: "dbms", name: "DBMS", modules: "26 Modules", progress: 55, color: "text-amber-500", stroke: "#F59E0B" },
-    { id: "cn", name: "Computer Networks", modules: "22 Modules", progress: 35, color: "text-indigo-500", stroke: "#6366F1" },
-    { id: "apt", name: "Aptitude", modules: "50 Modules", progress: 80, color: "text-emerald-500", stroke: "#10B981" },
-    { id: "lr", name: "Logical Reasoning", modules: "30 Modules", progress: 65, color: "text-fuchsia-500", stroke: "#D946EF" },
-    { id: "va", name: "Verbal Ability", modules: "25 Modules", progress: 70, color: "text-teal-500", stroke: "#14B8A6" },
+    {
+      id: "dsa",
+      name: "Data Structures",
+      modules: "45 Modules",
+      progress: 75,
+      icon: Layers,
+    },
+    {
+      id: "algo",
+      name: "Algorithms",
+      modules: "38 Modules",
+      progress: 60,
+      icon: Code2,
+    },
+    {
+      id: "os",
+      name: "Operating Systems",
+      modules: "28 Modules",
+      progress: 40,
+      icon: Monitor,
+    },
+    {
+      id: "dbms",
+      name: "DBMS",
+      modules: "26 Modules",
+      progress: 55,
+      icon: Database,
+    },
   ];
 
-  // Upcoming Exams
-  const upcomingExams = modules.filter(m => m.moduleType === "exam" || m.moduleType === "company").slice(0, 3);
+  // Upcoming exams list
+  const upcomingExams = modules.filter(
+    (m) => m.moduleType === "exam" || m.moduleType === "company" || m.category === "exam"
+  ).slice(0, 3);
+
+  const defaultExams = [
+    { id: "apti", title: "Aptitude", duration: "90 min", questions: "100 Questions" },
+    { id: "final", title: "Final", duration: "90 min", questions: "100 Questions" },
+    { id: "apti_2", title: "Apti", duration: "90 min", questions: "100 Questions" },
+  ];
+
+  const examsToDisplay = upcomingExams.length > 0 ? upcomingExams : defaultExams;
 
   // Recent test history
-  const recentTests = Object.entries(moduleScores).slice(0, 5).map(([modId, score], index) => {
-    const mod = modules.find(m => m.id === modId);
+  const recentTests = Object.entries(moduleScores).slice(0, 3).map(([modId, score], index) => {
+    const mod = modules.find((m) => m.id === modId);
     return {
       id: modId,
-      name: mod?.title || `Assessment ${index + 1}`,
-      company: mod?.parentId || "General Practice",
+      name: mod?.title || `NETWORK THEOREMS-${index + 2}`,
       score: `${score}%`,
       rank: `#${index + 120}`,
-      date: "Recent",
-      mod
+      mod,
     };
   });
 
+  const defaultRecentTests = [
+    { id: "test_1", name: "NETWORK THEOREMS-2", score: "3%", rank: "#120" },
+    { id: "test_2", name: "MODULE-2", score: "0%", rank: "#121" },
+    { id: "test_3", name: "MODULE-1", score: "0%", rank: "#122" },
+  ];
+
+  const recentPerformance = recentTests.length > 0 ? recentTests : defaultRecentTests;
+
+  // Active plan info
+  const activePlan = plans.find((p) => p.id === user?.activePlanId);
+  const planTitle = activePlan?.name || (user?.hasFullPremium ? "Premium Full Access" : "All-Access Pass");
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* ── Top Hero Banner with Real Metrics & 3D Illustration ── */}
+      {/* ── 1. Top Section: Welcome + 4 Stat Cards & Today's Goal Card ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* Left Hero Card (9 cols) */}
-        <div className="lg:col-span-8 bg-gradient-to-br from-[#101935] via-[#162248] to-[#1A2855] border border-blue-500/20 rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
-          <div className="relative z-10">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Good Morning, {user?.name?.split(" ")[0] || "Student"}! 👋
+        {/* Left Column (8 cols): Welcome Header + 4 Stat Cards */}
+        <div className="lg:col-span-8 flex flex-col justify-between space-y-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#374151] dark:text-[#F3F4F6] flex items-center gap-2">
+              Good Morning, {user?.name?.split(" ")[0] || "kaju"}! 👋
             </h1>
-            <p className="text-xs sm:text-sm text-blue-200/80 mt-1 max-w-xl">
+            <p className="text-xs sm:text-sm text-[#6B7280] dark:text-[#9CA3AF] mt-1">
               Keep learning, practice consistently and achieve your dream placement.
             </p>
-
-            {/* Stat Cards Row on Hero */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-              <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-3.5">
-                <div className="flex items-center gap-2 text-amber-400 mb-1">
-                  <Trophy className="w-4 h-4" />
-                </div>
-                <div className="text-xl sm:text-2xl font-black">{testsAttempted || 42}</div>
-                <div className="text-[11px] text-blue-200/80 font-medium">Tests Taken</div>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-3.5">
-                <div className="flex items-center gap-2 text-rose-400 mb-1">
-                  <Target className="w-4 h-4" />
-                </div>
-                <div className="text-xl sm:text-2xl font-black">{averageScore}%</div>
-                <div className="text-[11px] text-blue-200/80 font-medium">Average Score</div>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-3.5">
-                <div className="flex items-center gap-2 text-emerald-400 mb-1">
-                  <BarChart3 className="w-4 h-4" />
-                </div>
-                <div className="text-xl sm:text-2xl font-black">{userRank}</div>
-                <div className="text-[11px] text-blue-200/80 font-medium">Global Rank</div>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-3.5">
-                <div className="flex items-center gap-2 text-purple-400 mb-1">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div className="text-xl sm:text-2xl font-black">{xpEarned.toLocaleString()}</div>
-                <div className="text-[11px] text-blue-200/80 font-medium">XP Points</div>
-              </div>
-            </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-blue-200/70">
-            <span className="italic font-medium">"Practice Today for a Better Tomorrow"</span>
-            <span className="font-mono text-[11px]">Placement 2026 Batch</span>
+          {/* 4 Clean Stat Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            {/* Card 1: Tests Taken */}
+            <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-2xs">
+              <div className="w-7 h-7 text-[#D6C7A1] dark:text-[#C5B48A] mb-2 flex items-center justify-center">
+                <Trophy className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+              </div>
+              <div className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">{testsAttempted}</div>
+              <div className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5 font-medium">Tests Taken</div>
+            </div>
+
+            {/* Card 2: Average Score */}
+            <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-2xs">
+              <div className="w-7 h-7 text-[#B91C1C] dark:text-[#F87171] mb-2 flex items-center justify-center">
+                <Target className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">{averageScore}%</div>
+              <div className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5 font-medium">Average Score</div>
+            </div>
+
+            {/* Card 3: Global Rank */}
+            <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-2xs">
+              <div className="w-7 h-7 text-[#14532D] dark:text-[#22C55E] mb-2 flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 text-[#14532D] dark:text-[#22C55E]" />
+              </div>
+              <div className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">{userRank}</div>
+              <div className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5 font-medium">Global Rank</div>
+            </div>
+
+            {/* Card 4: XP Points */}
+            <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-2xs">
+              <div className="w-7 h-7 text-[#6B7280] dark:text-[#9CA3AF] mb-2 flex items-center justify-center">
+                <Star className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+              </div>
+              <div className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">{xpEarned}</div>
+              <div className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5 font-medium">XP Points</div>
+            </div>
           </div>
         </div>
 
-        {/* Right Widget: Today's Goal (4 cols) */}
-        <div className="lg:col-span-4 bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs flex flex-col justify-between">
+        {/* Right Column (4 cols): Today's Goal Card */}
+        <div className="lg:col-span-4 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span>Today's Goal</span>
-              </h3>
-              <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+            <div className="flex items-center justify-between mb-2.5">
+              <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Today's Goal</h3>
+              <span className="text-xs font-bold text-[#14532D] dark:text-[#22C55E]">
                 {completedGoalsCount}/{todayGoals.length} Completed
               </span>
             </div>
 
             {/* Progress bar */}
-            <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-4">
+            <div className="w-full bg-[#E7E1D5] dark:bg-[#374151] h-1.5 rounded-full overflow-hidden mb-4">
               <div
-                className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                className="bg-[#14532D] dark:bg-[#22C55E] h-full rounded-full transition-all duration-300"
                 style={{ width: `${goalProgress}%` }}
               />
             </div>
 
-            {/* Checklist */}
+            {/* Goal Checklist */}
             <div className="space-y-2.5">
-              {todayGoals.map(goal => (
+              {todayGoals.map((goal) => (
                 <button
                   key={goal.id}
                   onClick={() => toggleGoal(goal.id)}
                   className="w-full flex items-center gap-2.5 text-left text-xs group cursor-pointer"
                 >
-                  <div className={`w-4 h-4 rounded-md flex items-center justify-center transition-all ${
-                    goal.completed
-                      ? "bg-emerald-500 text-white"
-                      : "border border-slate-300 dark:border-slate-700 hover:border-emerald-500"
-                  }`}>
-                    {goal.completed && <Check className="w-3 h-3 stroke-[3]" />}
+                  <div
+                    className={`w-4 h-4 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                      goal.completed
+                        ? "bg-[#14532D] text-white dark:bg-[#22C55E] dark:text-[#111827]"
+                        : "border border-[#9CA3AF] dark:border-[#6B7280] hover:border-[#14532D]"
+                    }`}
+                  >
+                    {goal.completed && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                   </div>
-                  <span className={`transition-colors ${
-                    goal.completed
-                      ? "text-slate-400 dark:text-slate-500 line-through font-medium"
-                      : "text-slate-700 dark:text-slate-300 font-semibold group-hover:text-emerald-500"
-                  }`}>
+                  <span
+                    className={`truncate transition-colors ${
+                      goal.completed
+                        ? "text-[#374151] dark:text-[#F3F4F6] font-medium"
+                        : "text-[#6B7280] dark:text-[#9CA3AF] font-normal group-hover:text-[#374151]"
+                    }`}
+                  >
                     {goal.text}
                   </span>
                 </button>
               ))}
             </div>
           </div>
-
-          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-            <span>Keep your momentum going!</span>
-            <span className="font-bold text-emerald-500">{goalProgress}% Done</span>
-          </div>
         </div>
       </div>
 
-      {/* ── Action Pills Bar (Matching Image 3) ── */}
+      {/* ── 2. Quick Access Cards Row (4 cards) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Pill 1: Continue Learning */}
+        {/* Card 1: Continue Learning */}
         <div
-          onClick={() => onTabChange("learning")}
-          className="p-3.5 rounded-2xl bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 hover:border-blue-500/50 shadow-xs flex items-center justify-between group cursor-pointer transition-all"
+          onClick={() => onTabChange("general")}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] hover:border-[#14532D]/40 shadow-2xs flex items-center justify-between group cursor-pointer transition-all"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
-              <Play className="w-4 h-4 fill-current" />
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0">
+              <Play className="w-4 h-4 fill-current ml-0.5" />
             </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Continue Learning</span>
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">Data Structures - Arrays</h4>
-              <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">60% completed</p>
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-[#374151] dark:text-[#F3F4F6] block">Continue Learning</span>
+              <h4 className="text-xs text-[#6B7280] dark:text-[#9CA3AF] truncate">Data Structures – Arrays</h4>
+              <p className="text-[11px] text-[#15803D] dark:text-[#22C55E] font-medium mt-0.5">60% completed</p>
             </div>
           </div>
-          <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#14532D] dark:group-hover:text-[#22C55E] group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
         </div>
 
-        {/* Pill 2: Daily Revision */}
+        {/* Card 2: Daily Revision */}
         <div
-          onClick={() => onTabChange("revision")}
-          className="p-3.5 rounded-2xl bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 shadow-xs flex items-center justify-between group cursor-pointer transition-all"
+          onClick={() => onTabChange("general")}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] hover:border-[#14532D]/40 shadow-2xs flex items-center justify-between group cursor-pointer transition-all"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0">
               <RotateCcw className="w-4 h-4" />
             </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Daily Revision</span>
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">10 Questions for You</h4>
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Based on weak topics</p>
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-[#374151] dark:text-[#F3F4F6] block">Daily Revision</span>
+              <h4 className="text-xs text-[#6B7280] dark:text-[#9CA3AF] truncate">10 Questions for You</h4>
+              <p className="text-[11px] text-[#6B7280] dark:text-[#9CA3AF] font-medium mt-0.5">Based on weak topics</p>
             </div>
           </div>
-          <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#14532D] dark:group-hover:text-[#22C55E] group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
         </div>
 
-        {/* Pill 3: Upcoming Mission */}
+        {/* Card 3: Upcoming Mission */}
         <div
           onClick={() => onTabChange("placement-mission")}
-          className="p-3.5 rounded-2xl bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 shadow-xs flex items-center justify-between group cursor-pointer transition-all"
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] hover:border-[#14532D]/40 shadow-2xs flex items-center justify-between group cursor-pointer transition-all"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-              <Trophy className="w-4 h-4" />
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#E8F3EC] dark:bg-[#193B2A] text-[#B45309] dark:text-[#FBBF24] flex items-center justify-center shrink-0">
+              <Trophy className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Upcoming Mission</span>
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">Infosys Hiring Challenge</h4>
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Starts in 2 days</p>
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-[#374151] dark:text-[#F3F4F6] block">Upcoming Mission</span>
+              <h4 className="text-xs text-[#6B7280] dark:text-[#9CA3AF] truncate">Infosys Hiring Challenge</h4>
+              <p className="text-[11px] text-[#15803D] dark:text-[#22C55E] font-medium mt-0.5">Starts in 2 days</p>
             </div>
           </div>
-          <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-amber-500 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#14532D] dark:group-hover:text-[#22C55E] group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
         </div>
 
-        {/* Pill 4: Recommended */}
+        {/* Card 4: Recommended */}
         <div
-          onClick={() => onTabChange("learning")}
-          className="p-3.5 rounded-2xl bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 hover:border-purple-500/50 shadow-xs flex items-center justify-between group cursor-pointer transition-all"
+          onClick={() => onTabChange("general")}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] hover:border-[#14532D]/40 shadow-2xs flex items-center justify-between group cursor-pointer transition-all"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
-              <Sparkles className="w-4 h-4" />
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0">
+              <BookOpen className="w-4 h-4" />
             </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Recommended</span>
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">Operating Systems</h4>
-              <p className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">Process Scheduling</p>
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-[#374151] dark:text-[#F3F4F6] block">Recommended</span>
+              <h4 className="text-xs text-[#6B7280] dark:text-[#9CA3AF] truncate">Operating Systems</h4>
+              <p className="text-[11px] text-[#6B7280] dark:text-[#9CA3AF] font-medium mt-0.5">Process Scheduling</p>
             </div>
           </div>
-          <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#14532D] dark:group-hover:text-[#22C55E] group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
         </div>
       </div>
 
-      {/* ── Top Companies Grid (Matching Image 3) ── */}
-      <div className="space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h3 className="text-base font-black text-slate-900 dark:text-white">
-              Top Companies
-            </h3>
-            <p className="text-xs text-slate-500">Practice questions modeled on recent hiring drives</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl text-xs font-semibold">
-              {["All", "IT Services", "Product Based", "Core"].map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCompanyCategory(cat.toLowerCase())}
-                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                    selectedCompanyCategory === cat.toLowerCase()
-                      ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-xs font-bold"
-                      : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => onTabChange("companies")}
-              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer ml-1"
-            >
-              View All <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {displayedCompanies.map((comp) => {
-            const compMods = modules.filter(m => m.parentId === comp.id);
-            const isFree = comp.publicationStatus === "free" || comp.name.toLowerCase().includes("wipro");
-            return (
-              <div
-                key={comp.id}
-                onClick={() => onTabChange("companies")}
-                className="p-3.5 rounded-2xl bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 hover:border-blue-500/50 hover:shadow-md transition-all flex flex-col items-center text-center justify-between group cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-800/80 p-2 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  {comp.logo ? (
-                    <img src={comp.logo} alt={comp.name} className="max-h-full max-w-full object-contain" />
-                  ) : (
-                    <Building2 className="w-6 h-6 text-slate-400" />
-                  )}
-                </div>
-
-                <div className="mt-2.5">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">{comp.name}</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{compMods.length || 24} Modules</p>
-                </div>
-
-                <div className="mt-2">
-                  {isFree ? (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
-                      ✓ Free
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 flex items-center gap-0.5">
-                      ★ Premium
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Subjects & Practice + Upcoming Exams + Live Missions ── */}
+      {/* ── 3. Middle Grid: Subjects & Practice (5 cols) + Upcoming Exams (3.5 cols) + Live Placement Missions (3.5 cols) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Subjects & Practice (5 cols) */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs">
+        <div className="lg:col-span-5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Subjects & Practice</h3>
-              <p className="text-xs text-slate-500">Track progress by core subject</p>
+              <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Subjects & Practice</h3>
+              <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF]">Track progress by core subject</p>
             </div>
             <button
-              onClick={() => onTabChange("learning")}
-              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+              onClick={() => onTabChange("general")}
+              className="text-xs font-bold text-[#14532D] dark:text-[#22C55E] hover:underline flex items-center gap-1 cursor-pointer"
             >
-              View All <ChevronRight className="w-3.5 h-3.5" />
+              View All <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {subjects.map((sub) => (
-              <div
-                key={sub.id}
-                onClick={() => onTabChange("learning")}
-                className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between hover:border-blue-500/40 transition-all cursor-pointer"
-              >
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">{sub.name}</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{sub.modules}</p>
+          <div className="space-y-4">
+            {subjects.map((sub) => {
+              const Icon = sub.icon;
+              return (
+                <div
+                  key={sub.id}
+                  onClick={() => onTabChange("general")}
+                  className="flex items-center justify-between gap-4 p-2 rounded-xl hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 min-w-[140px]">
+                    <div className="w-8 h-8 rounded-lg bg-[#FAF7F0] dark:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] flex items-center justify-center text-[#14532D] dark:text-[#22C55E] shrink-0">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6]">{sub.name}</h4>
+                      <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF]">{sub.modules}</p>
+                    </div>
+                  </div>
+
+                  {/* Horizontal Progress Bar */}
+                  <div className="flex-1 max-w-[120px] sm:max-w-[160px] flex items-center gap-3">
+                    <div className="flex-1 bg-[#E7E1D5] dark:bg-[#374151] h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-[#14532D] dark:bg-[#22C55E] h-full rounded-full transition-all duration-300"
+                        style={{ width: `${sub.progress}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6] w-8 text-right">
+                      {sub.progress}%
+                    </span>
+                  </div>
                 </div>
-                {/* Circular indicator */}
-                <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="text-slate-200 dark:text-slate-800"
-                      strokeWidth="3.5"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      stroke={sub.stroke}
-                      strokeWidth="3.5"
-                      strokeDasharray={`${sub.progress}, 100`}
-                      strokeLinecap="round"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-                  <span className="absolute text-[8px] font-black text-slate-700 dark:text-slate-200">{sub.progress}%</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* Upcoming Exams (3 cols) */}
-        <div className="lg:col-span-3 bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs flex flex-col justify-between">
+        {/* Upcoming Exams (3.5 cols) */}
+        <div className="lg:col-span-3.5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Upcoming Exams</h3>
+              <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Upcoming Exams</h3>
               <button
                 onClick={() => onTabChange("companies")}
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                className="text-xs font-bold text-[#14532D] dark:text-[#22C55E] hover:underline flex items-center gap-1 cursor-pointer"
               >
-                View All
+                View All <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="space-y-3">
-              {upcomingExams.map((exam, idx) => (
-                <div key={exam.id || idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">{exam.title || "Full Assessment"}</h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">90 min | 100 Questions</p>
+            <div className="space-y-4">
+              {examsToDisplay.map((exam, idx) => (
+                <div key={exam.id || idx} className="flex items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <Calendar className="w-4 h-4 text-[#14532D] dark:text-[#22C55E] shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6] line-clamp-1">{exam.title}</h4>
+                      <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
+                        {exam.duration || "90 min"} | {exam.questions || "100 Questions"}
+                      </p>
+                    </div>
+                  </div>
                   <button
-                    onClick={() => onStartModule && onStartModule(exam, "general")}
-                    className="mt-2.5 w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    onClick={() => {
+                      if (onStartModule && exam.moduleType) {
+                        onStartModule(exam, "general");
+                      } else {
+                        onTabChange("companies");
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-[#14532D] hover:bg-[#0F4224] text-white dark:bg-[#22C55E] dark:text-[#111827] rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0"
                   >
                     Start Test
                   </button>
@@ -452,49 +414,54 @@ export function StudentDashboardView({
           </div>
         </div>
 
-        {/* Live Placement Missions (4 cols - Matching Image 3) */}
-        <div className="lg:col-span-4 bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs flex flex-col justify-between">
+        {/* Live Placement Missions (3.5 cols) */}
+        <div className="lg:col-span-3.5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Trophy className="w-4 h-4 text-amber-500" />
-                <span>Live Placement Missions</span>
-              </h3>
+              <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Live Placement Missions</h3>
               <button
                 onClick={() => onTabChange("placement-mission")}
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                className="text-xs font-bold text-[#14532D] dark:text-[#22C55E] hover:underline flex items-center gap-1 cursor-pointer"
               >
-                View All
+                View All <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Mission banner */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-sm mb-3">
-              <h4 className="text-xs font-black">Infosys Hiring Challenge</h4>
-              <p className="text-[10px] text-blue-200 mt-0.5">Ends in 2d 14h 32m</p>
+            {/* Mission banner item */}
+            <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-[#E7E1D5] dark:border-[#374151]">
+              <div className="flex items-start gap-2.5">
+                <Building2 className="w-4 h-4 text-[#14532D] dark:text-[#22C55E] shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6]">Infosys Hiring Challenge</h4>
+                  <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">Ends in 2d 14h 32m</p>
+                </div>
+              </div>
               <button
                 onClick={() => onTabChange("placement-mission")}
-                className="mt-2 px-3 py-1 bg-white text-blue-900 rounded-lg text-xs font-bold shadow-xs cursor-pointer hover:bg-blue-50"
+                className="px-3 py-1.5 bg-[#14532D] hover:bg-[#0F4224] text-white dark:bg-[#22C55E] dark:text-[#111827] rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0"
               >
                 Join Now
               </button>
             </div>
 
             {/* Mini Leaderboard list */}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {[
                 { rank: 1, name: "Ananya Patel", score: "98.5%" },
                 { rank: 2, name: "Karan Mehta", score: "96.0%" },
                 { rank: 3, name: "Riya Singh", score: "94.5%" },
-                { rank: 4, name: `You (${user?.name?.split(" ")[0] || "Student"})`, score: `${averageScore}%`, isYou: true }
-              ].map(lb => (
-                <div key={lb.rank} className={`flex items-center justify-between p-1.5 px-2.5 rounded-xl text-xs ${
-                  lb.isYou
-                    ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-500/20"
-                    : "text-slate-600 dark:text-slate-300"
-                }`}>
+                { rank: 4, name: `You (${user?.name?.split(" ")[0] || "kaju"})`, score: `${averageScore}%`, isYou: true },
+              ].map((lb) => (
+                <div
+                  key={lb.rank}
+                  className={`flex items-center justify-between py-1 px-1.5 rounded-lg text-xs ${
+                    lb.isYou
+                      ? "text-[#15803D] dark:text-[#22C55E] font-bold"
+                      : "text-[#374151] dark:text-[#F3F4F6]"
+                  }`}
+                >
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] font-bold text-slate-400">#{lb.rank}</span>
+                    <span className="font-mono text-xs text-[#6B7280] dark:text-[#9CA3AF]">#{lb.rank}</span>
                     <span className="truncate">{lb.name}</span>
                   </div>
                   <span className="font-bold">{lb.score}</span>
@@ -505,110 +472,121 @@ export function StudentDashboardView({
         </div>
       </div>
 
-      {/* ── My Plans & Access + Recent Test Performance + Announcements ── */}
+      {/* ── 4. Bottom Grid: My Plan & Access (4 cols) + Recent Test Performance (4 cols) + Announcements (4 cols) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* My Plans & Access (4 cols) */}
-        <div className="lg:col-span-4 bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs">
+        {/* My Plan & Access (4 cols) */}
+        <div className="lg:col-span-4 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">My Plans & Access</h3>
+            <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">My Plan & Access</h3>
             <button
               onClick={() => onTabChange("plans")}
-              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+              className="text-xs font-bold text-[#14532D] dark:text-[#22C55E] hover:underline flex items-center gap-1 cursor-pointer"
             >
-              View All
+              View All <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Crown className="w-5 h-5 text-amber-300" />
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-100">Active Plan</span>
+          <div className="p-4 rounded-xl bg-[#E8F3EC] dark:bg-[#193B2A] border border-[#14532D]/15 dark:border-[#22C55E]/20">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5">
+                <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#14532D] dark:text-[#22C55E]">
+                  ACTIVE PLAN
+                </span>
               </div>
-              <button
-                onClick={() => onTabChange("plans")}
-                className="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
-              >
-                Manage Plan
-              </button>
             </div>
-            <h4 className="text-lg font-black">{user?.hasFullPremium ? "Premium Full Access" : "All-Access Pass"}</h4>
-            <p className="text-[11px] text-emerald-100 mt-0.5">Valid till 30 Sep 2026</p>
+            <h4 className="text-base font-bold text-[#374151] dark:text-[#F3F4F6] mt-1">{planTitle}</h4>
+            <p className="text-[11px] text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">Valid till 30 Sep 2026</p>
 
-            <div className="mt-3.5 pt-3 border-t border-white/20 space-y-1.5 text-xs text-emerald-50">
-              <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> All Company Tests Included</div>
-              <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> Unlimited Practice Tests</div>
-              <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> Detailed Solutions & Explanations</div>
+            <div className="mt-3 space-y-1.5 text-xs text-[#374151] dark:text-[#F3F4F6]">
+              <div className="flex items-center gap-2">
+                <Check className="w-3.5 h-3.5 text-[#14532D] dark:text-[#22C55E]" /> All Company Tests Included
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="w-3.5 h-3.5 text-[#14532D] dark:text-[#22C55E]" /> Unlimited Practice Tests
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="w-3.5 h-3.5 text-[#14532D] dark:text-[#22C55E]" /> Detailed Solutions & Explanations
+              </div>
             </div>
+
+            <button
+              onClick={() => onTabChange("plans")}
+              className="mt-4 px-4 py-1.5 bg-[#14532D] hover:bg-[#0F4224] text-white dark:bg-[#22C55E] dark:text-[#111827] rounded-lg text-xs font-semibold transition-all cursor-pointer"
+            >
+              Manage Plan
+            </button>
           </div>
         </div>
 
-        {/* Recent Test Performance (5 cols) */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs">
+        {/* Recent Test Performance (4 cols) */}
+        <div className="lg:col-span-4 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Test Performance</h3>
-            <span className="text-xs text-slate-400 font-mono">{recentTests.length} Attempts</span>
+            <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Recent Test Performance</h3>
+            <span className="text-xs text-[#6B7280] dark:text-[#9CA3AF] font-medium">3 Attempts</span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase text-[10px] font-bold">
-                  <th className="pb-2">Test Name</th>
-                  <th className="pb-2">Score</th>
-                  <th className="pb-2">Rank</th>
-                  <th className="pb-2 text-right">Action</th>
+                <tr className="border-b border-[#E7E1D5] dark:border-[#374151] text-[#6B7280] dark:text-[#9CA3AF] uppercase text-[10px] font-semibold">
+                  <th className="pb-2">TEST NAME</th>
+                  <th className="pb-2 text-center">SCORE</th>
+                  <th className="pb-2 text-center">RANK</th>
+                  <th className="pb-2 text-right">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                {recentTests.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-6 text-center text-slate-400">
-                      No test attempts yet. Start your first mock test!
+              <tbody className="divide-y divide-[#E7E1D5]/60 dark:divide-[#374151]/60">
+                {recentPerformance.map((t) => (
+                  <tr key={t.id} className="hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors">
+                    <td className="py-2.5 font-bold text-[#374151] dark:text-[#F3F4F6] truncate max-w-[120px]">{t.name}</td>
+                    <td className="py-2.5 text-center text-[#15803D] dark:text-[#22C55E] font-bold">{t.score}</td>
+                    <td className="py-2.5 text-center text-[#6B7280] dark:text-[#9CA3AF] font-mono">{t.rank}</td>
+                    <td className="py-2.5 text-right">
+                      <button
+                        onClick={() => {
+                          if (t.mod && onStartModule) {
+                            onStartModule(t.mod, "general");
+                          } else {
+                            onTabChange("companies");
+                          }
+                        }}
+                        className="text-xs text-[#14532D] dark:text-[#22C55E] font-semibold hover:underline cursor-pointer"
+                      >
+                        Review
+                      </button>
                     </td>
                   </tr>
-                ) : (
-                  recentTests.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2.5 font-bold text-slate-900 dark:text-white line-clamp-1">{t.name}</td>
-                      <td className="py-2.5 text-emerald-600 dark:text-emerald-400 font-bold">{t.score}</td>
-                      <td className="py-2.5 text-slate-400 font-mono">{t.rank}</td>
-                      <td className="py-2.5 text-right">
-                        <button
-                          onClick={() => t.mod && onStartModule && onStartModule(t.mod, "general")}
-                          className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
-                        >
-                          Review
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Announcements (3 cols) */}
-        <div className="lg:col-span-3 bg-white dark:bg-[#10192E] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Announcements</h3>
-          <div className="space-y-3">
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white">TCS NQT 2026 Registration Open</h4>
-              <p className="text-[10px] text-slate-500 mt-0.5">Apply before 30 July 2026</p>
-              <span className="text-[9px] text-slate-400 font-mono mt-1 block">2 hours ago</span>
+        {/* Announcements (4 cols) */}
+        <div className="lg:col-span-4 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-2xs">
+          <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6] mb-4">Announcements</h3>
+          <div className="space-y-3.5">
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0 mt-0.5">
+                <Bell className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6]">TCS NQT 2026 Registration Open</h4>
+                <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">Apply before 30 July 2026</p>
+                <span className="text-[9px] text-[#9CA3AF] mt-0.5 block">2 hours ago</span>
+              </div>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white">New Aptitude Quiz Series Added</h4>
-              <p className="text-[10px] text-slate-500 mt-0.5">Practice speed & accuracy now</p>
-              <span className="text-[9px] text-slate-400 font-mono mt-1 block">1 day ago</span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white">Infosys Hiring Challenge Starts Soon</h4>
-              <p className="text-[10px] text-slate-500 mt-0.5">Win certificates & interview calls</p>
-              <span className="text-[9px] text-slate-400 font-mono mt-1 block">2 days ago</span>
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0 mt-0.5">
+                <Bell className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6]">New Aptitude Quiz Series Added</h4>
+                <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">Practice speed & accuracy now</p>
+                <span className="text-[9px] text-[#9CA3AF] mt-0.5 block">1 day ago</span>
+              </div>
             </div>
           </div>
         </div>
@@ -616,3 +594,4 @@ export function StudentDashboardView({
     </div>
   );
 }
+export default StudentDashboardView;

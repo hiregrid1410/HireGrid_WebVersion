@@ -2239,6 +2239,7 @@ export default function StudentDashboard() {
                         activeBranches={activeBranches}
                         placementMissions={placementMissions}
                         leaderboard={leaderboard}
+                        plans={plans}
                         onTabChange={handleNavClick}
                         onStartModule={handleStartModule}
                       />
