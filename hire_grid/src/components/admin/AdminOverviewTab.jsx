@@ -178,9 +178,9 @@ export function AdminOverviewTab({ onNavigateTab }) {
   const bothPct = Math.max(0, 100 - webPct - appPct);
 
   const donutData = useMemo(() => [
-    { name: "Web Only", value: stats.webContentCount || (stats.totalContent === 0 ? 1 : 0), color: "#8B5CF6", pct: `${webPct}%` },
-    { name: "App Only", value: stats.appContentCount || 0, color: "#10B981", pct: `${appPct}%` },
-    { name: "Both (Web & App)", value: stats.bothContentCount || 0, color: "#3B82F6", pct: `${bothPct}%` }
+    { name: "Web Only", value: stats.webContentCount || (stats.totalContent === 0 ? 1 : 0), color: "#14532D", pct: `${webPct}%` },
+    { name: "App Only", value: stats.appContentCount || 0, color: "#D6C7A1", pct: `${appPct}%` },
+    { name: "Both (Web & App)", value: stats.bothContentCount || 0, color: "#0F4224", pct: `${bothPct}%` }
   ], [stats.webContentCount, stats.appContentCount, stats.bothContentCount, stats.totalContent, webPct, appPct, bothPct]);
 
   // Dynamic User Growth Chart Data derived from real total students and timeframe
@@ -262,31 +262,31 @@ export function AdminOverviewTab({ onNavigateTab }) {
 
   return (
     <div className="space-y-6">
-      {/* 1. Dashboard Header - Matching Reference Screenshot & Dark Mode */}
+      {/* 1. Dashboard Header - Forest Green + Cream Theme & Dark Mode */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-[#0F172A] dark:text-white tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl font-black text-[#374151] dark:text-[#F3F4F6] tracking-tight flex items-center gap-2">
             Good Morning, Admin! 👋
           </h1>
-          <p className="text-xs text-[#64748B] dark:text-slate-400 mt-1 font-medium">
+          <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-1 font-medium">
             Here's what's happening with your platform today.
           </p>
         </div>
 
         {/* Right side: Current Date and Refresh Button */}
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-xl text-xs font-semibold text-[#0F172A] dark:text-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-            <Calendar className="w-3.5 h-3.5 text-[#64748B] dark:text-slate-400" />
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-xl text-xs font-semibold text-[#374151] dark:text-[#F3F4F6] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+            <Calendar className="w-3.5 h-3.5 text-[#6B7280] dark:text-[#9CA3AF]" />
             <span>{formattedCurrentDate}</span>
           </div>
 
           <button
             onClick={fetchOverviewData}
             disabled={loading}
-            className="p-2 bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.03)] cursor-pointer"
+            className="p-2 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] rounded-xl text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.03)] cursor-pointer"
             title="Refresh Live Data"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#2563EB]" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#14532D] dark:text-[#22C55E]" : ""}`} />
           </button>
         </div>
       </div>
@@ -294,59 +294,59 @@ export function AdminOverviewTab({ onNavigateTab }) {
       {/* 2. Statistics Cards - Exactly 5 in one row on desktop */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Card 1: Total Students */}
-        <div className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-blue-400 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0">
               <Users className="w-4 h-4" />
             </div>
-            <span className="text-xs font-medium text-[#64748B] dark:text-slate-400">Total Students</span>
+            <span className="text-xs font-medium text-[#6B7280] dark:text-[#9CA3AF]">Total Students</span>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-black text-[#0F172A] dark:text-white tracking-tight">
+            <span className="text-2xl font-black text-[#374151] dark:text-[#F3F4F6] tracking-tight">
               {stats.totalStudents.toLocaleString()}
             </span>
-            <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-[#16A34A] dark:text-emerald-400">
+            <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-[#15803D] dark:text-[#4ADE80]">
               <TrendingUp className="w-3 h-3" />
               <span>+12%</span>
-              <span className="text-[#64748B] dark:text-slate-400 font-normal ml-0.5">this month</span>
+              <span className="text-[#6B7280] dark:text-[#9CA3AF] font-normal ml-0.5">this month</span>
             </div>
           </div>
         </div>
 
         {/* Card 2: Total Content */}
-        <div className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#16A34A] dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0">
               <Layers className="w-4 h-4" />
             </div>
-            <span className="text-xs font-medium text-[#64748B] dark:text-slate-400">Total Content</span>
+            <span className="text-xs font-medium text-[#6B7280] dark:text-[#9CA3AF]">Total Content</span>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-black text-[#0F172A] dark:text-white tracking-tight">
+            <span className="text-2xl font-black text-[#374151] dark:text-[#F3F4F6] tracking-tight">
               {stats.totalContent.toLocaleString()}
             </span>
-            <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-[#16A34A] dark:text-emerald-400">
+            <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-[#15803D] dark:text-[#4ADE80]">
               <TrendingUp className="w-3 h-3" />
               <span>+8%</span>
-              <span className="text-[#64748B] dark:text-slate-400 font-normal ml-0.5">this month</span>
+              <span className="text-[#6B7280] dark:text-[#9CA3AF] font-normal ml-0.5">this month</span>
             </div>
           </div>
         </div>
 
         {/* Card 3: Payment Requests */}
-        <div className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-[#F59E0B] dark:text-amber-400 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] flex items-center justify-center shrink-0">
               <CreditCard className="w-4 h-4" />
             </div>
-            <span className="text-xs font-medium text-[#64748B] dark:text-slate-400">Payment Requests</span>
+            <span className="text-xs font-medium text-[#6B7280] dark:text-[#9CA3AF]">Payment Requests</span>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-black text-[#0F172A] dark:text-white tracking-tight">
+            <span className="text-2xl font-black text-[#374151] dark:text-[#F3F4F6] tracking-tight">
               {stats.pendingPaymentsCount}
             </span>
             <div className="mt-1">
-              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#FEF3C7] dark:bg-amber-950/40 text-[#D97706] dark:text-amber-400 border border-[#FDE68A]/60 dark:border-amber-800/40">
+              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] border border-[#D6C7A1] dark:border-[#374151]">
                 {stats.pendingPaymentsCount} pending review
               </span>
             </div>
@@ -354,19 +354,19 @@ export function AdminOverviewTab({ onNavigateTab }) {
         </div>
 
         {/* Card 4: Device Requests */}
-        <div className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-[#6366F1] dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] flex items-center justify-center shrink-0">
               <Smartphone className="w-4 h-4" />
             </div>
-            <span className="text-xs font-medium text-[#64748B] dark:text-slate-400">Device Requests</span>
+            <span className="text-xs font-medium text-[#6B7280] dark:text-[#9CA3AF]">Device Requests</span>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-black text-[#0F172A] dark:text-white tracking-tight">
+            <span className="text-2xl font-black text-[#374151] dark:text-[#F3F4F6] tracking-tight">
               {stats.pendingDevicesCount}
             </span>
             <div className="mt-1">
-              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#FEF3C7] dark:bg-amber-950/40 text-[#D97706] dark:text-amber-400 border border-[#FDE68A]/60 dark:border-amber-800/40">
+              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] border border-[#D6C7A1] dark:border-[#374151]">
                 {stats.pendingDevicesCount} pending reset
               </span>
             </div>
@@ -374,19 +374,19 @@ export function AdminOverviewTab({ onNavigateTab }) {
         </div>
 
         {/* Card 5: Active Staff */}
-        <div className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#16A34A] dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0">
               <ShieldCheck className="w-4 h-4" />
             </div>
-            <span className="text-xs font-medium text-[#64748B] dark:text-slate-400">Active Staff</span>
+            <span className="text-xs font-medium text-[#6B7280] dark:text-[#9CA3AF]">Active Staff</span>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-black text-[#0F172A] dark:text-white tracking-tight">
+            <span className="text-2xl font-black text-[#374151] dark:text-[#F3F4F6] tracking-tight">
               {stats.activeStaffCount}
             </span>
             <div className="mt-1">
-              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#DCFCE7] dark:bg-emerald-950/40 text-[#16A34A] dark:text-emerald-400 border border-[#BBF7D0]/60 dark:border-emerald-800/40">
+              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#E8F3EC] dark:bg-[#193B2A] text-[#15803D] dark:text-[#4ADE80] border border-[#E7E1D5] dark:border-[#374151]">
                 All staff active
               </span>
             </div>
@@ -397,32 +397,32 @@ export function AdminOverviewTab({ onNavigateTab }) {
       {/* 3. Analytics Section: Platform-wise User Growth & Platform Content Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left: Platform-wise User Growth (Area Chart with Dark Mode) */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
+              <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">
                 Platform-wise User Growth
               </h3>
-              <div className="flex items-center gap-4 mt-1 text-xs text-[#64748B] dark:text-slate-400">
+              <div className="flex items-center gap-4 mt-1 text-xs text-[#6B7280] dark:text-[#9CA3AF]">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB]"></span> Web Users
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#14532D] dark:bg-[#22C55E]"></span> Web Users
                 </span>
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span> App Users
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#D6C7A1] dark:bg-[#C5B48A]"></span> App Users
                 </span>
               </div>
             </div>
 
             {/* Timeframe Filter Tabs */}
-            <div className="flex items-center bg-[#F1F5F9] dark:bg-slate-800/80 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
+            <div className="flex items-center bg-[#FAF7F0] dark:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
               {["7D", "30D", "3M", "6M", "1Y"].map((t) => (
                 <button
                   key={t}
                   onClick={() => setGrowthTimeframe(t)}
                   className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                     growthTimeframe === t
-                      ? "bg-[#2563EB] text-white shadow-xs font-bold"
-                      : "text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white"
+                      ? "bg-[#14532D] dark:bg-[#22C55E] text-white dark:text-[#111827] shadow-xs font-bold"
+                      : "text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6]"
                   }`}
                 >
                   {t}
@@ -440,24 +440,24 @@ export function AdminOverviewTab({ onNavigateTab }) {
               >
                 <defs>
                   <linearGradient id="colorGrowthWeb" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#14532D" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#14532D" stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="colorGrowthApp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#D6C7A1" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#D6C7A1" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} stroke="#94A3B8" strokeOpacity={0.15} />
+                <CartesianGrid vertical={false} stroke="#E7E1D5" strokeOpacity={0.3} />
                 <XAxis
                   dataKey="date"
-                  stroke="#64748B"
+                  stroke="#6B7280"
                   fontSize={11}
                   tickLine={false}
-                  axisLine={{ stroke: "#E2E8F0", strokeOpacity: 0.2 }}
+                  axisLine={{ stroke: "#E7E1D5", strokeOpacity: 0.3 }}
                 />
                 <YAxis
-                  stroke="#64748B"
+                  stroke="#6B7280"
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
@@ -466,37 +466,37 @@ export function AdminOverviewTab({ onNavigateTab }) {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#0F172A",
-                    borderColor: "#334155",
+                    backgroundColor: "#1F2937",
+                    borderColor: "#374151",
                     borderRadius: "12px",
                     boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2)",
                     fontSize: "12px",
-                    color: "#F8FAFC",
+                    color: "#F3F4F6",
                     fontWeight: 600
                   }}
-                  itemStyle={{ color: "#F8FAFC" }}
+                  itemStyle={{ color: "#F3F4F6" }}
                 />
                 <Area
                   type="monotone"
                   dataKey="web"
                   name="Web Users"
-                  stroke="#2563EB"
+                  stroke="#14532D"
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorGrowthWeb)"
-                  dot={{ r: 3.5, stroke: "#2563EB", strokeWidth: 2, fill: "#FFFFFF" }}
-                  activeDot={{ r: 5.5, stroke: "#2563EB", strokeWidth: 2, fill: "#FFFFFF" }}
+                  dot={{ r: 3.5, stroke: "#14532D", strokeWidth: 2, fill: "#FFFFFF" }}
+                  activeDot={{ r: 5.5, stroke: "#14532D", strokeWidth: 2, fill: "#FFFFFF" }}
                 />
                 <Area
                   type="monotone"
                   dataKey="app"
                   name="App Users"
-                  stroke="#10B981"
+                  stroke="#D6C7A1"
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorGrowthApp)"
-                  dot={{ r: 3.5, stroke: "#10B981", strokeWidth: 2, fill: "#FFFFFF" }}
-                  activeDot={{ r: 5.5, stroke: "#10B981", strokeWidth: 2, fill: "#FFFFFF" }}
+                  dot={{ r: 3.5, stroke: "#D6C7A1", strokeWidth: 2, fill: "#FFFFFF" }}
+                  activeDot={{ r: 5.5, stroke: "#D6C7A1", strokeWidth: 2, fill: "#FFFFFF" }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -504,12 +504,12 @@ export function AdminOverviewTab({ onNavigateTab }) {
         </div>
 
         {/* Right: Platform Content Distribution (Donut & Dark Mode) */}
-        <div className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
+            <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">
               Platform Content Distribution
             </h3>
-            <p className="text-xs text-[#64748B] dark:text-slate-400 mt-0.5">
+            <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
               Companies & Modules across platforms
             </p>
           </div>
@@ -535,35 +535,35 @@ export function AdminOverviewTab({ onNavigateTab }) {
                 </ResponsiveContainer>
               </div>
               <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-black text-[#0F172A] dark:text-white tracking-tight">
+                <span className="text-2xl font-black text-[#374151] dark:text-[#F3F4F6] tracking-tight">
                   {stats.totalContent}
                 </span>
-                <span className="text-[10px] uppercase font-bold text-[#64748B] dark:text-slate-400">Total</span>
+                <span className="text-[10px] uppercase font-bold text-[#6B7280] dark:text-[#9CA3AF]">Total</span>
               </div>
             </div>
 
             {/* Clean Legend matching screenshot & Dark Mode */}
             <div className="space-y-3 text-xs pl-2">
               <div className="flex items-center justify-between gap-4">
-                <span className="flex items-center gap-2 text-[#0F172A] dark:text-slate-200 font-medium text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6] shrink-0"></span>
+                <span className="flex items-center gap-2 text-[#374151] dark:text-[#F3F4F6] font-medium text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#14532D] shrink-0"></span>
                   Web Only
                 </span>
-                <span className="font-bold text-[#0F172A] dark:text-white">{webPct}%</span>
+                <span className="font-bold text-[#374151] dark:text-[#F3F4F6]">{webPct}%</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="flex items-center gap-2 text-[#0F172A] dark:text-slate-200 font-medium text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] shrink-0"></span>
+                <span className="flex items-center gap-2 text-[#374151] dark:text-[#F3F4F6] font-medium text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#D6C7A1] shrink-0"></span>
                   App Only
                 </span>
-                <span className="font-bold text-[#0F172A] dark:text-white">{appPct}%</span>
+                <span className="font-bold text-[#374151] dark:text-[#F3F4F6]">{appPct}%</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="flex items-center gap-2 text-[#0F172A] dark:text-slate-200 font-medium text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6] shrink-0"></span>
+                <span className="flex items-center gap-2 text-[#374151] dark:text-[#F3F4F6] font-medium text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#0F4224] shrink-0"></span>
                   Both (Web & App)
                 </span>
-                <span className="font-bold text-[#0F172A] dark:text-white">{bothPct}%</span>
+                <span className="font-bold text-[#374151] dark:text-[#F3F4F6]">{bothPct}%</span>
               </div>
             </div>
           </div>
@@ -573,17 +573,17 @@ export function AdminOverviewTab({ onNavigateTab }) {
       {/* 4. Recent Activity Tables - Payment Requests & Device Requests */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Left: Recent Payment Requests */}
-        <div className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
-              <CreditCard className="w-4 h-4 text-[#2563EB]" />
-              <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
+              <CreditCard className="w-4 h-4 text-[#14532D] dark:text-[#22C55E]" />
+              <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">
                 Recent Payment Requests
               </h3>
             </div>
             <button
               onClick={() => onNavigateTab("operations", "purchase_requests")}
-              className="text-xs font-semibold text-[#2563EB] hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs font-semibold text-[#14532D] dark:text-[#22C55E] hover:underline flex items-center gap-1 cursor-pointer"
             >
               View All <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -592,17 +592,17 @@ export function AdminOverviewTab({ onNavigateTab }) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-[#E2E8F0] dark:border-slate-800 text-[#64748B] dark:text-slate-400 text-[11px] font-semibold">
+                <tr className="border-b border-[#E7E1D5] dark:border-[#374151] text-[#6B7280] dark:text-[#9CA3AF] text-[11px] font-semibold">
                   <th className="pb-3 font-semibold">Student</th>
                   <th className="pb-3 font-semibold">Item / Plan</th>
                   <th className="pb-3 font-semibold">Amount</th>
                   <th className="pb-3 font-semibold">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#F1F5F9] dark:divide-slate-800">
+              <tbody className="divide-y divide-[#E7E1D5] dark:divide-[#374151]">
                 {stats.recentPayments.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-[#64748B] dark:text-slate-400">
+                    <td colSpan={4} className="py-8 text-center text-[#6B7280] dark:text-[#9CA3AF]">
                       No recent payment requests found.
                     </td>
                   </tr>
@@ -610,24 +610,24 @@ export function AdminOverviewTab({ onNavigateTab }) {
                   stats.recentPayments.map((p) => {
                     const statusLower = (p.status || "pending").toLowerCase();
                     return (
-                      <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 font-bold text-[#0F172A] dark:text-white">
+                      <tr key={p.id} className="hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors">
+                        <td className="py-3 font-bold text-[#374151] dark:text-[#F3F4F6]">
                           {p.userName || p.user_name || "Student"}
                         </td>
-                        <td className="py-3 text-[#64748B] dark:text-slate-400 font-mono text-[11px]">
+                        <td className="py-3 text-[#6B7280] dark:text-[#9CA3AF] font-mono text-[11px]">
                           {p.itemName || p.item_name || "hiregridX++"}
                         </td>
-                        <td className="py-3 font-bold text-[#0F172A] dark:text-white">
+                        <td className="py-3 font-bold text-[#374151] dark:text-[#F3F4F6]">
                           ₹{Number(p.amount || 0).toFixed(2)}
                         </td>
                         <td className="py-3">
                           <span
                             className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
                               statusLower === "approved"
-                                ? "bg-[#DCFCE7] dark:bg-emerald-950/40 text-[#16A34A] dark:text-emerald-400"
+                                ? "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#15803D] dark:text-[#4ADE80]"
                                 : statusLower === "rejected"
-                                ? "bg-[#FEE2E2] dark:bg-rose-950/40 text-[#DC2626] dark:text-rose-400"
-                                : "bg-[#FEF3C7] dark:bg-amber-950/40 text-[#D97706] dark:text-amber-400"
+                                ? "bg-[#FEE2E2] dark:bg-rose-950/40 text-[#B91C1C] dark:text-[#F87171]"
+                                : "bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] border border-[#D6C7A1] dark:border-[#374151]"
                             }`}
                           >
                             {statusLower === "approved"
@@ -647,17 +647,17 @@ export function AdminOverviewTab({ onNavigateTab }) {
         </div>
 
         {/* Right: Recent Device Requests */}
-        <div className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
-              <Smartphone className="w-4 h-4 text-[#2563EB]" />
-              <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
+              <Smartphone className="w-4 h-4 text-[#14532D] dark:text-[#22C55E]" />
+              <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">
                 Recent Device Requests
               </h3>
             </div>
             <button
               onClick={() => onNavigateTab("operations", "device_access")}
-              className="text-xs font-semibold text-[#2563EB] hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs font-semibold text-[#14532D] dark:text-[#22C55E] hover:underline flex items-center gap-1 cursor-pointer"
             >
               View All <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -666,7 +666,7 @@ export function AdminOverviewTab({ onNavigateTab }) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-[#E2E8F0] dark:border-slate-800 text-[#64748B] dark:text-slate-400 text-[11px] font-semibold">
+                <tr className="border-b border-[#E7E1D5] dark:border-[#374151] text-[#6B7280] dark:text-[#9CA3AF] text-[11px] font-semibold">
                   <th className="pb-3 font-semibold">Student</th>
                   <th className="pb-3 font-semibold">Current Device</th>
                   <th className="pb-3 font-semibold">New Device</th>
@@ -674,10 +674,10 @@ export function AdminOverviewTab({ onNavigateTab }) {
                   <th className="pb-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#F1F5F9] dark:divide-slate-800">
+              <tbody className="divide-y divide-[#E7E1D5] dark:divide-[#374151]">
                 {stats.recentDevices.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-[#64748B] dark:text-slate-400">
+                    <td colSpan={5} className="py-8 text-center text-[#6B7280] dark:text-[#9CA3AF]">
                       No pending device requests found.
                     </td>
                   </tr>
@@ -685,24 +685,24 @@ export function AdminOverviewTab({ onNavigateTab }) {
                   stats.recentDevices.map((d) => {
                     const statusLower = (d.status || "pending").toLowerCase();
                     return (
-                      <tr key={d.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 font-bold text-[#0F172A] dark:text-white">
+                      <tr key={d.id} className="hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors">
+                        <td className="py-3 font-bold text-[#374151] dark:text-[#F3F4F6]">
                           {d.userName || d.user_name || "Student"}
                         </td>
-                        <td className="py-3 text-slate-400 dark:text-slate-500 font-mono text-[11px]">
+                        <td className="py-3 text-[#9CA3AF] dark:text-[#6B7280] font-mono text-[11px]">
                           {d.deviceId || d.device_id ? (d.deviceId || d.device_id).substring(0, 10) + "..." : "—"}
                         </td>
-                        <td className="py-3 text-[#0F172A] dark:text-slate-200 font-medium font-mono text-[11px]">
+                        <td className="py-3 text-[#374151] dark:text-[#F3F4F6] font-medium font-mono text-[11px]">
                           {d.deviceName || d.device_name || "chrome (Web)"}
                         </td>
                         <td className="py-3">
                           <span
                             className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
                               statusLower === "approved"
-                                ? "bg-[#DCFCE7] dark:bg-emerald-950/40 text-[#16A34A] dark:text-emerald-400"
+                                ? "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#15803D] dark:text-[#4ADE80]"
                                 : statusLower === "rejected"
-                                ? "bg-[#FEE2E2] dark:bg-rose-950/40 text-[#DC2626] dark:text-rose-400"
-                                : "bg-[#FEF3C7] dark:bg-amber-950/40 text-[#D97706] dark:text-amber-400"
+                                ? "bg-[#FEE2E2] dark:bg-rose-950/40 text-[#B91C1C] dark:text-[#F87171]"
+                                : "bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] border border-[#D6C7A1] dark:border-[#374151]"
                             }`}
                           >
                             {statusLower === "approved"
@@ -717,21 +717,21 @@ export function AdminOverviewTab({ onNavigateTab }) {
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => handleApproveDevice(d.id)}
-                                className="w-5 h-5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950/60 hover:bg-[#BBF7D0] dark:hover:bg-emerald-900/60 text-[#16A34A] dark:text-emerald-400 flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+                                className="w-5 h-5 rounded-full bg-[#E8F3EC] dark:bg-[#193B2A] hover:bg-[#D6C7A1] text-[#15803D] dark:text-[#4ADE80] flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
                                 title="Approve Device Reset"
                               >
                                 ✓
                               </button>
                               <button
                                 onClick={() => handleRejectDevice(d.id)}
-                                className="w-5 h-5 rounded-full bg-[#FEE2E2] dark:bg-rose-950/60 hover:bg-[#FECACA] dark:hover:bg-rose-900/60 text-[#DC2626] dark:text-rose-400 flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+                                className="w-5 h-5 rounded-full bg-[#FEE2E2] dark:bg-rose-950/60 hover:bg-[#FECACA] dark:hover:bg-rose-900/60 text-[#B91C1C] dark:text-[#F87171] flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
                                 title="Reject Device Request"
                               >
                                 ✕
                               </button>
                             </div>
                           ) : (
-                            <span className="text-[#64748B] dark:text-slate-400 text-[11px]">—</span>
+                            <span className="text-[#6B7280] dark:text-[#9CA3AF] text-[11px]">—</span>
                           )}
                         </td>
                       </tr>
@@ -745,41 +745,41 @@ export function AdminOverviewTab({ onNavigateTab }) {
       </div>
 
       {/* 5. Collapsible Quick Access Navigation (15 Managed Workspaces) */}
-      <div className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)]">
+      <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)]">
         <button
           onClick={() => setShowQuickAccess(!showQuickAccess)}
-          className="w-full flex items-center justify-between text-xs font-bold text-[#0F172A] dark:text-white hover:text-[#2563EB] dark:hover:text-blue-400 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between text-xs font-bold text-[#374151] dark:text-[#F3F4F6] hover:text-[#14532D] dark:hover:text-[#22C55E] transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-[#2563EB]" />
+            <BarChart3 className="w-4 h-4 text-[#14532D] dark:text-[#22C55E]" />
             <span>Administrative Workspaces & Quick Links (15 Modules)</span>
           </div>
-          <div className="flex items-center gap-1 text-[11px] text-[#64748B] dark:text-slate-400">
+          <div className="flex items-center gap-1 text-[11px] text-[#6B7280] dark:text-[#9CA3AF]">
             <span>{showQuickAccess ? "Hide" : "Show All"}</span>
             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showQuickAccess ? "rotate-180" : ""}`} />
           </div>
         </button>
 
         {showQuickAccess && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pt-4 border-t border-[#E2E8F0] dark:border-slate-800 mt-3 animate-in fade-in duration-200">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pt-4 border-t border-[#E7E1D5] dark:border-[#374151] mt-3 animate-in fade-in duration-200">
             {quickAccessTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => onNavigateTab(tab.workspace, tab.subtab)}
-                className="flex flex-col text-left p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-blue-50/60 dark:hover:bg-slate-800 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#2563EB]/40 transition-all group relative cursor-pointer"
+                className="flex flex-col text-left p-3 rounded-xl bg-[#FAF7F0] dark:bg-[#111827] hover:bg-[#E8F3EC] dark:hover:bg-[#193B2A] border border-[#E7E1D5] dark:border-[#374151] hover:border-[#14532D]/40 dark:hover:border-[#22C55E]/40 transition-all group relative cursor-pointer"
               >
                 {tab.badge > 0 && (
-                  <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EF4444] text-white">
+                  <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#B91C1C] text-white">
                     {tab.badge}
                   </span>
                 )}
-                <div className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 w-fit group-hover:scale-105 transition-transform">
+                <div className="p-1.5 rounded-lg bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] w-fit group-hover:scale-105 transition-transform">
                   {tab.icon}
                 </div>
-                <h4 className="text-xs font-bold text-[#0F172A] dark:text-white mt-2 group-hover:text-[#2563EB] dark:group-hover:text-blue-400 transition-colors">
+                <h4 className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6] mt-2 group-hover:text-[#14532D] dark:group-hover:text-[#22C55E] transition-colors">
                   {tab.title}
                 </h4>
-                <p className="text-[10px] text-[#64748B] dark:text-slate-400 mt-0.5 line-clamp-1">
+                <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] mt-0.5 line-clamp-1">
                   {tab.subtitle}
                 </p>
               </button>

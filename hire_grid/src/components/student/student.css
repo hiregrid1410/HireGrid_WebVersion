@@ -4,27 +4,27 @@
    ============================================================ */
 
 :root {
-  --std-bg:           #F5F7F2;
-  --std-bg-darker:    #EFEFE9;
+  --std-bg:           #FAF7F0;
+  --std-bg-darker:    #FAF7F0;
   --std-card:         #FFFFFF;
-  --std-card-hover:   #FAFBF8;
-  --std-card-border:  rgba(0, 0, 0, 0.08);
-  --std-border:       rgba(0, 0, 0, 0.1);
-  --std-border-green: rgba(16, 185, 129, 0.25);
-  --std-border-blue:  rgba(37, 99, 235, 0.25);
+  --std-card-hover:   #E8F3EC;
+  --std-card-border:  #E7E1D5;
+  --std-border:       #E7E1D5;
+  --std-border-green: rgba(20, 83, 45, 0.25);
+  --std-border-blue:  rgba(20, 83, 45, 0.25);
 
-  --std-green:        #10B981;
-  --std-green-hover:  #059669;
-  --std-blue:         #2563EB;
-  --std-cyan:         #0891B2;
-  --std-purple:       #8B5CF6;
-  --std-orange:       #F97316;
-  --std-yellow:       #D97706;
-  --std-rose:         #EF4444;
+  --std-green:        #14532D;
+  --std-green-hover:  #0F4224;
+  --std-blue:         #14532D;
+  --std-cyan:         #14532D;
+  --std-purple:       #D6C7A1;
+  --std-orange:       #B45309;
+  --std-yellow:       #D6C7A1;
+  --std-rose:         #B91C1C;
 
-  --std-text:         #0F172A;
-  --std-text-muted:   #475569;
-  --std-text-dim:     #64748B;
+  --std-text:         #374151;
+  --std-text-muted:   #6B7280;
+  --std-text-dim:     #9CA3AF;
 
   --std-sidebar-w:    260px;
   --std-sidebar-w-c:  80px;
@@ -32,27 +32,27 @@
 }
 
 .dark {
-  --std-bg:           #070D19;
-  --std-bg-darker:    #040810;
-  --std-card:         #0E1629;
-  --std-card-hover:   #131D35;
-  --std-card-border:  rgba(255, 255, 255, 0.05);
-  --std-border:       rgba(255, 255, 255, 0.08);
-  --std-border-green: rgba(16, 185, 129, 0.15);
-  --std-border-blue:  rgba(59, 130, 246, 0.15);
+  --std-bg:           #111827;
+  --std-bg-darker:    #111827;
+  --std-card:         #1F2937;
+  --std-card-hover:   #193B2A;
+  --std-card-border:  #374151;
+  --std-border:       #374151;
+  --std-border-green: rgba(34, 197, 94, 0.25);
+  --std-border-blue:  rgba(34, 197, 94, 0.25);
 
-  --std-green:        #10B981;
-  --std-green-hover:  #059669;
-  --std-blue:         #3B82F6;
-  --std-cyan:         #06B6D4;
-  --std-purple:       #8B5CF6;
-  --std-orange:       #F97316;
-  --std-yellow:       #F59E0B;
-  --std-rose:         #F43F5E;
+  --std-green:        #22C55E;
+  --std-green-hover:  #16A34A;
+  --std-blue:         #22C55E;
+  --std-cyan:         #22C55E;
+  --std-purple:       #C5B48A;
+  --std-orange:       #FBBF24;
+  --std-yellow:       #C5B48A;
+  --std-rose:         #F87171;
 
-  --std-text:         #F8FAFC;
-  --std-text-muted:   #94A3B8;
-  --std-text-dim:     #64748B;
+  --std-text:         #F3F4F6;
+  --std-text-muted:   #9CA3AF;
+  --std-text-dim:     #6B7280;
 }
 
 /* ---------- Global Layout ---------- */

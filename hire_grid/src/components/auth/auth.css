@@ -5,34 +5,34 @@
 
 /* ---------- CSS Custom Properties ---------- */
 :root {
-  --auth-bg:          #020C18;
-  --auth-bg-mid:      #041426;
-  --auth-card:        #061830;
-  --auth-card-border: rgba(255, 255, 255, 0.07);
-  --auth-card-glow:   rgba(22, 163, 74, 0.12);
+  --auth-bg:          #111827;
+  --auth-bg-mid:      #1F2937;
+  --auth-card:        #1F2937;
+  --auth-card-border: #374151;
+  --auth-card-glow:   rgba(34, 197, 94, 0.12);
 
-  --auth-input-bg:    rgba(255, 255, 255, 0.04);
-  --auth-input-border:rgba(255, 255, 255, 0.10);
-  --auth-input-focus: rgba(22, 163, 74, 0.50);
+  --auth-input-bg:    #111827;
+  --auth-input-border:#374151;
+  --auth-input-focus: #22C55E;
 
-  --auth-green:       #16A34A;
+  --auth-green:       #14532D;
   --auth-green-light: #22C55E;
-  --auth-lime:        #84CC16;
-  --auth-blue:        #2563EB;
-  --auth-blue-light:  #3B82F6;
+  --auth-lime:        #16A34A;
+  --auth-blue:        #14532D;
+  --auth-blue-light:  #22C55E;
 
-  --auth-text:        #F8FAFC;
-  --auth-text-muted:  #94A3B8;
-  --auth-text-dim:    #64748B;
+  --auth-text:        #F3F4F6;
+  --auth-text-muted:  #9CA3AF;
+  --auth-text-dim:    #6B7280;
 
-  --auth-error:       #EF4444;
-  --auth-error-bg:    rgba(239, 68, 68, 0.10);
-  --auth-error-border:rgba(239, 68, 68, 0.30);
+  --auth-error:       #B91C1C;
+  --auth-error-bg:    rgba(185, 28, 28, 0.10);
+  --auth-error-border:rgba(185, 28, 28, 0.30);
 
-  --auth-success-bg:  rgba(22, 163, 74, 0.10);
-  --auth-success-border: rgba(22, 163, 74, 0.30);
+  --auth-success-bg:  rgba(20, 83, 45, 0.10);
+  --auth-success-border: rgba(20, 83, 45, 0.30);
 
-  --auth-grid-color:  rgba(22, 163, 74, 0.06);
+  --auth-grid-color:  rgba(34, 197, 94, 0.06);
 
   --auth-radius-card: 20px;
   --auth-radius-input:10px;

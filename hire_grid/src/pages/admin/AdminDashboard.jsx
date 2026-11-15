@@ -124,7 +124,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="h-screen max-h-screen bg-[#F8FAFC] dark:bg-[#0B1120] font-sans text-[#0F172A] dark:text-slate-100 flex overflow-hidden w-screen">
+    <div className="h-screen max-h-screen bg-[#FAF7F0] dark:bg-[#111827] font-sans text-[#374151] dark:text-[#F3F4F6] flex overflow-hidden w-screen">
       {/* Mobile Backdrop Overlay */}
       {sidebarOpen && isMobile && (
         <div
@@ -133,32 +133,32 @@ export default function AdminDashboard() {
         />
       )}
 
-      {/* 1. Sidebar - Clean White SaaS Design Matching Reference Screenshot & Dark Mode */}
+      {/* 1. Sidebar - Forest Green + Cream Design & Dark Mode */}
       <aside
-        className={`bg-white dark:bg-[#0F172A] border-r border-[#E2E8F0] dark:border-slate-800 flex flex-col justify-between transition-all duration-300 z-50 shrink-0
+        className={`bg-white dark:bg-[#1F2937] border-r border-[#E7E1D5] dark:border-[#374151] flex flex-col justify-between transition-all duration-300 z-50 shrink-0
         fixed lg:relative inset-y-0 left-0 h-full overflow-hidden
         ${sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0 w-64 lg:w-20"}`}
       >
         {/* Top Header / Logo Section - 3 lines removed from sidebar header */}
         <div>
-          <div className="h-16 flex items-center px-5 border-b border-[#E2E8F0] dark:border-slate-800 shrink-0">
+          <div className="h-16 flex items-center px-5 border-b border-[#E7E1D5] dark:border-[#374151] shrink-0">
             {sidebarOpen ? (
               <div className="flex items-center gap-2 overflow-hidden">
-                <span className="text-xl font-black tracking-tight text-[#0F172A] dark:text-white flex items-center">
-                  HireGrid<span className="text-[#2563EB]">X</span>
+                <span className="text-xl font-black tracking-tight text-[#374151] dark:text-[#F3F4F6] flex items-center">
+                  HireGrid<span className="text-[#14532D] dark:text-[#22C55E]">X</span>
                 </span>
-                <span className="text-[10px] bg-[#DBEAFE] dark:bg-blue-950/80 text-[#2563EB] dark:text-blue-400 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <span className="text-[10px] bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                   ADMIN
                 </span>
               </div>
             ) : (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="mx-auto p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer flex items-center justify-center text-[#2563EB]"
+                className="mx-auto p-1.5 hover:bg-[#FAF7F0] dark:hover:bg-[#111827] rounded-xl transition-all cursor-pointer flex items-center justify-center text-[#14532D] dark:text-[#22C55E]"
                 title="Expand Sidebar"
               >
                 <span className="text-xl font-black tracking-tight">
-                  H<span className="text-[#2563EB]">X</span>
+                  H<span className="text-[#14532D] dark:text-[#22C55E]">X</span>
                 </span>
               </button>
             )}
@@ -311,24 +311,24 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Sidebar Bottom Profile Card - Matching Screenshot & Dark Mode */}
-        <div className="p-3 border-t border-[#E2E8F0] dark:border-slate-800 shrink-0 bg-white dark:bg-[#0F172A]">
-          <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+        {/* Sidebar Bottom Profile Card - Forest Green + Cream Theme & Dark Mode */}
+        <div className="p-3 border-t border-[#E7E1D5] dark:border-[#374151] shrink-0 bg-white dark:bg-[#1F2937]">
+          <div className="flex items-center justify-between p-2 rounded-xl hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-[#2563EB] text-white font-bold text-xs flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-full bg-[#14532D] dark:bg-[#22C55E] text-white font-bold text-xs flex items-center justify-center shrink-0">
                 {userName.charAt(0).toUpperCase()}
               </div>
               {sidebarOpen && (
                 <div className="truncate text-left">
-                  <p className="text-xs font-bold text-[#0F172A] dark:text-white leading-tight truncate">{userName}</p>
-                  <p className="text-[10px] text-[#64748B] dark:text-slate-400 font-medium">Super Admin</p>
+                  <p className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6] leading-tight truncate">{userName}</p>
+                  <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] font-medium">Super Admin</p>
                 </div>
               )}
             </div>
             {sidebarOpen && (
               <button
                 onClick={handleLogout}
-                className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                className="p-1 text-[#9CA3AF] hover:text-[#B91C1C] dark:hover:text-[#F87171] transition-colors cursor-pointer"
                 title="Sign Out"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -340,26 +340,26 @@ export default function AdminDashboard() {
 
       {/* 2. Main Content Container */}
       <div className="flex-1 flex flex-col overflow-hidden max-h-screen">
-        {/* Top Navigation Bar - Matching Reference Screenshot & Dark Mode */}
-        <header className="h-16 bg-white dark:bg-[#0F172A] border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between px-5 sm:px-8 shrink-0 relative z-20">
+        {/* Top Navigation Bar - Forest Green + Cream Theme & Dark Mode */}
+        <header className="h-16 bg-white dark:bg-[#1F2937] border-b border-[#E7E1D5] dark:border-[#374151] flex items-center justify-between px-5 sm:px-8 shrink-0 relative z-20">
           {/* Left: Sidebar Toggle & Global Search Field */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 -ml-1 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-1.5 -ml-1 rounded-lg text-[#6B7280] hover:text-[#374151] dark:text-[#9CA3AF] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer"
               aria-label="Toggle navigation"
             >
               <Menu className="w-5 h-5" />
             </button>
 
             <div className="relative w-64 sm:w-80 md:w-96">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] dark:text-[#6B7280] pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search students, companies, modules, exams..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50/70 dark:bg-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-xl text-xs outline-none focus:border-[#2563EB] text-[#0F172A] dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all font-medium"
+                className="w-full pl-10 pr-4 py-2 bg-[#FAF7F0] dark:bg-[#111827] hover:bg-white dark:hover:bg-[#111827] focus:bg-white dark:focus:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] focus:border-[#14532D] dark:focus:border-[#22C55E] rounded-xl text-xs outline-none text-[#374151] dark:text-[#F3F4F6] placeholder:text-[#9CA3AF] dark:placeholder:text-[#6B7280] transition-all font-medium"
               />
             </div>
           </div>
@@ -373,32 +373,32 @@ export default function AdminDashboard() {
             <div className="relative" id="admin-profile-dropdown-container">
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer"
               >
-                <div className="w-8 h-8 rounded-full bg-[#2563EB] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-8 h-8 rounded-full bg-[#14532D] dark:bg-[#22C55E] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
                   {userName.charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-xs font-bold text-[#0F172A] dark:text-white leading-tight">{userName}</p>
-                  <p className="text-[10px] text-[#64748B] dark:text-slate-400 font-medium">Super Admin</p>
+                  <p className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6] leading-tight">{userName}</p>
+                  <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] font-medium">Super Admin</p>
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF] hidden sm:block" />
               </button>
 
               {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-[#0F172A] rounded-2xl border border-[#E2E8F0] dark:border-slate-800 shadow-xl p-2 z-50 text-xs animate-in fade-in duration-150">
-                  <div className="px-3 py-2 border-b border-[#E2E8F0] dark:border-slate-800 mb-1">
-                    <p className="font-bold text-[#0F172A] dark:text-white">{userName}</p>
-                    <p className="text-[10px] text-[#64748B] dark:text-slate-400">saumya14@gmail.com</p>
+                <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-[#1F2937] rounded-2xl border border-[#E7E1D5] dark:border-[#374151] shadow-xl p-2 z-50 text-xs animate-in fade-in duration-150">
+                  <div className="px-3 py-2 border-b border-[#E7E1D5] dark:border-[#374151] mb-1">
+                    <p className="font-bold text-[#374151] dark:text-[#F3F4F6]">{userName}</p>
+                    <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF]">saumya14@gmail.com</p>
                   </div>
                   <button
                     onClick={() => {
                       setUserDropdownOpen(false);
                       setView("system", "settings");
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer font-medium"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[#374151] dark:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer font-medium"
                   >
-                    <Settings className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    <Settings className="w-4 h-4 text-[#6B7280] dark:text-[#9CA3AF]" />
                     <span>System Settings</span>
                   </button>
                   <button
@@ -406,9 +406,9 @@ export default function AdminDashboard() {
                       setUserDropdownOpen(false);
                       handleLogout();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[#EF4444] hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer font-semibold mt-1"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[#B91C1C] dark:text-[#F87171] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer font-semibold mt-1"
                   >
-                    <LogOut className="w-4 h-4 text-[#EF4444]" />
+                    <LogOut className="w-4 h-4 text-[#B91C1C] dark:text-[#F87171]" />
                     <span>Sign Out</span>
                   </button>
                 </div>
@@ -418,13 +418,13 @@ export default function AdminDashboard() {
         </header>
 
         {/* 3. Workspace Main Canvas */}
-        <main className="flex-1 overflow-y-auto bg-[#F8FAFC] dark:bg-[#0B1120] custom-scrollbar p-4 sm:p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto bg-[#FAF7F0] dark:bg-[#111827] custom-scrollbar p-4 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto">
             <Suspense
               fallback={
                 <div className="py-24 flex flex-col items-center justify-center space-y-3">
-                  <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                  <div className="w-8 h-8 border-2 border-[#14532D] dark:border-[#22C55E] border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs font-semibold text-[#6B7280] dark:text-[#9CA3AF] uppercase tracking-wider">
                     Loading Workspace...
                   </span>
                 </div>
@@ -497,19 +497,19 @@ export default function AdminDashboard() {
   );
 }
 
-// Sidebar Navigation Item Component matching screenshot
+// Sidebar Navigation Item Component matching Forest Green + Cream Theme
 function SidebarItem({ icon, label, active, onClick, isOpen }) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center py-2.5 px-3 rounded-xl text-xs transition-all group cursor-pointer ${
         active
-          ? "bg-[#DBEAFE] text-[#2563EB] font-bold"
-          : "text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50 font-medium"
+          ? "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] font-bold"
+          : "text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] font-medium"
       } ${!isOpen ? "justify-center px-0" : ""}`}
       title={!isOpen ? label : undefined}
     >
-      <span className={`${active ? "text-[#2563EB]" : "text-[#64748B] group-hover:text-[#0F172A]"}`}>
+      <span className={`${active ? "text-[#14532D] dark:text-[#22C55E]" : "text-[#6B7280] dark:text-[#9CA3AF] group-hover:text-[#374151] dark:group-hover:text-[#F3F4F6]"}`}>
         {React.cloneElement(icon, { className: "w-4 h-4 shrink-0" })}
       </span>
       <span className={`ml-3 truncate ${!isOpen && "hidden"}`}>{label}</span>

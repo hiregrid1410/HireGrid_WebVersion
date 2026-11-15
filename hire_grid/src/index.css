@@ -4,98 +4,126 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --bg-page: #F5F7F2;
+  --bg-page: #FAF7F0;
   --bg-sidebar: #FFFFFF;
   --bg-surface: #FFFFFF;
-  --bg-elevated: #EFEFE9;
-  --bg-hover: #E5E7EB;
-  --bg-active: #D1D5DB;
+  --bg-elevated: #FAF7F0;
+  --bg-hover: #E8F3EC;
+  --bg-active: #D6C7A1;
 
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-muted: #64748B;
-  --text-inverse: #F8FAFC;
+  --text-primary: #374151;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --text-inverse: #FAF7F0;
 
-  --border-default: #E2E8F0;
-  --border-subtle: #F1F5F9;
+  --border-default: #E7E1D5;
+  --border-subtle: #E7E1D5;
 
-  --primary: #10B981;
-  --primary-hover: #059669;
-  --primary-soft: #D1FAE5;
+  --primary: #14532D;
+  --primary-hover: #0F4224;
+  --primary-soft: #E8F3EC;
 
-  --success: #10B981;
-  --warning: #F59E0B;
-  --danger: #EF4444;
-  --info: #2563EB;
-  --purple: #8B5CF6;
+  --secondary: #D6C7A1;
+  --success: #15803D;
+  --warning: #B45309;
+  --danger: #B91C1C;
+  --error: #B91C1C;
+  --info: #14532D;
+  --purple: #14532D;
 }
 
 .dark {
-  --bg-page: #040810;
-  --bg-sidebar: #070D19;
-  --bg-surface: #0E1629;
-  --bg-elevated: #131D35;
-  --bg-hover: #1E293B;
-  --bg-active: #334155;
+  --bg-page: #111827;
+  --bg-sidebar: #1F2937;
+  --bg-surface: #1F2937;
+  --bg-elevated: #111827;
+  --bg-hover: #193B2A;
+  --bg-active: #C5B48A;
 
-  --text-primary: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
-  --text-inverse: #0F172A;
+  --text-primary: #F3F4F6;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+  --text-inverse: #111827;
 
-  --border-default: #1E293B;
-  --border-subtle: #0E1629;
+  --border-default: #374151;
+  --border-subtle: #374151;
 
-  --primary: #10B981;
-  --primary-hover: #059669;
-  --primary-soft: rgba(16, 185, 129, 0.1);
+  --primary: #22C55E;
+  --primary-hover: #16A34A;
+  --primary-soft: #193B2A;
 
-  --success: #10B981;
-  --warning: #F59E0B;
-  --danger: #EF4444;
-  --info: #3B82F6;
-  --purple: #8B5CF6;
+  --secondary: #C5B48A;
+  --success: #4ADE80;
+  --warning: #FBBF24;
+  --danger: #F87171;
+  --error: #F87171;
+  --info: #22C55E;
+  --purple: #22C55E;
 }
 
 @theme {
   --font-sans: "Inter", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
+  /* Exact Forest Green + Cream Palette */
+  --color-forest-green: #14532D;
+  --color-warm-cream: #FAF7F0;
+  --color-sand-beige: #D6C7A1;
+  --color-slate-charcoal: #374151;
+  --color-surface-white: #FFFFFF;
+  --color-muted-slate: #6B7280;
+  --color-soft-beige-grey: #E7E1D5;
+  --color-pale-mint: #E8F3EC;
+  --color-deep-forest-green: #0F4224;
+  --color-light-grey: #E5E7EB;
+  --color-grey-disabled: #9CA3AF;
+
   /* Custom Brand Palette */
-  --color-brand-emerald: #16A34A;
-  --color-brand-teal: #0891B2;
-  --color-brand-blue: #2563EB;
-  --color-brand-navy: #0B1F3A;
-  --color-brand-gold: #F5B82E;
-  --color-brand-white: #F8FAFC;
-  --color-brand-charcoal: #17202A;
+  --color-brand-emerald: #14532D;
+  --color-brand-teal: #14532D;
+  --color-brand-blue: #14532D;
+  --color-brand-navy: #111827;
+  --color-brand-gold: #D6C7A1;
+  --color-brand-white: #FAF7F0;
+  --color-brand-charcoal: #374151;
 
   /* Global Colors Custom Mappings for backwards compatibility */
-  --color-emerald-50: #F0FDF4;
-  --color-emerald-100: #DCFCE7;
-  --color-emerald-500: #16A34A;
-  --color-emerald-600: #16A34A;
-  --color-emerald-700: #15803D;
-  --color-emerald-800: #166534;
-  --color-emerald-900: #14532D;
+  --color-emerald-50: #E8F3EC;
+  --color-emerald-100: #E8F3EC;
+  --color-emerald-500: #14532D;
+  --color-emerald-600: #14532D;
+  --color-emerald-700: #0F4224;
+  --color-emerald-800: #0F4224;
+  --color-emerald-900: #0F4224;
 
-  --color-teal-500: #0891B2;
-  --color-teal-600: #0891B2;
-  --color-teal-700: #0E7490;
+  --color-teal-500: #14532D;
+  --color-teal-600: #14532D;
+  --color-teal-700: #0F4224;
 
-  --color-blue-500: #2563EB;
-  --color-blue-600: #2563EB;
+  --color-blue-50: #E8F3EC;
+  --color-blue-100: #E8F3EC;
+  --color-blue-500: #14532D;
+  --color-blue-600: #14532D;
+  --color-blue-700: #0F4224;
 
-  --color-slate-50: #F8FAFC;
-  --color-slate-900: #17202A;
-  --color-slate-950: #0B1F3A;
+  --color-slate-50: #FAF7F0;
+  --color-slate-100: #FAF7F0;
+  --color-slate-200: #E7E1D5;
+  --color-slate-300: #E7E1D5;
+  --color-slate-400: #9CA3AF;
+  --color-slate-500: #6B7280;
+  --color-slate-600: #6B7280;
+  --color-slate-700: #374151;
+  --color-slate-800: #1F2937;
+  --color-slate-900: #111827;
+  --color-slate-950: #111827;
 
   /* Semantic Theme tokens */
   --color-bg-page: var(--bg-page);
   --color-bg-sidebar: var(--bg-sidebar);
   --color-bg-surface: var(--bg-surface);
   --color-bg-elevated: var(--bg-elevated);
-  --color-bg-hover: var(--color-bg-hover);
+  --color-bg-hover: var(--bg-hover);
   --color-bg-active: var(--bg-active);
 
   --color-text-primary: var(--text-primary);
@@ -145,7 +173,7 @@
 
 /* Engineering Command Center Styles */
 body {
-  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-300;
+  @apply bg-[#FAF7F0] text-[#374151] dark:bg-[#111827] dark:text-[#F3F4F6];
 }
 
 .glass-panel {
