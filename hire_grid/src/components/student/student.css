@@ -79,8 +79,20 @@
 .std-content-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 32px;
+  padding: 16px;
   background-color: var(--std-bg-darker);
+}
+
+@media (min-width: 640px) {
+  .std-content-scroll {
+    padding: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .std-content-scroll {
+    padding: 32px;
+  }
 }
 
 /* ---------- Sidebar ---------- */

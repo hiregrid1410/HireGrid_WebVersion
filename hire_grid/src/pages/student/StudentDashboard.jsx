@@ -248,9 +248,10 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (!mobile) setSidebarOpen(true);
+      if (mobile) setSidebarOpen(false);
+      else setSidebarOpen(true);
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);

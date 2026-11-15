@@ -35,8 +35,8 @@ export function StudentSidebar({
 
   return (
     <aside
-      className={`fixed lg:sticky top-0 left-0 z-40 h-screen bg-[#FAF7F0] dark:bg-[#111827] border-r border-[#E7E1D5] dark:border-[#374151] flex flex-col justify-between transition-all duration-300 ease-in-out shrink-0 ${
-        sidebarOpen ? "w-64" : "w-20"
+      className={`fixed lg:sticky top-0 left-0 z-50 h-screen bg-[#FAF7F0] dark:bg-[#111827] border-r border-[#E7E1D5] dark:border-[#374151] flex flex-col justify-between transition-all duration-300 ease-in-out shrink-0 ${
+        sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0 w-64 lg:w-20"
       }`}
     >
       {/* Top Header / Logo */}
