@@ -1,22 +1,35 @@
-import React, { createContext, useContext, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 const ThemeContext = createContext(undefined);
 
 export const ThemeProvider = ({ children }) => {
-  // Theme is permanently dark — no toggle.
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved) return saved;
+    return document.documentElement.classList.contains("dark") ? "dark" : "light";
+  });
+
   useEffect(() => {
-    document.documentElement.classList.add("dark");
-    localStorage.setItem("theme", "dark");
-  }, []);
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
-  // syncUserTheme kept as a no-op so any callers don't break.
-  const syncUserTheme = () => {};
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
 
-  // toggleTheme kept as a no-op in case anything references it.
-  const toggleTheme = () => {};
+  const syncUserTheme = (newTheme) => {
+    if (newTheme === "dark" || newTheme === "light") {
+      setTheme(newTheme);
+    }
+  };
 
   return (
-    <ThemeContext.Provider value={{ theme: "dark", toggleTheme, syncUserTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, syncUserTheme }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -27,3 +40,4 @@ export const useTheme = () => {
   if (!context) throw new Error("useTheme must be used within a ThemeProvider");
   return context;
 };
+

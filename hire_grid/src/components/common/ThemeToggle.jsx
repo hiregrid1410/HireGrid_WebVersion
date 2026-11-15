@@ -1,34 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Sun, Moon } from "lucide-react";
+import { useTheme } from "../../ThemeContext";
 
 export function ThemeToggle({ className = "" }) {
-  const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved !== null) {
-      return saved === "dark";
-    }
-    return document.documentElement.classList.contains("dark");
-  });
-
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  }, [isDark]);
-
-  const toggleTheme = () => {
-    setIsDark((prev) => !prev);
-  };
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      className={`relative inline-flex items-center justify-between w-14 h-8 px-1 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#14532D]/50 ${
+      className={`relative inline-flex items-center justify-between w-14 h-8 px-1 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#14532D]/50 cursor-pointer ${
         isDark ? "bg-[#1F2937] border border-[#374151] text-[#FBBF24]" : "bg-[#E8F3EC] border border-[#E7E1D5] text-[#14532D]"
       } ${className}`}
       title={isDark ? "Switch to Light Theme" : "Switch to Dark Theme"}
