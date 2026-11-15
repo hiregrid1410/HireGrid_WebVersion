@@ -334,17 +334,25 @@ class RevisionController {
         sourceModuleIds = Array.isArray(rm.source_module_ids) ? rm.source_module_ids : [];
       }
 
+      let topicTitle = "Topic Revision";
+      try {
+        const topicRes = await pool.query("SELECT name FROM hierarchy_nodes WHERE id = $1", [topicId]);
+        if (topicRes.rows.length > 0 && topicRes.rows[0].name) {
+          topicTitle = topicRes.rows[0].name;
+        }
+      } catch (_) {}
+
       let questionsResult;
       if (sourceModuleIds.length > 0) {
         questionsResult = await pool.query(
-          `SELECT id, question_text, options, correct_option, explanation, image_key, explanation_image_key, module_id
+          `SELECT id, question, options, correct_answer_index, explanation, image_key, explanation_image_key, module_id
            FROM questions
            WHERE module_id = ANY($1::varchar[])`,
           [sourceModuleIds]
         );
       } else {
         questionsResult = await pool.query(
-          `SELECT q.id, q.question_text, q.options, q.correct_option, q.explanation, q.image_key, q.explanation_image_key, q.module_id
+          `SELECT q.id, q.question, q.options, q.correct_answer_index, q.explanation, q.image_key, q.explanation_image_key, q.module_id
            FROM questions q
            INNER JOIN modules m ON q.module_id = m.id
            WHERE m.parent_id = $1 OR q.module_id = $1`,
@@ -403,10 +411,18 @@ class RevisionController {
 
       shuffle(selectedQuestions);
 
+      const attemptId = crypto.randomUUID();
+      const durationSeconds = 1800; // 30 minutes
+
       res.json({
         success: true,
+        attemptId,
         revisionModuleId,
         topicId,
+        topicTitle,
+        testTitle: `${topicTitle} Revision`,
+        timeLeft: durationSeconds,
+        durationSeconds,
         totalQuestions: selectedQuestions.length,
         targetCount,
         questions: selectedQuestions.map((q) => {
@@ -418,12 +434,16 @@ class RevisionController {
               opts = [];
             }
           }
+          const questionContent = q.question || "Revision Question";
+          const correctIdx = q.correct_answer_index !== undefined ? q.correct_answer_index : 0;
           return {
             id: q.id,
-            questionText: q.question_text,
+            question: questionContent,
+            questionText: questionContent,
             options: opts,
-            correctOption: q.correct_option,
-            explanation: q.explanation,
+            correctOption: correctIdx,
+            correctAnswerIndex: correctIdx,
+            explanation: q.explanation || "Official step-by-step solution provided for this problem.",
             imageKey: q.image_key,
             explanationImageKey: q.explanation_image_key,
             moduleId: q.module_id,

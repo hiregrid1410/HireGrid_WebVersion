@@ -798,6 +798,7 @@ async function initDb() {
           CREATE INDEX IF NOT EXISTS idx_rev_sched_day3 ON user_revision_schedules(day3_status, day3_due_at);
           CREATE INDEX IF NOT EXISTS idx_rev_sched_day7 ON user_revision_schedules(day7_status, day7_due_at);
           CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id);
+          CREATE INDEX IF NOT EXISTS idx_user_rev_attempts_user_topic ON user_revision_attempts(user_id, topic_id, revision_module_id);
         `);
 
         await pool.query(`INSERT INTO schema_migrations (version) VALUES ('v7') ON CONFLICT DO NOTHING`);
