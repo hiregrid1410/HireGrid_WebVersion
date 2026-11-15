@@ -21,33 +21,60 @@ if (env.FRONTEND_URL) {
   });
 }
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
-    if (!origin) return callback(null, true);
-    if (
-      allowedOrigins.includes("*") ||
-      allowedOrigins.includes(origin) ||
-      origin.startsWith("http://localhost:") ||
-      origin.startsWith("http://127.0.0.1:")
-    ) {
-      return callback(null, true);
-    }
-    return callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-  allowedHeaders: [
-    "Origin",
-    "X-Requested-With",
-    "Content-Type",
-    "Accept",
-    "Authorization",
-    "x-platform",
-    "x-app-key",
-    "x-client-platform",
-    "X-Client-Platform",
-  ],
-  exposedHeaders: ["x-platform", "X-Cache-Status", "Vary"],
+const defaultAllowedHeaders = [
+  "Origin",
+  "X-Requested-With",
+  "Content-Type",
+  "Accept",
+  "Authorization",
+  "x-platform",
+  "X-Platform",
+  "x-app-key",
+  "X-App-Key",
+  "x-client-platform",
+  "X-Client-Platform",
+  "x-app-version",
+  "X-App-Version",
+  "x-device-id",
+  "X-Device-Id",
+  "x-access-token",
+  "X-Access-Token",
+];
+
+const corsOptions = (req, callback) => {
+  const origin = req.header("Origin");
+  let originAllowed = false;
+
+  // Allow requests with no origin (like native mobile apps, curl, server-to-server)
+  if (!origin) {
+    originAllowed = true;
+  } else if (
+    allowedOrigins.includes("*") ||
+    allowedOrigins.includes(origin) ||
+    origin.startsWith("http://localhost:") ||
+    origin.startsWith("http://127.0.0.1:")
+  ) {
+    originAllowed = true;
+  }
+
+  // Include base allowed headers and dynamically reflect any requested headers
+  const reqHeaders = req.header("access-control-request-headers");
+  const headersSet = new Set(defaultAllowedHeaders);
+  if (reqHeaders) {
+    reqHeaders.split(",").forEach((h) => {
+      const trimmed = h.trim();
+      if (trimmed) headersSet.add(trimmed);
+    });
+  }
+
+  const options = {
+    origin: originAllowed,
+    credentials: true,
+    allowedHeaders: Array.from(headersSet),
+    exposedHeaders: ["x-platform", "X-Cache-Status", "Vary"],
+  };
+
+  callback(null, options);
 };
 
 module.exports = {
