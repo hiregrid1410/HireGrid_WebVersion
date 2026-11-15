@@ -125,13 +125,13 @@ export function AdminExamsTab() {
   return (
     <div className="space-y-6">
       {/* Top Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-5 rounded-2xl shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-[#2563EB]" />
-            <h2 className="text-xl font-bold text-[#0F172A] tracking-tight">Exams Management</h2>
+            <Award className="w-5 h-5 text-[#14532D] dark:text-[#22C55E]" />
+            <h2 className="text-xl font-bold text-[#374151] dark:text-[#F3F4F6] tracking-tight">Exams Management</h2>
           </div>
-          <p className="text-xs text-[#64748B] mt-0.5">
+          <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
             Create, schedule, and configure formal examinations and assessments across platforms.
           </p>
         </div>
@@ -140,14 +140,14 @@ export function AdminExamsTab() {
           <button
             onClick={fetchExams}
             disabled={loading}
-            className="p-2 rounded-xl border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50 transition-colors cursor-pointer"
+            className="p-2 rounded-xl border border-[#E7E1D5] dark:border-[#374151] text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer"
             title="Refresh Exams"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-[#2563EB]" : ""}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-[#14532D] dark:text-[#22C55E]" : ""}`} />
           </button>
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 bg-[#14532D] hover:bg-[#0F4224] dark:bg-[#22C55E] dark:hover:bg-[#16A34A] text-white dark:text-[#111827] rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Create Exam</span>
@@ -156,20 +156,20 @@ export function AdminExamsTab() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-4 rounded-2xl shadow-xs">
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#9CA3AF] dark:text-[#6B7280] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search exams by title or description..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-[#E2E8F0] rounded-xl outline-none focus:border-[#2563EB] text-[#0F172A] placeholder:text-slate-400"
+            className="w-full pl-9 pr-3 py-1.5 text-xs bg-[#FAF7F0] dark:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] rounded-xl outline-none focus:border-[#14532D] dark:focus:border-[#22C55E] text-[#374151] dark:text-[#F3F4F6] placeholder:text-[#9CA3AF] dark:placeholder:text-[#6B7280]"
           />
         </div>
 
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-[#64748B] font-medium hidden sm:inline">Platform:</span>
+          <span className="text-[#6B7280] dark:text-[#9CA3AF] font-medium hidden sm:inline">Platform:</span>
           <PlatformFilterTabs
             selectedPlatform={platformFilter}
             onSelectPlatform={setPlatformFilter}
@@ -178,10 +178,10 @@ export function AdminExamsTab() {
       </div>
 
       {/* Exams List Table */}
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-2xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-[#E2E8F0] text-[#64748B] uppercase text-[10px] font-bold tracking-wider">
+            <thead className="bg-[#FAF7F0] dark:bg-[#111827] border-b border-[#E7E1D5] dark:border-[#374151] text-[#6B7280] dark:text-[#9CA3AF] uppercase text-[10px] font-bold tracking-wider">
               <tr>
                 <th className="py-3 px-4">Exam Title</th>
                 <th className="py-3 px-4">Platform</th>
@@ -190,23 +190,23 @@ export function AdminExamsTab() {
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E2E8F0]">
+            <tbody className="divide-y divide-[#E7E1D5] dark:divide-[#374151]">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-[#64748B]">
+                  <td colSpan={5} className="py-12 text-center text-[#6B7280] dark:text-[#9CA3AF]">
                     <div className="inline-flex items-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin text-[#2563EB]" />
+                      <RefreshCw className="w-4 h-4 animate-spin text-[#14532D] dark:text-[#22C55E]" />
                       <span>Loading exams data...</span>
                     </div>
                   </td>
                 </tr>
               ) : filteredExams.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-[#64748B]">
+                  <td colSpan={5} className="py-12 text-center text-[#6B7280] dark:text-[#9CA3AF]">
                     <div className="max-w-xs mx-auto text-center space-y-2">
-                      <AlertCircle className="w-8 h-8 text-slate-300 mx-auto" />
-                      <p className="font-semibold text-sm text-[#0F172A]">No exams found</p>
-                      <p className="text-xs text-[#64748B]">
+                      <AlertCircle className="w-8 h-8 text-[#D6C7A1] dark:text-[#374151] mx-auto" />
+                      <p className="font-semibold text-sm text-[#374151] dark:text-[#F3F4F6]">No exams found</p>
+                      <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF]">
                         {searchQuery
                           ? "No exams match your search query."
                           : "No exams have been created yet. Click 'Create Exam' to schedule one."}
@@ -216,11 +216,11 @@ export function AdminExamsTab() {
                 </tr>
               ) : (
                 filteredExams.map((exam) => (
-                  <tr key={exam.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={exam.id} className="hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors">
                     <td className="py-3 px-4">
-                      <p className="font-bold text-[#0F172A] text-xs">{exam.title}</p>
+                      <p className="font-bold text-[#374151] dark:text-[#F3F4F6] text-xs">{exam.title}</p>
                       {exam.description && (
-                        <p className="text-[11px] text-[#64748B] truncate max-w-sm mt-0.5">
+                        <p className="text-[11px] text-[#6B7280] dark:text-[#9CA3AF] truncate max-w-sm mt-0.5">
                           {exam.description}
                         </p>
                       )}
@@ -232,14 +232,14 @@ export function AdminExamsTab() {
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           (exam.publicationStatus || exam.publication_status || "PUBLISHED").toUpperCase() === "PUBLISHED"
-                            ? "bg-[#DCFCE7] text-[#16A34A]"
-                            : "bg-[#FEF3C7] text-[#D97706]"
+                            ? "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#15803D] dark:text-[#4ADE80]"
+                            : "bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] border border-[#D6C7A1] dark:border-[#374151]"
                         }`}
                       >
                         {exam.publicationStatus || exam.publication_status || "PUBLISHED"}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-[#64748B] font-mono text-[11px]">
+                    <td className="py-3 px-4 text-[#6B7280] dark:text-[#9CA3AF] font-mono text-[11px]">
                       {exam.created_at || exam.createdAt
                         ? new Date(exam.created_at || exam.createdAt).toLocaleDateString()
                         : "—"}
@@ -248,14 +248,14 @@ export function AdminExamsTab() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleOpenEditModal(exam)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-[#2563EB] hover:bg-blue-50 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#14532D] dark:hover:text-[#22C55E] hover:bg-[#E8F3EC] dark:hover:bg-[#193B2A] transition-colors cursor-pointer"
                           title="Edit Exam"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => setDeleteId(exam.id)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#B91C1C] dark:hover:text-[#F87171] hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                           title="Delete Exam"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -272,52 +272,52 @@ export function AdminExamsTab() {
 
       {/* Create / Edit Exam Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xl w-full max-w-md p-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#1F2937] rounded-2xl border border-[#E7E1D5] dark:border-[#374151] shadow-xl w-full max-w-md p-6 relative">
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+              className="absolute top-4 right-4 p-1.5 text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <h3 className="text-base font-bold text-[#0F172A] mb-1">
+            <h3 className="text-base font-bold text-[#374151] dark:text-[#F3F4F6] mb-1">
               {editingExamId ? "Edit Examination" : "Create New Examination"}
             </h3>
-            <p className="text-xs text-[#64748B] mb-5">
+            <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mb-5">
               Configure exam parameters and platform availability.
             </p>
 
             <form onSubmit={handleSaveExam} className="space-y-4 text-xs">
               <div>
-                <label className="block text-[#0F172A] font-semibold mb-1">Exam Title *</label>
+                <label className="block text-[#374151] dark:text-[#F3F4F6] font-semibold mb-1">Exam Title *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. TCS NQT Full-Length Mock Exam"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-[#E2E8F0] rounded-xl text-xs outline-none focus:border-[#2563EB] text-[#0F172A]"
+                  className="w-full px-3 py-2 bg-[#FAF7F0] dark:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] rounded-xl text-xs outline-none focus:border-[#14532D] dark:focus:border-[#22C55E] text-[#374151] dark:text-[#F3F4F6]"
                 />
               </div>
 
               <div>
-                <label className="block text-[#0F172A] font-semibold mb-1">Description</label>
+                <label className="block text-[#374151] dark:text-[#F3F4F6] font-semibold mb-1">Description</label>
                 <textarea
                   rows={3}
                   placeholder="Briefly describe the topics and rules covered in this exam..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-[#E2E8F0] rounded-xl text-xs outline-none focus:border-[#2563EB] text-[#0F172A]"
+                  className="w-full px-3 py-2 bg-[#FAF7F0] dark:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] rounded-xl text-xs outline-none focus:border-[#14532D] dark:focus:border-[#22C55E] text-[#374151] dark:text-[#F3F4F6]"
                 />
               </div>
 
               <div>
-                <label className="block text-[#0F172A] font-semibold mb-1">Platform Visibility</label>
+                <label className="block text-[#374151] dark:text-[#F3F4F6] font-semibold mb-1">Platform Visibility</label>
                 <select
                   value={platform}
                   onChange={(e) => setPlatform(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-[#E2E8F0] rounded-xl text-xs outline-none focus:border-[#2563EB] text-[#0F172A]"
+                  className="w-full px-3 py-2 bg-[#FAF7F0] dark:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] rounded-xl text-xs outline-none focus:border-[#14532D] dark:focus:border-[#22C55E] text-[#374151] dark:text-[#F3F4F6]"
                 >
                   <option value="both">Both (Web & App)</option>
                   <option value="web">Web Only</option>
@@ -326,29 +326,29 @@ export function AdminExamsTab() {
               </div>
 
               <div>
-                <label className="block text-[#0F172A] font-semibold mb-1">Publication Status</label>
+                <label className="block text-[#374151] dark:text-[#F3F4F6] font-semibold mb-1">Publication Status</label>
                 <select
                   value={publicationStatus}
                   onChange={(e) => setPublicationStatus(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-[#E2E8F0] rounded-xl text-xs outline-none focus:border-[#2563EB] text-[#0F172A]"
+                  className="w-full px-3 py-2 bg-[#FAF7F0] dark:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] rounded-xl text-xs outline-none focus:border-[#14532D] dark:focus:border-[#22C55E] text-[#374151] dark:text-[#F3F4F6]"
                 >
                   <option value="PUBLISHED">Published</option>
                   <option value="DRAFT">Draft (Admin Only)</option>
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E2E8F0]">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E7E1D5] dark:border-[#374151]">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50 rounded-xl font-semibold transition-colors cursor-pointer"
+                  className="px-4 py-2 border border-[#E7E1D5] dark:border-[#374151] text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] rounded-xl font-semibold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl font-semibold shadow-xs transition-colors cursor-pointer"
+                  className="px-5 py-2 bg-[#14532D] hover:bg-[#0F4224] dark:bg-[#22C55E] dark:hover:bg-[#16A34A] text-white dark:text-[#111827] rounded-xl font-semibold shadow-xs transition-colors cursor-pointer"
                 >
                   {isSaving ? "Saving..." : editingExamId ? "Update Exam" : "Create Exam"}
                 </button>
