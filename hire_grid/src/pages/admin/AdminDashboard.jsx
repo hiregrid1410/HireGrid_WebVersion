@@ -255,7 +255,7 @@ export default function AdminDashboard() {
                 </div>
               )}
               <SidebarItem
-                icon={<Building2 />}
+                icon={<BookOpen />}
                 label="Companies"
                 active={activeWorkspace === "content" && activeSubTab === "companies"}
                 onClick={() => setView("content", "companies")}
@@ -270,20 +270,13 @@ export default function AdminDashboard() {
               />
               <SidebarItem
                 icon={<FolderOpen />}
-                label="Hierarchy Builder"
-                active={activeWorkspace === "content" && activeSubTab === "hierarchy"}
-                onClick={() => setView("content", "hierarchy")}
-                isOpen={sidebarOpen}
-              />
-              <SidebarItem
-                icon={<Layers />}
                 label="Modules"
                 active={activeWorkspace === "content" && activeSubTab === "modules"}
                 onClick={() => setView("content", "modules")}
                 isOpen={sidebarOpen}
               />
               <SidebarItem
-                icon={<CreditCard />}
+                icon={<BookOpen />}
                 label="Plans"
                 active={activeWorkspace === "content" && activeSubTab === "plans"}
                 onClick={() => setView("content", "plans")}
@@ -303,36 +296,13 @@ export default function AdminDashboard() {
                 onClick={() => setView("content", "exams")}
                 isOpen={sidebarOpen}
               />
-              <SidebarItem
-                icon={<Trophy />}
-                label="Placement Missions"
-                active={activeWorkspace === "placement" && activeSubTab === "placement_mission"}
-                onClick={() => setView("placement", "placement_mission")}
-                isOpen={sidebarOpen}
-              />
             </div>
 
-            {/* Section 4: ANALYTICS & REPORTS */}
+            {/* Section 4: SYSTEM */}
             <div className="space-y-0.5">
               {sidebarOpen && (
                 <div className="px-3 pt-2 pb-1 text-[10px] font-bold text-[#64748B] uppercase tracking-wider">
-                  ANALYTICS & REPORTS
-                </div>
-              )}
-              <SidebarItem
-                icon={<Trophy />}
-                label="Leaderboard"
-                active={activeWorkspace === "placement" && activeSubTab === "leaderboard"}
-                onClick={() => setView("placement", "placement_mission")}
-                isOpen={sidebarOpen}
-              />
-            </div>
-
-            {/* Section 5: SYSTEM & SECURITY */}
-            <div className="space-y-0.5">
-              {sidebarOpen && (
-                <div className="px-3 pt-2 pb-1 text-[10px] font-bold text-[#64748B] uppercase tracking-wider">
-                  SYSTEM & SECURITY
+                  SYSTEM
                 </div>
               )}
               <SidebarItem
@@ -343,7 +313,7 @@ export default function AdminDashboard() {
                 isOpen={sidebarOpen}
               />
               <SidebarItem
-                icon={<ShieldAlert />}
+                icon={<ShieldCheck />}
                 label="Security Logs"
                 active={activeWorkspace === "monitoring" && activeSubTab === "security"}
                 onClick={() => setView("monitoring", "security")}

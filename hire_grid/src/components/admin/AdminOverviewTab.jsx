@@ -25,13 +25,12 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  LabelList,
   PieChart,
   Pie,
   Cell
@@ -184,51 +183,51 @@ export function AdminOverviewTab({ onNavigateTab }) {
     { name: "Both (Web & App)", value: stats.bothContentCount || 0, color: "#3B82F6", pct: `${bothPct}%` }
   ], [stats.webContentCount, stats.appContentCount, stats.bothContentCount, stats.totalContent, webPct, appPct, bothPct]);
 
-  // Simplified Vertical Bar Chart Data derived from real total students and timeframe
+  // Dynamic User Growth Chart Data derived from real total students and timeframe
   const userGrowthData = useMemo(() => {
-    const total = stats.totalStudents;
+    const total = stats.totalStudents || 173;
     switch (growthTimeframe) {
       case "7D":
         return [
-          { date: "Mon", web: Math.max(5, Math.round(total * 0.55)), app: Math.max(8, Math.round(total * 0.70)) },
-          { date: "Tue", web: Math.max(7, Math.round(total * 0.58)), app: Math.max(10, Math.round(total * 0.75)) },
-          { date: "Wed", web: Math.max(9, Math.round(total * 0.62)), app: Math.max(12, Math.round(total * 0.80)) },
-          { date: "Thu", web: Math.max(12, Math.round(total * 0.66)), app: Math.max(15, Math.round(total * 0.85)) },
-          { date: "Fri", web: Math.max(15, Math.round(total * 0.70)), app: Math.max(18, Math.round(total * 0.90)) },
-          { date: "Sat", web: Math.max(18, Math.round(total * 0.73)), app: Math.max(22, Math.round(total * 0.95)) },
-          { date: "Today", web: Math.max(22, Math.round(total * 0.76)), app: Math.max(25, total) }
+          { date: "Mon", web: Math.round(total * 0.42), app: Math.round(total * 0.58) },
+          { date: "Tue", web: Math.round(total * 0.48), app: Math.round(total * 0.65) },
+          { date: "Wed", web: Math.round(total * 0.55), app: Math.round(total * 0.72) },
+          { date: "Thu", web: Math.round(total * 0.62), app: Math.round(total * 0.80) },
+          { date: "Fri", web: Math.round(total * 0.68), app: Math.round(total * 0.88) },
+          { date: "Sat", web: Math.round(total * 0.72), app: Math.round(total * 0.94) },
+          { date: "Today", web: Math.round(total * 0.78), app: total }
         ];
       case "3M":
         return [
-          { date: "Aug", web: Math.max(10, Math.round(total * 0.35)), app: Math.max(15, Math.round(total * 0.50)) },
-          { date: "Sep", web: Math.max(18, Math.round(total * 0.52)), app: Math.max(24, Math.round(total * 0.68)) },
-          { date: "Oct", web: Math.max(25, Math.round(total * 0.68)), app: Math.max(35, Math.round(total * 0.85)) },
-          { date: "Nov (Now)", web: Math.max(35, Math.round(total * 0.76)), app: Math.max(50, total) }
+          { date: "Aug", web: Math.round(total * 0.35), app: Math.round(total * 0.50) },
+          { date: "Sep", web: Math.round(total * 0.50), app: Math.round(total * 0.68) },
+          { date: "Oct", web: Math.round(total * 0.65), app: Math.round(total * 0.85) },
+          { date: "Nov (Now)", web: Math.round(total * 0.78), app: total }
         ];
       case "6M":
         return [
-          { date: "Jun", web: Math.max(8, Math.round(total * 0.25)), app: Math.max(12, Math.round(total * 0.38)) },
-          { date: "Jul", web: Math.max(12, Math.round(total * 0.38)), app: Math.max(18, Math.round(total * 0.52)) },
-          { date: "Aug", web: Math.max(16, Math.round(total * 0.48)), app: Math.max(24, Math.round(total * 0.65)) },
-          { date: "Sep", web: Math.max(22, Math.round(total * 0.59)), app: Math.max(32, Math.round(total * 0.78)) },
-          { date: "Oct", web: Math.max(28, Math.round(total * 0.69)), app: Math.max(40, Math.round(total * 0.88)) },
-          { date: "Nov", web: Math.max(35, Math.round(total * 0.76)), app: Math.max(50, total) }
+          { date: "Jun", web: Math.round(total * 0.25), app: Math.round(total * 0.38) },
+          { date: "Jul", web: Math.round(total * 0.38), app: Math.round(total * 0.52) },
+          { date: "Aug", web: Math.round(total * 0.48), app: Math.round(total * 0.65) },
+          { date: "Sep", web: Math.round(total * 0.58), app: Math.round(total * 0.78) },
+          { date: "Oct", web: Math.round(total * 0.68), app: Math.round(total * 0.88) },
+          { date: "Nov", web: Math.round(total * 0.78), app: total }
         ];
       case "1Y":
         return [
-          { date: "Q1", web: Math.max(6, Math.round(total * 0.20)), app: Math.max(10, Math.round(total * 0.30)) },
-          { date: "Q2", web: Math.max(12, Math.round(total * 0.40)), app: Math.max(20, Math.round(total * 0.55)) },
-          { date: "Q3", web: Math.max(22, Math.round(total * 0.65)), app: Math.max(35, Math.round(total * 0.80)) },
-          { date: "Q4", web: Math.max(35, Math.round(total * 0.76)), app: Math.max(50, total) }
+          { date: "Q1", web: Math.round(total * 0.20), app: Math.round(total * 0.30) },
+          { date: "Q2", web: Math.round(total * 0.40), app: Math.round(total * 0.55) },
+          { date: "Q3", web: Math.round(total * 0.60), app: Math.round(total * 0.80) },
+          { date: "Q4", web: Math.round(total * 0.78), app: total }
         ];
       case "30D":
       default:
         return [
-          { date: "1 Jul", web: Math.max(10, Math.round(total * 0.45)), app: Math.max(15, Math.round(total * 0.55)) },
-          { date: "8 Jul", web: Math.max(18, Math.round(total * 0.52)), app: Math.max(25, Math.round(total * 0.68)) },
-          { date: "15 Jul", web: Math.max(22, Math.round(total * 0.60)), app: Math.max(30, Math.round(total * 0.78)) },
-          { date: "22 Jul", web: Math.max(28, Math.round(total * 0.69)), app: Math.max(40, Math.round(total * 0.88)) },
-          { date: "Today", web: Math.max(35, Math.round(total * 0.75)), app: Math.max(50, total) }
+          { date: "1 Jul", web: Math.round(total * 0.43), app: Math.round(total * 0.55) },
+          { date: "8 Jul", web: Math.round(total * 0.52), app: Math.round(total * 0.66) },
+          { date: "15 Jul", web: Math.round(total * 0.61), app: Math.round(total * 0.72) },
+          { date: "22 Jul", web: Math.round(total * 0.64), app: Math.round(total * 0.81) },
+          { date: "Today", web: Math.round(total * 0.78), app: total }
         ];
     }
   }, [growthTimeframe, stats.totalStudents]);
@@ -432,14 +431,23 @@ export function AdminOverviewTab({ onNavigateTab }) {
             </div>
           </div>
 
-          {/* Simple Vertical Bar Chart with values above bars and minimal grid lines */}
+          {/* Smooth Area Chart matching reference screenshot */}
           <div className="h-56 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
+              <AreaChart
                 data={userGrowthData}
-                margin={{ top: 22, right: 10, left: -22, bottom: 0 }}
-                barGap={6}
+                margin={{ top: 12, right: 12, left: -20, bottom: 0 }}
               >
+                <defs>
+                  <linearGradient id="colorGrowthWeb" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.22} />
+                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0.0} />
+                  </linearGradient>
+                  <linearGradient id="colorGrowthApp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.22} />
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid vertical={false} stroke="#F1F5F9" />
                 <XAxis
                   dataKey="date"
@@ -453,9 +461,10 @@ export function AdminOverviewTab({ onNavigateTab }) {
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
+                  domain={[0, 180]}
+                  ticks={[0, 45, 90, 135, 180]}
                 />
                 <Tooltip
-                  cursor={{ fill: "#F8FAFC" }}
                   contentStyle={{
                     backgroundColor: "#FFFFFF",
                     borderColor: "#E2E8F0",
@@ -466,51 +475,29 @@ export function AdminOverviewTab({ onNavigateTab }) {
                     fontWeight: 600
                   }}
                 />
-                <Bar
+                <Area
+                  type="monotone"
                   dataKey="web"
                   name="Web Users"
-                  fill="#2563EB"
-                  radius={[5, 5, 0, 0]}
-                  maxBarSize={32}
-                >
-                  {userGrowthData.map((_, index) => (
-                    <Cell
-                      key={`web-cell-${index}`}
-                      fill={index === userGrowthData.length - 1 ? "#1D4ED8" : "#3B82F6"}
-                    />
-                  ))}
-                  <LabelList
-                    dataKey="web"
-                    position="top"
-                    fill="#64748B"
-                    fontSize={10}
-                    fontWeight={600}
-                    offset={5}
-                  />
-                </Bar>
-                <Bar
+                  stroke="#2563EB"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorGrowthWeb)"
+                  dot={{ r: 3.5, stroke: "#2563EB", strokeWidth: 2, fill: "#FFFFFF" }}
+                  activeDot={{ r: 5.5, stroke: "#2563EB", strokeWidth: 2, fill: "#FFFFFF" }}
+                />
+                <Area
+                  type="monotone"
                   dataKey="app"
                   name="App Users"
-                  fill="#10B981"
-                  radius={[5, 5, 0, 0]}
-                  maxBarSize={32}
-                >
-                  {userGrowthData.map((_, index) => (
-                    <Cell
-                      key={`app-cell-${index}`}
-                      fill={index === userGrowthData.length - 1 ? "#047857" : "#10B981"}
-                    />
-                  ))}
-                  <LabelList
-                    dataKey="app"
-                    position="top"
-                    fill="#64748B"
-                    fontSize={10}
-                    fontWeight={600}
-                    offset={5}
-                  />
-                </Bar>
-              </BarChart>
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorGrowthApp)"
+                  dot={{ r: 3.5, stroke: "#10B981", strokeWidth: 2, fill: "#FFFFFF" }}
+                  activeDot={{ r: 5.5, stroke: "#10B981", strokeWidth: 2, fill: "#FFFFFF" }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -609,13 +596,12 @@ export function AdminOverviewTab({ onNavigateTab }) {
                   <th className="pb-3 font-semibold">Item / Plan</th>
                   <th className="pb-3 font-semibold">Amount</th>
                   <th className="pb-3 font-semibold">Status</th>
-                  <th className="pb-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F1F5F9]">
                 {stats.recentPayments.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-[#64748B]">
+                    <td colSpan={4} className="py-8 text-center text-[#64748B]">
                       No recent payment requests found.
                     </td>
                   </tr>
@@ -649,28 +635,6 @@ export function AdminOverviewTab({ onNavigateTab }) {
                               ? "Rejected"
                               : "Pending"}
                           </span>
-                        </td>
-                        <td className="py-3 text-right">
-                          {statusLower === "pending" ? (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => handleApprovePayment(p.id)}
-                                className="w-6 h-6 rounded-md bg-[#DCFCE7] text-[#16A34A] hover:bg-[#16A34A] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                                title="Approve Payment"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleRejectPayment(p.id)}
-                                className="w-6 h-6 rounded-md bg-[#FEE2E2] text-[#DC2626] hover:bg-[#DC2626] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                                title="Reject Payment"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-[#64748B] text-[11px]">—</span>
-                          )}
                         </td>
                       </tr>
                     );
@@ -752,17 +716,17 @@ export function AdminOverviewTab({ onNavigateTab }) {
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => handleApproveDevice(d.id)}
-                                className="w-6 h-6 rounded-md bg-[#DCFCE7] text-[#16A34A] hover:bg-[#16A34A] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                                className="w-5 h-5 rounded-full bg-[#DCFCE7] hover:bg-[#BBF7D0] text-[#16A34A] flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
                                 title="Approve Device Reset"
                               >
-                                <Check className="w-3.5 h-3.5" />
+                                ✓
                               </button>
                               <button
                                 onClick={() => handleRejectDevice(d.id)}
-                                className="w-6 h-6 rounded-md bg-[#FEE2E2] text-[#DC2626] hover:bg-[#DC2626] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                                className="w-5 h-5 rounded-full bg-[#FEE2E2] hover:bg-[#FECACA] text-[#DC2626] flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
                                 title="Reject Device Request"
                               >
-                                <X className="w-3.5 h-3.5" />
+                                ✕
                               </button>
                             </div>
                           ) : (
