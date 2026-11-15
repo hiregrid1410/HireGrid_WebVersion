@@ -71,22 +71,36 @@ class CompaniesService {
       }
     }
 
-    let parsedCreatedAt = Date.now();
+    let parsedCreatedAtMs = Date.now();
     if (createdAt !== null && createdAt !== undefined && createdAt !== "") {
       if (typeof createdAt === "number" && !isNaN(createdAt)) {
-        parsedCreatedAt = createdAt;
+        parsedCreatedAtMs = createdAt;
       } else {
         const num = Number(createdAt);
         if (!isNaN(num) && num > 0) {
-          parsedCreatedAt = num;
+          parsedCreatedAtMs = num;
         } else {
           const parsed = Date.parse(createdAt);
           if (!isNaN(parsed)) {
-            parsedCreatedAt = parsed;
+            parsedCreatedAtMs = parsed;
           }
         }
       }
     }
+
+    let isCompaniesCreatedAtBigint = false;
+    try {
+      const colCheck = await pool.query(
+        "SELECT data_type FROM information_schema.columns WHERE table_name = 'companies' AND column_name = 'created_at'"
+      );
+      if (colCheck.rows.length > 0 && colCheck.rows[0].data_type === "bigint") {
+        isCompaniesCreatedAtBigint = true;
+      }
+    } catch (_) {}
+
+    const finalCreatedAt = isCompaniesCreatedAtBigint
+      ? parsedCreatedAtMs
+      : new Date(parsedCreatedAtMs);
 
     await pool.query(
       `INSERT INTO companies (
@@ -116,7 +130,7 @@ class CompaniesService {
         price || 0,
         sellType || 'pack',
         targetDisplayOrder,
-        parsedCreatedAt,
+        finalCreatedAt,
         createdBy || null,
         publicationStatus || 'PUBLISHED',
         platform
