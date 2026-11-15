@@ -30,11 +30,9 @@ export function StudentSidebar({
     { id: "exams", label: "Exams", icon: Award, target: "companies" },
     { id: "placement-missions", label: "Placement Missions", icon: Trophy, target: "placement-mission" },
     { id: "my-plans", label: "My Plans", icon: CreditCard, target: "plans" },
-    { id: "analytics", label: "Analytics", icon: BarChart2, target: "dashboard" },
     { id: "leaderboard", label: "Leaderboard", icon: Award, target: "placement-mission" },
     { id: "payments", label: "Payments", icon: Wallet, target: "plans" },
     { id: "device-security", label: "Device & Security", icon: ShieldCheck, target: "profile" },
-    { id: "notifications", label: "Notifications", icon: Bell, target: "dashboard", hasDot: true },
     { id: "help-support", label: "Help & Support", icon: HelpCircle, target: "feedback" },
   ];
 

@@ -138,19 +138,10 @@ export function StudentDashboardView({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* ── 1. Top Section: Welcome + 4 Stat Cards & Today's Goal Card ── */}
+      {/* ── 1. Top Section: 4 Stat Cards & Today's Goal Card ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* Left Column (8 cols): Welcome Header + 4 Stat Cards */}
-        <div className="lg:col-span-8 flex flex-col justify-between space-y-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#374151] dark:text-[#F3F4F6] flex items-center gap-2">
-              Good Morning, {user?.name?.split(" ")[0] || "kaju"}! 👋
-            </h1>
-            <p className="text-xs sm:text-sm text-[#6B7280] dark:text-[#9CA3AF] mt-1">
-              Keep learning, practice consistently and achieve your dream placement.
-            </p>
-          </div>
-
+        {/* Left Column (8 cols): 4 Stat Cards */}
+        <div className="lg:col-span-8 flex flex-col justify-center">
           {/* 4 Clean Stat Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             {/* Card 1: Tests Taken */}
