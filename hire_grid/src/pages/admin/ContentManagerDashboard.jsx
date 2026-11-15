@@ -64,6 +64,7 @@ const AdminExamsTab = lazy(() =>
 import { api } from "../../lib/api";
 import { showToast } from "../../components/common/Toast";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
+import { ThemeToggle } from "../../components/common/ThemeToggle";
 
 export default function ContentManagerDashboard() {
   const location = useLocation();
@@ -300,7 +301,7 @@ export default function ContentManagerDashboard() {
   };
 
   return (
-    <div className="h-screen max-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] flex overflow-hidden w-screen">
+    <div className="h-screen max-h-screen bg-[#FAF7F0] dark:bg-[#111827] font-sans text-[#374151] dark:text-[#F3F4F6] flex overflow-hidden w-screen">
       {/* Mobile Overlay */}
       {sidebarOpen && isMobile && (
         <div
@@ -309,31 +310,31 @@ export default function ContentManagerDashboard() {
         />
       )}
 
-      {/* 4. SIDEBAR REDESIGN - Professional SaaS Light Theme */}
+      {/* 4. SIDEBAR REDESIGN - Light & Dark Theme Support */}
       <aside
-        className={`bg-white border-r border-[#E2E8F0] flex flex-col transition-all duration-300 z-50 shrink-0
+        className={`bg-white dark:bg-[#1F2937] border-r border-[#E7E1D5] dark:border-[#374151] flex flex-col transition-all duration-300 z-50 shrink-0
         fixed md:relative inset-y-0 left-0 h-full overflow-hidden
         ${sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 w-64 md:w-20"}`}
       >
         {/* Sidebar Header / Logo */}
-        <div className="h-16 flex items-center justify-between px-5 border-b border-[#E2E8F0] shrink-0">
+        <div className="h-16 flex items-center justify-between px-5 border-b border-[#E7E1D5] dark:border-[#374151] shrink-0">
           {sidebarOpen ? (
             <div className="flex items-center gap-2 overflow-hidden">
-              <span className="text-xl font-bold tracking-tight text-[#0F172A] flex items-center">
-                HireGrid<span className="text-[#2563EB]">X</span>
+              <span className="text-xl font-bold tracking-tight text-[#374151] dark:text-[#F3F4F6] flex items-center">
+                HireGrid<span className="text-[#14532D] dark:text-[#22C55E]">X</span>
               </span>
-              <span className="text-[10px] bg-[#DBEAFE] text-[#2563EB] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+              <span className="text-[10px] bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
                 CM
               </span>
             </div>
           ) : (
             <button
               onClick={() => setSidebarOpen(true)}
-              className="mx-auto p-1.5 hover:bg-[#F8FAFC] rounded-xl transition-all cursor-pointer flex items-center justify-center text-[#2563EB]"
+              className="mx-auto p-1.5 hover:bg-[#FAF7F0] dark:hover:bg-[#111827] rounded-xl transition-all cursor-pointer flex items-center justify-center text-[#14532D] dark:text-[#22C55E]"
               title="Expand Sidebar"
             >
               <span className="text-xl font-bold tracking-tight">
-                H<span className="text-[#2563EB]">X</span>
+                H<span className="text-[#14532D] dark:text-[#22C55E]">X</span>
               </span>
             </button>
           )}
@@ -341,7 +342,7 @@ export default function ContentManagerDashboard() {
           {sidebarOpen && isMobile && (
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-1 rounded-lg text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100 transition-colors"
+              className="p-1 rounded-lg text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <Menu className="w-4 h-4" />
             </button>
@@ -362,7 +363,7 @@ export default function ContentManagerDashboard() {
           {/* Section: CONTENT MANAGEMENT */}
           <div className="space-y-1">
             {sidebarOpen && (
-              <div className="flex items-center justify-between px-3 pt-2 pb-1 text-[11px] font-medium text-[#64748B]">
+              <div className="flex items-center justify-between px-3 pt-2 pb-1 text-[11px] font-medium text-[#6B7280] dark:text-[#9CA3AF]">
                 <span>Content Management</span>
                 <ChevronDown className="w-3.5 h-3.5" />
               </div>
@@ -423,7 +424,7 @@ export default function ContentManagerDashboard() {
           {/* Section: TOOLS */}
           <div className="space-y-1">
             {sidebarOpen && (
-              <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-[#64748B]">
+              <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-[#6B7280] dark:text-[#9CA3AF]">
                 Tools
               </div>
             )}
@@ -440,19 +441,19 @@ export default function ContentManagerDashboard() {
         </div>
 
         {/* User Profile & Sign Out Footer */}
-        <div className="p-3 border-t border-[#E2E8F0] shrink-0 bg-white">
+        <div className="p-3 border-t border-[#E7E1D5] dark:border-[#374151] shrink-0 bg-white dark:bg-[#1F2937]">
           <div className={`flex items-center ${!sidebarOpen ? "justify-center" : "px-2"} mb-3`}>
-            <div className="h-8 w-8 rounded-full bg-[#15803D] flex items-center justify-center text-white font-bold text-xs shrink-0">
+            <div className="h-8 w-8 rounded-full bg-[#15803D] dark:bg-[#22C55E] flex items-center justify-center text-white dark:text-[#111827] font-bold text-xs shrink-0">
               {userName.charAt(0).toUpperCase()}
             </div>
             <div className={`ml-2.5 ${!sidebarOpen && "hidden"} overflow-hidden`}>
-              <p className="text-xs font-bold text-[#0F172A] leading-tight truncate">{userName}</p>
-              <p className="text-[10px] text-[#64748B]">Content Manager</p>
+              <p className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6] leading-tight truncate">{userName}</p>
+              <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF]">Content Manager</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center justify-center py-2 rounded-xl text-xs font-semibold text-[#EF4444] bg-[#FEE2E2]/60 hover:bg-[#FEE2E2] transition-all cursor-pointer ${
+            className={`w-full flex items-center justify-center py-2 rounded-xl text-xs font-semibold text-[#B91C1C] dark:text-[#F87171] bg-[#FEE2E2]/60 dark:bg-rose-950/40 hover:bg-[#FEE2E2] dark:hover:bg-rose-900/50 transition-all cursor-pointer ${
               !sidebarOpen && "px-0"
             }`}
             title="Sign Out"
@@ -465,44 +466,44 @@ export default function ContentManagerDashboard() {
 
       {/* 5. TOP NAVIGATION BAR */}
       <div className="flex-1 flex flex-col overflow-hidden max-h-screen">
-        <header className="h-16 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-5 shrink-0 relative z-20">
+        <header className="h-16 bg-white dark:bg-[#1F2937] border-b border-[#E7E1D5] dark:border-[#374151] flex items-center justify-between px-5 shrink-0 relative z-20">
           {/* Left: Sidebar Toggle & Global Search */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer"
               title="Toggle Sidebar"
             >
               <Menu className="w-5 h-5" />
             </button>
 
             <div className="relative w-64 sm:w-80 md:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] dark:text-[#6B7280]" />
               <input
                 type="text"
                 placeholder="Search companies, modules, questions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs outline-none focus:border-[#2563EB] text-[#0F172A] placeholder-[#94A3B8] transition-all"
+                className="w-full pl-9 pr-3 py-1.5 bg-[#FAF7F0] dark:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] rounded-xl text-xs outline-none focus:border-[#14532D] dark:focus:border-[#22C55E] text-[#374151] dark:text-[#F3F4F6] placeholder-[#9CA3AF] dark:placeholder-[#6B7280] transition-all"
               />
             </div>
           </div>
 
-          {/* Right: Platform Filter Dropdown, Notification & User Avatar */}
+          {/* Right: Platform Filter Dropdown, Theme Toggle, Notification & User Avatar */}
           <div className="flex items-center gap-3">
             {/* Platform Filter Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setShowPlatformDropdown(!showPlatformDropdown)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#E7E1D5] dark:border-[#374151] bg-white dark:bg-[#1F2937] text-xs font-medium text-[#374151] dark:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer"
               >
-                <MonitorSmartphone className="w-4 h-4 text-[#64748B]" />
+                <MonitorSmartphone className="w-4 h-4 text-[#6B7280] dark:text-[#9CA3AF]" />
                 <span className="hidden sm:inline">{platformLabels[selectedPlatform]}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#6B7280] dark:text-[#9CA3AF]" />
               </button>
 
               {showPlatformDropdown && (
-                <div className="absolute right-0 mt-1 w-40 bg-white border border-[#E2E8F0] rounded-xl shadow-lg p-1 z-50 text-xs">
+                <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-xl shadow-lg p-1 z-50 text-xs">
                   {Object.entries(platformLabels).map(([key, label]) => (
                     <button
                       key={key}
@@ -512,8 +513,8 @@ export default function ContentManagerDashboard() {
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors ${
                         selectedPlatform === key
-                          ? "bg-[#DBEAFE] text-[#2563EB] font-bold"
-                          : "text-[#0F172A] hover:bg-[#F8FAFC]"
+                          ? "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] font-bold"
+                          : "text-[#374151] dark:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827]"
                       }`}
                     >
                       {label}
@@ -523,52 +524,55 @@ export default function ContentManagerDashboard() {
               )}
             </div>
 
+            {/* Theme Toggle Button */}
+            <ThemeToggle />
+
             {/* Notification Bell */}
             <button
               onClick={() => showToast("No new notifications", "info")}
-              className="relative p-2 rounded-xl text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+              className="relative p-2 rounded-xl text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors cursor-pointer"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#EF4444]"></span>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#B91C1C] dark:bg-[#F87171]"></span>
             </button>
 
             {/* User Avatar & Info */}
-            <div className="flex items-center gap-2.5 pl-2 border-l border-[#E2E8F0]">
-              <div className="w-8 h-8 rounded-full bg-[#15803D] flex items-center justify-center text-white font-bold text-xs">
+            <div className="flex items-center gap-2.5 pl-2 border-l border-[#E7E1D5] dark:border-[#374151]">
+              <div className="w-8 h-8 rounded-full bg-[#14532D] dark:bg-[#22C55E] flex items-center justify-center text-white dark:text-[#111827] font-bold text-xs">
                 {userName.charAt(0).toUpperCase()}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-[#0F172A] leading-tight">{userName}</p>
-                <p className="text-[10px] text-[#64748B]">Content Manager</p>
+                <p className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6] leading-tight">{userName}</p>
+                <p className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF]">Content Manager</p>
               </div>
             </div>
           </div>
         </header>
 
         {/* MAIN BODY CONTAINER */}
-        <main className="flex-1 overflow-y-auto bg-[#F8FAFC] custom-scrollbar p-5 sm:p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto bg-[#FAF7F0] dark:bg-[#111827] custom-scrollbar p-5 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
             {activeTab === "dashboard" && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 {/* 6. DASHBOARD HEADER */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6] tracking-tight flex items-center gap-2">
                       Good Morning, Content Manager! 👋
                     </h1>
-                    <p className="text-xs text-[#64748B] mt-0.5">
+                    <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
                       Create and manage learning content, questions and exams.
                     </p>
                   </div>
                   <button
                     onClick={fetchStats}
                     disabled={loadingStats}
-                    className="self-start sm:self-auto p-2 rounded-xl border border-[#E2E8F0] bg-white text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50 transition-all cursor-pointer"
+                    className="self-start sm:self-auto p-2 rounded-xl border border-[#E7E1D5] dark:border-[#374151] bg-white dark:bg-[#1F2937] text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-all cursor-pointer"
                     title="Refresh Stats"
                   >
                     <RefreshCw
-                      className={`w-4 h-4 ${loadingStats ? "animate-spin text-[#2563EB]" : ""}`}
+                      className={`w-4 h-4 ${loadingStats ? "animate-spin text-[#14532D] dark:text-[#22C55E]" : ""}`}
                     />
                   </button>
                 </div>
@@ -576,18 +580,18 @@ export default function ContentManagerDashboard() {
                 {/* 7. STATISTICS CARDS - Exactly 6 Cards matching screenshot */}
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
                   {/* Card 1: Companies */}
-                  <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs">
-                    <div className="flex items-center gap-2 text-xs font-medium text-[#0F172A]">
-                      <div className="w-6 h-6 rounded-lg bg-[#DBEAFE] text-[#2563EB] flex items-center justify-center shrink-0">
+                  <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-4 rounded-xl shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-[#374151] dark:text-[#F3F4F6]">
+                      <div className="w-6 h-6 rounded-lg bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0">
                         <BookOpen className="w-3.5 h-3.5" />
                       </div>
                       <span>Companies</span>
                     </div>
                     <div className="mt-3">
-                      <span className="text-2xl font-bold text-[#0F172A]">
+                      <span className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">
                         {selectedPlatform === "all" ? companies.length || 9 : displayedCompanies.length}
                       </span>
-                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#16A34A]">
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#15803D] dark:text-[#4ADE80]">
                         <TrendingUp className="w-3 h-3" />
                         <span>+4 this month</span>
                       </div>
@@ -595,22 +599,22 @@ export default function ContentManagerDashboard() {
                   </div>
 
                   {/* Card 2: Branches */}
-                  <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs">
-                    <div className="flex items-center gap-2 text-xs font-medium text-[#0F172A]">
-                      <div className="w-6 h-6 rounded-lg bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0">
+                  <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-4 rounded-xl shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-[#374151] dark:text-[#F3F4F6]">
+                      <div className="w-6 h-6 rounded-lg bg-[#E8F3EC] dark:bg-[#193B2A] text-[#15803D] dark:text-[#4ADE80] flex items-center justify-center shrink-0">
                         <GitMerge className="w-3.5 h-3.5" />
                       </div>
                       <span>Branches</span>
                     </div>
                     <div className="mt-3">
-                      <span className="text-2xl font-bold text-[#0F172A]">
+                      <span className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">
                         {selectedPlatform === "all"
                           ? branches.length || 3
                           : branches.filter(
                               (b) => (b.platform || "both").toLowerCase() === selectedPlatform
                             ).length}
                       </span>
-                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#16A34A]">
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#15803D] dark:text-[#4ADE80]">
                         <TrendingUp className="w-3 h-3" />
                         <span>+2 this month</span>
                       </div>
@@ -618,20 +622,20 @@ export default function ContentManagerDashboard() {
                   </div>
 
                   {/* Card 3: Modules */}
-                  <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs">
-                    <div className="flex items-center gap-2 text-xs font-medium text-[#0F172A]">
-                      <div className="w-6 h-6 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
+                  <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-4 rounded-xl shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-[#374151] dark:text-[#F3F4F6]">
+                      <div className="w-6 h-6 rounded-lg bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] border border-[#D6C7A1] dark:border-[#374151] flex items-center justify-center shrink-0">
                         <FolderOpen className="w-3.5 h-3.5" />
                       </div>
                       <span>Modules</span>
                     </div>
                     <div className="mt-3">
-                      <span className="text-2xl font-bold text-[#0F172A]">
+                      <span className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">
                         {selectedPlatform === "all"
                           ? modules.length || 319
                           : displayedModules.length}
                       </span>
-                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#16A34A]">
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#15803D] dark:text-[#4ADE80]">
                         <TrendingUp className="w-3 h-3" />
                         <span>+18 this month</span>
                       </div>
@@ -639,18 +643,18 @@ export default function ContentManagerDashboard() {
                   </div>
 
                   {/* Card 4: Questions */}
-                  <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs">
-                    <div className="flex items-center gap-2 text-xs font-medium text-[#0F172A]">
-                      <div className="w-6 h-6 rounded-lg bg-[#F3E8FF] text-[#9333EA] flex items-center justify-center shrink-0">
+                  <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-4 rounded-xl shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-[#374151] dark:text-[#F3F4F6]">
+                      <div className="w-6 h-6 rounded-lg bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0">
                         <HelpCircle className="w-3.5 h-3.5" />
                       </div>
                       <span>Questions</span>
                     </div>
                     <div className="mt-3">
-                      <span className="text-2xl font-bold text-[#0F172A]">
+                      <span className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">
                         {questionsCount.toLocaleString()}
                       </span>
-                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#16A34A]">
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#15803D] dark:text-[#4ADE80]">
                         <TrendingUp className="w-3 h-3" />
                         <span>+860 this month</span>
                       </div>
@@ -658,22 +662,22 @@ export default function ContentManagerDashboard() {
                   </div>
 
                   {/* Card 5: Exams */}
-                  <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs">
-                    <div className="flex items-center gap-2 text-xs font-medium text-[#0F172A]">
-                      <div className="w-6 h-6 rounded-lg bg-[#FFE4E6] text-[#E11D48] flex items-center justify-center shrink-0">
+                  <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-4 rounded-xl shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-[#374151] dark:text-[#F3F4F6]">
+                      <div className="w-6 h-6 rounded-lg bg-[#FEE2E2] dark:bg-rose-950/40 text-[#B91C1C] dark:text-[#F87171] flex items-center justify-center shrink-0">
                         <Award className="w-3.5 h-3.5" />
                       </div>
                       <span>Exams</span>
                     </div>
                     <div className="mt-3">
-                      <span className="text-2xl font-bold text-[#0F172A]">
+                      <span className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">
                         {selectedPlatform === "all"
                           ? exams.length
                           : exams.filter(
                               (e) => (e.platform || "both").toLowerCase() === selectedPlatform
                             ).length}
                       </span>
-                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#16A34A]">
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#15803D] dark:text-[#4ADE80]">
                         <TrendingUp className="w-3 h-3" />
                         <span>+6 this month</span>
                       </div>
@@ -681,22 +685,22 @@ export default function ContentManagerDashboard() {
                   </div>
 
                   {/* Card 6: Revision Content */}
-                  <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs">
-                    <div className="flex items-center gap-2 text-xs font-medium text-[#0F172A]">
-                      <div className="w-6 h-6 rounded-lg bg-[#CCFBF1] text-[#0D9488] flex items-center justify-center shrink-0">
+                  <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-4 rounded-xl shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-[#374151] dark:text-[#F3F4F6]">
+                      <div className="w-6 h-6 rounded-lg bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] flex items-center justify-center shrink-0">
                         <RotateCcw className="w-3.5 h-3.5" />
                       </div>
                       <span>Revision Content</span>
                     </div>
                     <div className="mt-3">
-                      <span className="text-2xl font-bold text-[#0F172A]">
+                      <span className="text-2xl font-bold text-[#374151] dark:text-[#F3F4F6]">
                         {selectedPlatform === "all"
                           ? revisionModules.length || 112
                           : revisionModules.filter(
                               (r) => (r.platform || "both").toLowerCase() === selectedPlatform
                             ).length}
                       </span>
-                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#16A34A]">
+                      <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-[#15803D] dark:text-[#4ADE80]">
                         <TrendingUp className="w-3 h-3" />
                         <span>+12 this month</span>
                       </div>
@@ -707,11 +711,11 @@ export default function ContentManagerDashboard() {
                 {/* 8. MAIN DASHBOARD CONTENT (Content Overview, Recent Activity, Create Content) */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                   {/* A. Content Overview (5 Cols) */}
-                  <div className="lg:col-span-5 bg-white border border-[#E2E8F0] p-5 rounded-xl shadow-xs flex flex-col justify-between">
+                  <div className="lg:col-span-5 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-5 rounded-xl shadow-xs flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-bold text-[#0F172A]">Content Overview</h3>
-                        <div className="text-[11px] font-medium text-[#64748B] flex items-center gap-1 border border-[#E2E8F0] px-2 py-0.5 rounded-lg">
+                        <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Content Overview</h3>
+                        <div className="text-[11px] font-medium text-[#6B7280] dark:text-[#9CA3AF] flex items-center gap-1 border border-[#E7E1D5] dark:border-[#374151] px-2 py-0.5 rounded-lg">
                           <span>All Platforms</span>
                           <ChevronDown className="w-3 h-3" />
                         </div>
@@ -723,15 +727,15 @@ export default function ContentManagerDashboard() {
                             data={barChartData}
                             margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                           >
-                            <CartesianGrid vertical={false} stroke="#F1F5F9" />
+                            <CartesianGrid vertical={false} stroke="#E7E1D5" strokeOpacity={0.3} />
                             <XAxis
                               dataKey="name"
-                              stroke="#64748B"
+                              stroke="#6B7280"
                               fontSize={10}
                               tickLine={false}
                             />
                             <YAxis
-                              stroke="#64748B"
+                              stroke="#6B7280"
                               fontSize={10}
                               tickLine={false}
                               ticks={[0, 1500, 3000, 4500, 6000]}
@@ -739,46 +743,46 @@ export default function ContentManagerDashboard() {
                             />
                             <Tooltip
                               contentStyle={{
-                                backgroundColor: "#0F172A",
-                                borderColor: "#1E293B",
+                                backgroundColor: "#1F2937",
+                                borderColor: "#374151",
                                 borderRadius: "8px",
                                 fontSize: "11px",
-                                color: "#FFFFFF"
+                                color: "#F3F4F6"
                               }}
                             />
-                            <Bar dataKey="web" fill="#2563EB" radius={[3, 3, 0, 0]} />
-                            <Bar dataKey="app" fill="#16A34A" radius={[3, 3, 0, 0]} />
-                            <Bar dataKey="both" fill="#9333EA" radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="web" fill="#14532D" radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="app" fill="#D6C7A1" radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="both" fill="#0F4224" radius={[3, 3, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
 
                     {/* Chart Legend */}
-                    <div className="flex items-center justify-center gap-4 pt-3 text-xs text-[#64748B]">
+                    <div className="flex items-center justify-center gap-4 pt-3 text-xs text-[#6B7280] dark:text-[#9CA3AF]">
                       <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB]"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#14532D]"></span>
                         Web
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A]"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#D6C7A1]"></span>
                         App
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#9333EA]"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#0F4224]"></span>
                         Both
                       </span>
                     </div>
                   </div>
 
                   {/* B. Recent Activity (4 Cols) */}
-                  <div className="lg:col-span-4 bg-white border border-[#E2E8F0] p-5 rounded-xl shadow-xs flex flex-col justify-between">
+                  <div className="lg:col-span-4 bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-5 rounded-xl shadow-xs flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-bold text-[#0F172A]">Recent Activity</h3>
+                        <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Recent Activity</h3>
                         <button
                           onClick={() => setActiveTab("company-modules")}
-                          className="text-xs font-semibold text-[#2563EB] hover:underline flex items-center gap-1 cursor-pointer"
+                          className="text-xs font-semibold text-[#14532D] dark:text-[#22C55E] hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           View All <ChevronRight className="w-3.5 h-3.5" />
                         </button>
@@ -788,35 +792,35 @@ export default function ContentManagerDashboard() {
                         {displayedActivity.map((act) => (
                           <div
                             key={act.id}
-                            className="flex items-center justify-between py-1 border-b border-[#F1F5F9] last:border-0"
+                            className="flex items-center justify-between py-1 border-b border-[#E7E1D5]/40 dark:border-[#374151]/40 last:border-0"
                           >
                             <div className="flex items-start gap-2.5">
-                              <div className="w-7 h-7 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-center shrink-0 mt-0.5">
+                              <div className="w-7 h-7 rounded-lg bg-[#FAF7F0] dark:bg-[#111827] border border-[#E7E1D5] dark:border-[#374151] flex items-center justify-center shrink-0 mt-0.5">
                                 {act.title.includes("Module") ? (
-                                  <FolderOpen className="w-3.5 h-3.5 text-[#2563EB]" />
+                                  <FolderOpen className="w-3.5 h-3.5 text-[#14532D] dark:text-[#22C55E]" />
                                 ) : act.title.includes("Question") ? (
-                                  <HelpCircle className="w-3.5 h-3.5 text-[#16A34A]" />
+                                  <HelpCircle className="w-3.5 h-3.5 text-[#15803D] dark:text-[#4ADE80]" />
                                 ) : act.title.includes("Exam") ? (
-                                  <Award className="w-3.5 h-3.5 text-[#9333EA]" />
+                                  <Award className="w-3.5 h-3.5 text-[#B45309] dark:text-[#FBBF24]" />
                                 ) : act.title.includes("Revision") ? (
-                                  <RotateCcw className="w-3.5 h-3.5 text-[#0D9488]" />
+                                  <RotateCcw className="w-3.5 h-3.5 text-[#14532D] dark:text-[#22C55E]" />
                                 ) : (
-                                  <BookOpen className="w-3.5 h-3.5 text-[#2563EB]" />
+                                  <BookOpen className="w-3.5 h-3.5 text-[#14532D] dark:text-[#22C55E]" />
                                 )}
                               </div>
                               <div>
-                                <h4 className="text-xs font-bold text-[#0F172A]">{act.title}</h4>
-                                <p className="text-[11px] text-[#64748B]">{act.desc}</p>
+                                <h4 className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6]">{act.title}</h4>
+                                <p className="text-[11px] text-[#6B7280] dark:text-[#9CA3AF]">{act.desc}</p>
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
                               <span
                                 className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
                                   act.platform === "web"
-                                    ? "bg-[#DBEAFE] text-[#2563EB]"
+                                    ? "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E]"
                                     : act.platform === "app"
-                                    ? "bg-[#DCFCE7] text-[#16A34A]"
-                                    : "bg-[#F3E8FF] text-[#9333EA]"
+                                    ? "bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] border border-[#D6C7A1] dark:border-[#374151]"
+                                    : "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#0F4224] dark:text-[#4ADE80]"
                                 }`}
                               >
                                 {act.platform === "web"
@@ -825,7 +829,7 @@ export default function ContentManagerDashboard() {
                                   ? "App only"
                                   : "Both"}
                               </span>
-                              <span className="text-[10px] text-[#94A3B8]">{act.time}</span>
+                              <span className="text-[10px] text-[#9CA3AF] dark:text-[#6B7280]">{act.time}</span>
                             </div>
                           </div>
                         ))}
@@ -836,19 +840,19 @@ export default function ContentManagerDashboard() {
                   {/* C. Create Content & Quick Actions (3 Cols) */}
                   <div className="lg:col-span-3 space-y-4">
                     {/* Create Content Banner */}
-                    <div className="p-5 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white shadow-xs">
+                    <div className="p-5 rounded-xl bg-gradient-to-r from-[#14532D] to-[#0F4224] dark:from-[#193B2A] dark:to-[#14532D] text-white shadow-xs">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
                           <Plus className="w-4 h-4 text-white" />
                         </div>
                         <h3 className="text-sm font-bold">Create Content</h3>
                       </div>
-                      <p className="text-[11px] text-blue-100 mb-4 leading-relaxed">
+                      <p className="text-[11px] text-emerald-100 mb-4 leading-relaxed">
                         Add modules, questions, exams and revision content.
                       </p>
                       <button
                         onClick={() => setActiveTab("modules-manager")}
-                        className="w-full py-2 bg-white text-[#2563EB] hover:bg-blue-50 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                        className="w-full py-2 bg-white dark:bg-[#1F2937] text-[#14532D] dark:text-[#22C55E] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Create New Module</span>
@@ -856,39 +860,39 @@ export default function ContentManagerDashboard() {
                     </div>
 
                     {/* Quick Actions 2x2 Grid */}
-                    <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs">
-                      <h4 className="text-xs font-bold text-[#0F172A] mb-3">Quick Actions</h4>
+                    <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] p-4 rounded-xl shadow-xs">
+                      <h4 className="text-xs font-bold text-[#374151] dark:text-[#F3F4F6] mb-3">Quick Actions</h4>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => setActiveTab("modules-manager")}
-                          className="p-2.5 rounded-lg border border-[#E2E8F0] hover:bg-[#F8FAFC] text-left transition-colors cursor-pointer flex items-center gap-2"
+                          className="p-2.5 rounded-lg border border-[#E7E1D5] dark:border-[#374151] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] text-left transition-colors cursor-pointer flex items-center gap-2"
                         >
-                          <HelpCircle className="w-4 h-4 text-[#2563EB] shrink-0" />
-                          <span className="text-xs font-semibold text-[#0F172A]">Add Question</span>
+                          <HelpCircle className="w-4 h-4 text-[#14532D] dark:text-[#22C55E] shrink-0" />
+                          <span className="text-xs font-semibold text-[#374151] dark:text-[#F3F4F6]">Add Question</span>
                         </button>
 
                         <button
                           onClick={() => setActiveTab("exams")}
-                          className="p-2.5 rounded-lg border border-[#E2E8F0] hover:bg-[#F8FAFC] text-left transition-colors cursor-pointer flex items-center gap-2"
+                          className="p-2.5 rounded-lg border border-[#E7E1D5] dark:border-[#374151] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] text-left transition-colors cursor-pointer flex items-center gap-2"
                         >
-                          <Award className="w-4 h-4 text-[#D97706] shrink-0" />
-                          <span className="text-xs font-semibold text-[#0F172A]">Create Exam</span>
+                          <Award className="w-4 h-4 text-[#B45309] dark:text-[#FBBF24] shrink-0" />
+                          <span className="text-xs font-semibold text-[#374151] dark:text-[#F3F4F6]">Create Exam</span>
                         </button>
 
                         <button
                           onClick={() => setActiveTab("revision-modules")}
-                          className="p-2.5 rounded-lg border border-[#E2E8F0] hover:bg-[#F8FAFC] text-left transition-colors cursor-pointer flex items-center gap-2"
+                          className="p-2.5 rounded-lg border border-[#E7E1D5] dark:border-[#374151] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] text-left transition-colors cursor-pointer flex items-center gap-2"
                         >
-                          <RotateCcw className="w-4 h-4 text-[#16A34A] shrink-0" />
-                          <span className="text-xs font-semibold text-[#0F172A]">Revision Set</span>
+                          <RotateCcw className="w-4 h-4 text-[#15803D] dark:text-[#4ADE80] shrink-0" />
+                          <span className="text-xs font-semibold text-[#374151] dark:text-[#F3F4F6]">Revision Set</span>
                         </button>
 
                         <button
                           onClick={() => setActiveTab("modules-manager")}
-                          className="p-2.5 rounded-lg border border-[#E2E8F0] hover:bg-[#F8FAFC] text-left transition-colors cursor-pointer flex items-center gap-2"
+                          className="p-2.5 rounded-lg border border-[#E7E1D5] dark:border-[#374151] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] text-left transition-colors cursor-pointer flex items-center gap-2"
                         >
-                          <Upload className="w-4 h-4 text-[#2563EB] shrink-0" />
-                          <span className="text-xs font-semibold text-[#0F172A]">Bulk Upload</span>
+                          <Upload className="w-4 h-4 text-[#14532D] dark:text-[#22C55E] shrink-0" />
+                          <span className="text-xs font-semibold text-[#374151] dark:text-[#F3F4F6]">Bulk Upload</span>
                         </button>
                       </div>
                     </div>
@@ -898,15 +902,15 @@ export default function ContentManagerDashboard() {
                 {/* 9. MANAGEMENT TABLES (Manage Companies & Manage Modules) */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   {/* A. Manage Companies Table */}
-                  <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-xs">
+                  <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-xl p-5 shadow-xs">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-sm font-bold text-[#0F172A]">Manage Companies</h3>
-                        <p className="text-xs text-[#64748B]">Add, edit and manage company profiles.</p>
+                        <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Manage Companies</h3>
+                        <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF]">Add, edit and manage company profiles.</p>
                       </div>
                       <button
                         onClick={() => setActiveTab("company-modules")}
-                        className="px-3.5 py-1.5 bg-[#2563EB] hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                        className="px-3.5 py-1.5 bg-[#14532D] hover:bg-[#0F4224] dark:bg-[#22C55E] dark:hover:bg-[#16A34A] text-white dark:text-[#111827] rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Company</span>
@@ -916,17 +920,17 @@ export default function ContentManagerDashboard() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
                         <thead>
-                          <tr className="border-b border-[#E2E8F0] text-[#64748B] text-[11px] font-semibold">
+                          <tr className="border-b border-[#E7E1D5] dark:border-[#374151] text-[#6B7280] dark:text-[#9CA3AF] text-[11px] font-semibold">
                             <th className="pb-3 font-semibold">Company</th>
                             <th className="pb-3 font-semibold">Platform</th>
                             <th className="pb-3 font-semibold">Status</th>
                             <th className="pb-3 text-right font-semibold">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#F1F5F9]">
+                        <tbody className="divide-y divide-[#E7E1D5]/40 dark:divide-[#374151]/40">
                           {displayedCompanies.length === 0 ? (
                             <tr>
-                              <td colSpan={4} className="py-6 text-center text-xs text-[#64748B]">
+                              <td colSpan={4} className="py-6 text-center text-xs text-[#6B7280] dark:text-[#9CA3AF]">
                                 No companies found for this platform.
                               </td>
                             </tr>
@@ -936,19 +940,19 @@ export default function ContentManagerDashboard() {
                               return (
                                 <tr
                                   key={comp.id}
-                                  className="hover:bg-slate-50 transition-colors"
+                                  className="hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors"
                                 >
-                                  <td className="py-3 font-bold text-[#0F172A]">
+                                  <td className="py-3 font-bold text-[#374151] dark:text-[#F3F4F6]">
                                     {comp.name}
                                   </td>
                                   <td className="py-3">
                                     <span
                                       className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold ${
                                         normPlatform === "web"
-                                          ? "bg-[#DBEAFE] text-[#2563EB]"
+                                          ? "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E]"
                                           : normPlatform === "app"
-                                          ? "bg-[#DCFCE7] text-[#16A34A]"
-                                          : "bg-[#F3E8FF] text-[#9333EA]"
+                                          ? "bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] border border-[#D6C7A1] dark:border-[#374151]"
+                                          : "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#0F4224] dark:text-[#4ADE80]"
                                       }`}
                                     >
                                       {normPlatform === "web"
@@ -959,7 +963,7 @@ export default function ContentManagerDashboard() {
                                     </span>
                                   </td>
                                   <td className="py-3">
-                                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#DCFCE7] text-[#16A34A]">
+                                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#E8F3EC] dark:bg-[#193B2A] text-[#15803D] dark:text-[#4ADE80]">
                                       {comp.publicationStatus || "Published"}
                                     </span>
                                   </td>
@@ -967,14 +971,14 @@ export default function ContentManagerDashboard() {
                                     <div className="flex items-center justify-end gap-2">
                                       <button
                                         onClick={() => setActiveTab("company-modules")}
-                                        className="text-[#64748B] hover:text-[#2563EB] transition-colors cursor-pointer"
+                                        className="text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#14532D] dark:hover:text-[#22C55E] transition-colors cursor-pointer"
                                         title="Edit Company"
                                       >
                                         <Edit2 className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => setDeleteCompanyId(comp.id)}
-                                        className="text-[#64748B] hover:text-[#EF4444] transition-colors cursor-pointer"
+                                        className="text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#B91C1C] dark:hover:text-[#F87171] transition-colors cursor-pointer"
                                         title="Delete Company"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -991,15 +995,15 @@ export default function ContentManagerDashboard() {
                   </div>
 
                   {/* B. Manage Modules Table */}
-                  <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-xs">
+                  <div className="bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-xl p-5 shadow-xs">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-sm font-bold text-[#0F172A]">Manage Modules</h3>
-                        <p className="text-xs text-[#64748B]">Create and organize learning modules.</p>
+                        <h3 className="text-sm font-bold text-[#374151] dark:text-[#F3F4F6]">Manage Modules</h3>
+                        <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF]">Create and organize learning modules.</p>
                       </div>
                       <button
                         onClick={() => setActiveTab("modules-manager")}
-                        className="px-3.5 py-1.5 bg-[#2563EB] hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                        className="px-3.5 py-1.5 bg-[#14532D] hover:bg-[#0F4224] dark:bg-[#22C55E] dark:hover:bg-[#16A34A] text-white dark:text-[#111827] rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Module</span>
@@ -1009,17 +1013,17 @@ export default function ContentManagerDashboard() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
                         <thead>
-                          <tr className="border-b border-[#E2E8F0] text-[#64748B] text-[11px] font-semibold">
+                          <tr className="border-b border-[#E7E1D5] dark:border-[#374151] text-[#6B7280] dark:text-[#9CA3AF] text-[11px] font-semibold">
                             <th className="pb-3 font-semibold">Module Title</th>
                             <th className="pb-3 font-semibold">Platform</th>
                             <th className="pb-3 font-semibold">Status</th>
                             <th className="pb-3 text-right font-semibold">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#F1F5F9]">
+                        <tbody className="divide-y divide-[#E7E1D5]/40 dark:divide-[#374151]/40">
                           {displayedModules.length === 0 ? (
                             <tr>
-                              <td colSpan={4} className="py-6 text-center text-xs text-[#64748B]">
+                              <td colSpan={4} className="py-6 text-center text-xs text-[#6B7280] dark:text-[#9CA3AF]">
                                 No modules found for this platform.
                               </td>
                             </tr>
@@ -1029,19 +1033,19 @@ export default function ContentManagerDashboard() {
                               return (
                                 <tr
                                   key={mod.id}
-                                  className="hover:bg-slate-50 transition-colors"
+                                  className="hover:bg-[#FAF7F0] dark:hover:bg-[#111827] transition-colors"
                                 >
-                                  <td className="py-3 font-bold text-[#0F172A]">
+                                  <td className="py-3 font-bold text-[#374151] dark:text-[#F3F4F6]">
                                     {mod.title}
                                   </td>
                                   <td className="py-3">
                                     <span
                                       className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold ${
                                         normPlatform === "web"
-                                          ? "bg-[#DBEAFE] text-[#2563EB]"
+                                          ? "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E]"
                                           : normPlatform === "app"
-                                          ? "bg-[#DCFCE7] text-[#16A34A]"
-                                          : "bg-[#F3E8FF] text-[#9333EA]"
+                                          ? "bg-[#FAF7F0] dark:bg-[#111827] text-[#B45309] dark:text-[#FBBF24] border border-[#D6C7A1] dark:border-[#374151]"
+                                          : "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#0F4224] dark:text-[#4ADE80]"
                                       }`}
                                     >
                                       {normPlatform === "web"
@@ -1052,7 +1056,7 @@ export default function ContentManagerDashboard() {
                                     </span>
                                   </td>
                                   <td className="py-3">
-                                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#DCFCE7] text-[#16A34A]">
+                                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#E8F3EC] dark:bg-[#193B2A] text-[#15803D] dark:text-[#4ADE80]">
                                       {mod.publicationStatus || "Published"}
                                     </span>
                                   </td>
@@ -1060,14 +1064,14 @@ export default function ContentManagerDashboard() {
                                     <div className="flex items-center justify-end gap-2">
                                       <button
                                         onClick={() => setActiveTab("modules-manager")}
-                                        className="text-[#64748B] hover:text-[#2563EB] transition-colors cursor-pointer"
+                                        className="text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#14532D] dark:hover:text-[#22C55E] transition-colors cursor-pointer"
                                         title="Edit Module"
                                       >
                                         <Edit2 className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => setDeleteModuleId(mod.id)}
-                                        className="text-[#64748B] hover:text-[#EF4444] transition-colors cursor-pointer"
+                                        className="text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#B91C1C] dark:hover:text-[#F87171] transition-colors cursor-pointer"
                                         title="Delete Module"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -1090,8 +1094,8 @@ export default function ContentManagerDashboard() {
             <Suspense
               fallback={
                 <div className="py-20 flex flex-col items-center justify-center space-y-3">
-                  <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                  <div className="w-8 h-8 border-2 border-[#14532D] dark:border-[#22C55E] border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs font-semibold text-[#6B7280] dark:text-[#9CA3AF] uppercase tracking-wider">
                     Loading Workspace...
                   </span>
                 </div>
@@ -1142,27 +1146,27 @@ export default function ContentManagerDashboard() {
 
             {/* Profile Workspace */}
             {activeTab === "profile" && (
-              <div className="max-w-xl mx-auto bg-white border border-[#E2E8F0] rounded-xl p-8 space-y-6 animate-in fade-in duration-200 shadow-xs">
+              <div className="max-w-xl mx-auto bg-white dark:bg-[#1F2937] border border-[#E7E1D5] dark:border-[#374151] rounded-xl p-8 space-y-6 animate-in fade-in duration-200 shadow-xs">
                 <div className="flex flex-col items-center text-center space-y-3">
-                  <div className="h-16 w-16 rounded-full bg-[#15803D] flex items-center justify-center text-white font-bold text-2xl uppercase">
+                  <div className="h-16 w-16 rounded-full bg-[#14532D] dark:bg-[#22C55E] flex items-center justify-center text-white dark:text-[#111827] font-bold text-2xl uppercase">
                     {userName.slice(0, 2)}
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-[#0F172A]">{userName}</h2>
-                    <p className="text-xs text-[#2563EB] font-semibold mt-0.5">CONTENT MANAGER</p>
-                    <p className="text-xs text-[#64748B] mt-1">{userEmail}</p>
+                    <h2 className="text-xl font-bold text-[#374151] dark:text-[#F3F4F6]">{userName}</h2>
+                    <p className="text-xs text-[#14532D] dark:text-[#22C55E] font-semibold mt-0.5">CONTENT MANAGER</p>
+                    <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-1">{userEmail}</p>
                   </div>
                 </div>
-                <div className="border-t border-[#E2E8F0] pt-4 space-y-3 text-xs">
-                  <div className="flex justify-between text-[#64748B]">
+                <div className="border-t border-[#E7E1D5] dark:border-[#374151] pt-4 space-y-3 text-xs">
+                  <div className="flex justify-between text-[#6B7280] dark:text-[#9CA3AF]">
                     <span className="font-medium">Permissions:</span>
-                    <span className="font-bold text-[#16A34A]">
+                    <span className="font-bold text-[#15803D] dark:text-[#4ADE80]">
                       Modules, Questions, Exams, Revision Content
                     </span>
                   </div>
-                  <div className="flex justify-between text-[#64748B]">
+                  <div className="flex justify-between text-[#6B7280] dark:text-[#9CA3AF]">
                     <span className="font-medium">Access Scope:</span>
-                    <span className="font-bold text-[#0F172A]">Content Workspace Only</span>
+                    <span className="font-bold text-[#374151] dark:text-[#F3F4F6]">Content Workspace Only</span>
                   </div>
                 </div>
               </div>
@@ -1195,21 +1199,21 @@ export default function ContentManagerDashboard() {
   );
 }
 
-// Sidebar Navigation Item Component matching screenshot styling
+// Sidebar Navigation Item Component matching screenshot styling and dark theme
 function SidebarItem({ icon, label, active, onClick, isOpen }) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center py-2.5 px-3 rounded-xl text-xs transition-all group cursor-pointer ${
         active
-          ? "bg-[#DBEAFE] text-[#2563EB] font-bold"
-          : "text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] font-medium"
+          ? "bg-[#E8F3EC] dark:bg-[#193B2A] text-[#14532D] dark:text-[#22C55E] font-bold"
+          : "text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#374151] dark:hover:text-[#F3F4F6] hover:bg-[#FAF7F0] dark:hover:bg-[#111827] font-medium"
       } ${!isOpen ? "justify-center px-0" : ""}`}
       title={!isOpen ? label : undefined}
     >
       <span
         className={`${
-          active ? "text-[#2563EB]" : "text-[#64748B] group-hover:text-[#0F172A]"
+          active ? "text-[#14532D] dark:text-[#22C55E]" : "text-[#6B7280] dark:text-[#9CA3AF] group-hover:text-[#374151] dark:group-hover:text-[#F3F4F6]"
         }`}
       >
         {React.cloneElement(icon, { className: "w-4 h-4 shrink-0" })}
