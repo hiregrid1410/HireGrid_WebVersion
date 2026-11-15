@@ -29,7 +29,6 @@ export function StudentSidebar({
     { id: "companies", label: "Companies", icon: Building2, target: "companies" },
     { id: "placement-missions", label: "Placement Missions", icon: Trophy, target: "placement-mission" },
     { id: "my-plans", label: "My Plans", icon: CreditCard, target: "plans" },
-    { id: "payments", label: "Payments", icon: Wallet, target: "plans" },
     { id: "device-security", label: "Device & Security", icon: ShieldCheck, target: "profile" },
     { id: "help-support", label: "Help & Support", icon: HelpCircle, target: "feedback" },
   ];
